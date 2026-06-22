@@ -1,8 +1,10 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Param, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { type AuthJwtPayload } from './jwt/jwt.service';
 
 @Controller('auth')
 export class AuthController {
@@ -21,5 +23,21 @@ export class AuthController {
   @Post('refresh')
   refreshToken(@Body() dto: RefreshTokenDto) {
     return this.authService.refreshToken(dto.refreshToken);
+  }
+
+  @Delete('sessions/:tokenId')
+  async revokeSession(@CurrentUser() user: AuthJwtPayload, @Param('tokenId') tokenId: string) {
+    await this.authService.revokeSession(user.sub, tokenId)
+    return {
+      mesage: 'Session revoked.'
+    }
+  }
+
+  @Delete('sessions')
+  async revokeAllSessions(@CurrentUser() user: AuthJwtPayload) {
+    await this.authService.revokeAllSessions(user.sub)
+    return {
+      message: "All sessions revoked."
+    }
   }
 }
