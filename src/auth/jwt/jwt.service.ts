@@ -1,5 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+
+interface AuthJwtPayload {
+    sub: string;
+    phone: string;
+}
 
 @Injectable()
 export class AuthJwtService {
@@ -11,7 +16,15 @@ export class AuthJwtService {
         
         return {
             accessToken: this.jwt.sign(payload, { expiresIn: '15m' }),
-            refreshToken: this.jwt.sign(payload, { expiresIn: '7d' }),
+            refreshToken: this.jwt.sign(payload, { expiresIn: '30d' }),
+        }
+    }
+
+    async verifyRefreshToken(refreshToken: string): Promise<AuthJwtPayload> {
+        try {
+            return await this.jwt.verifyAsync<AuthJwtPayload>(refreshToken)
+        } catch {
+            throw new UnauthorizedException('Invalid refresh token')
         }
     }
 }
