@@ -25,7 +25,7 @@ export class AuthService {
         }
     }
 
-    async verifyOtp(phone: string, code: string) {
+    async verifyOtp(phone: string, code: string, role: Role) {
         const valid = await this.otpService.verifyOtp(phone, code)
 
         if(!valid) throw new UnauthorizedException()
@@ -38,7 +38,7 @@ export class AuthService {
             user = await this.prisma.user.create({
                 data: {
                     phone,
-                    role: Role.WORKER
+                    role
                 }   
             })
         }
