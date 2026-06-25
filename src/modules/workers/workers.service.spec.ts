@@ -40,7 +40,7 @@ describe('WorkersService', () => {
     service = module.get<WorkersService>(WorkersService);
   });
 
-  it('hides non-available workers by default in search', async () => {
+  it('searches verified active workers by default', async () => {
     prisma.workerProfile.findMany.mockResolvedValue([]);
 
     await service.search({});
@@ -49,6 +49,21 @@ describe('WorkersService', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           status: WorkerStatus.VERIFIED,
+          isOnline: undefined,
+          user: { status: UserStatus.ACTIVE },
+        }),
+      }),
+    );
+  });
+
+  it('filters to online workers when availableOnly is true', async () => {
+    prisma.workerProfile.findMany.mockResolvedValue([]);
+
+    await service.search({ availableOnly: true });
+
+    expect(prisma.workerProfile.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
           isOnline: true,
         }),
       }),
@@ -56,7 +71,10 @@ describe('WorkersService', () => {
   });
 
   it('rejects duplicate worker categories during profile creation', async () => {
-    prisma.user.findUnique.mockResolvedValue({ id: 'user-id', status: UserStatus.ACTIVE });
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-id',
+      status: UserStatus.ACTIVE,
+    });
     prisma.workerProfile.findUnique.mockResolvedValue(null);
 
     await expect(
@@ -80,8 +98,8 @@ describe('WorkersService', () => {
       status: WorkerStatus.PENDING,
     });
 
-    await expect(service.setAvailability('user-id', Role.WORKER, true)).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
+    await expect(
+      service.setAvailability('user-id', Role.WORKER, true),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

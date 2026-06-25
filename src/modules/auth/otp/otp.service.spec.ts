@@ -7,10 +7,12 @@ describe('OtpService', () => {
   let service: OtpService;
   const prisma = {
     otpRequest: {
+      updateMany: jest.fn(),
       create: jest.fn(),
       findFirst: jest.fn(),
       update: jest.fn(),
     },
+    $transaction: jest.fn(async (callback) => callback(prisma)),
   };
 
   beforeEach(async () => {
@@ -26,6 +28,10 @@ describe('OtpService', () => {
     const code = await service.createOtp('+639171234567');
 
     expect(code).toMatch(/^\d{6}$/);
+    expect(prisma.otpRequest.updateMany).toHaveBeenCalledWith({
+      where: { phone: '+639171234567', verified: false },
+      data: { expiresAt: expect.any(Date) },
+    });
     expect(prisma.otpRequest.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         phone: '+639171234567',
@@ -41,7 +47,9 @@ describe('OtpService', () => {
       expiresAt: new Date(Date.now() + 60_000),
     });
 
-    await expect(service.verifyOtp('+639171234567', '123456')).resolves.toBe(true);
+    await expect(service.verifyOtp('+639171234567', '123456')).resolves.toBe(
+      true,
+    );
     expect(prisma.otpRequest.update).toHaveBeenCalledWith({
       where: { id: 'otp-id' },
       data: { verified: true },
@@ -49,13 +57,18 @@ describe('OtpService', () => {
   });
 
   it('rejects expired OTPs', async () => {
-    prisma.otpRequest.findFirst.mockResolvedValue({
-      id: 'otp-id',
-      expiresAt: new Date(Date.now() - 60_000),
-    });
+    prisma.otpRequest.findFirst.mockResolvedValue(null);
 
-    await expect(service.verifyOtp('+639171234567', '123456')).rejects.toBeInstanceOf(
-      UnauthorizedException,
-    );
+    await expect(
+      service.verifyOtp('+639171234567', '123456'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(prisma.otpRequest.findFirst).toHaveBeenCalledWith({
+      where: {
+        phone: '+639171234567',
+        code: '123456',
+        verified: false,
+        expiresAt: { gt: expect.any(Date) },
+      },
+    });
   });
 });
