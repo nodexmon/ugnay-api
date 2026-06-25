@@ -11,8 +11,10 @@ import { JwtAuthGuard } from './modules/auth/auth.guard';
 import { RolesGuard } from './modules/auth/roles.guard';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { AdminModule } from './modules/admin/admin.module';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigType } from '@nestjs/config';
 import { jwtConfig, appConfig, uploadConfig, databaseConfig } from './config/index.config';
+import { loggerConfig } from './config/logger.config';
+import { LoggerModule } from 'nestjs-pino';
 
 @Module({
   imports: [
@@ -23,11 +25,17 @@ import { jwtConfig, appConfig, uploadConfig, databaseConfig } from './config/ind
     CustomersModule,
     CategoriesModule,
     AdminModule,
+
     ConfigModule.forRoot({
       isGlobal: true,
       load: [
-        appConfig, jwtConfig, uploadConfig, databaseConfig
+        appConfig, jwtConfig, uploadConfig, databaseConfig, loggerConfig
       ]
+    }),
+
+    LoggerModule.forRootAsync({
+      inject: [loggerConfig.KEY],
+      useFactory: (config: ConfigType<typeof loggerConfig>) => config
     })
   ],
   controllers: [AppController],
