@@ -23,19 +23,19 @@ export const loggerConfig = registerAs('logger', (): Params => {
               {
                 target: 'pino-roll',
                 level: 'debug',
-                options: { destination: 'logs/app.log', mkdir: true },
+                options: { file: 'logs/app.log', mkdir: true },
               },
             ]
           : [
               {
                 target: 'pino-roll',
                 level: 'info',
-                options: { destination: 'logs/app.log', mkdir: true },
+                options: { file: 'logs/app.log', mkdir: true },
               },
               {
                 target: 'pino-roll',
                 level: 'error',
-                options: { destination: 'logs/error.log', mkdir: true },
+                options: { file: 'logs/error.log', mkdir: true },
               },
             ],
       },

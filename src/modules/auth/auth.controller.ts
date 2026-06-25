@@ -5,7 +5,7 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public-endpoint.decorator';
-import { type AuthJwtPayload } from './jwt/jwt.service';
+import { type AuthJwtPayload } from './auth.types';
 
 @Controller('auth')
 export class AuthController {

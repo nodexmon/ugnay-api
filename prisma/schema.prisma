@@ -4,14 +4,14 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
 }
 
 datasource db {
   provider = "postgresql"
 }
-
 
 // =============================================================================
 // ENUMS
@@ -30,37 +30,37 @@ enum UserStatus {
 }
 
 enum WorkerStatus {
-  PENDING       // Submitted application, awaiting admin review
-  VERIFIED      // Admin approved — can receive bookings
-  REJECTED      // Admin rejected — may reapply once
-  SUSPENDED     // Suspended by admin due to strikes or complaints
+  PENDING // Submitted application, awaiting admin review
+  VERIFIED // Admin approved — can receive bookings
+  REJECTED // Admin rejected — may reapply once
+  SUSPENDED // Suspended by admin due to strikes or complaints
 }
 
 enum BookingStatus {
-  PENDING       // Awaiting worker response (30-min window)
-  ACCEPTED      // Worker accepted — phone number revealed to customer
-  IN_PROGRESS   // Worker marked arrival
-  COMPLETED     // Worker marked job complete
-  CANCELLED     // Cancelled by customer (pre-accept) or worker (post-accept = strike)
-  EXPIRED       // Worker did not respond within 30 minutes
-  NO_SHOW       // Admin-confirmed worker no-show
+  PENDING // Awaiting worker response (30-min window)
+  ACCEPTED // Worker accepted — phone number revealed to customer
+  IN_PROGRESS // Worker marked arrival
+  COMPLETED // Worker marked job complete
+  CANCELLED // Cancelled by customer (pre-accept) or worker (post-accept = strike)
+  EXPIRED // Worker did not respond within 30 minutes
+  NO_SHOW // Admin-confirmed worker no-show
 }
 
 enum TimeWindow {
-  MORNING       // 06:00 – 12:00
-  AFTERNOON     // 12:00 – 18:00
-  EVENING       // 18:00 – 21:00
+  MORNING // 06:00 – 12:00
+  AFTERNOON // 12:00 – 18:00
+  EVENING // 18:00 – 21:00
 }
 
 enum BookingType {
-  IMMEDIATE     // Same-day, ASAP
-  SCHEDULED     // Up to 7 days in advance
+  IMMEDIATE // Same-day, ASAP
+  SCHEDULED // Up to 7 days in advance
 }
 
 enum StrikeReason {
-  POST_ACCEPT_CANCELLATION  // Worker cancelled after accepting
-  NO_SHOW                   // Confirmed no-show by admin
-  CUSTOMER_COMPLAINT        // Admin-validated complaint
+  POST_ACCEPT_CANCELLATION // Worker cancelled after accepting
+  NO_SHOW // Confirmed no-show by admin
+  CUSTOMER_COMPLAINT // Admin-validated complaint
 }
 
 enum VerificationStatus {
@@ -77,7 +77,7 @@ enum Platform {
 enum CancellationActor {
   CUSTOMER
   WORKER
-  SYSTEM   // Auto-expiry or admin action
+  SYSTEM // Auto-expiry or admin action
 }
 
 // =============================================================================
@@ -85,19 +85,19 @@ enum CancellationActor {
 // =============================================================================
 
 model User {
-  id          String     @id @default(uuid()) @db.Uuid
-  phone       String     @unique
-  role        Role
-  status      UserStatus @default(ACTIVE)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id        String     @id @default(uuid()) @db.Uuid
+  phone     String     @unique
+  role      Role
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
   // Relations
-  workerProfile    WorkerProfile?
-  customerProfile  CustomerProfile?
-  pushTokens       PushToken[]
-  otpRequests      OtpRequest[]
-  refreshTokens    RefreshToken[]
+  workerProfile   WorkerProfile?
+  customerProfile CustomerProfile?
+  pushTokens      PushToken[]
+  otpRequests     OtpRequest[]
+  refreshTokens   RefreshToken[]
 
   @@map("users")
 }
@@ -107,15 +107,15 @@ model User {
 // =============================================================================
 
 model OtpRequest {
-  id          String   @id @default(uuid()) @db.Uuid
-  userId      String?  @db.Uuid
-  phone       String
-  code        String
-  verified    Boolean  @default(false)
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @db.Uuid
+  phone     String
+  code      String
+  verified  Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([phone])
   @@index([expiresAt])
@@ -123,15 +123,15 @@ model OtpRequest {
 }
 
 model RefreshToken {
-  id          String    @id @default(uuid()) @db.Uuid
-  userId      String    @db.Uuid
-  tokenHash   String    @unique
-  expiresAt   DateTime
-  revokedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -143,16 +143,16 @@ model RefreshToken {
 // =============================================================================
 
 model CustomerProfile {
-  id          String   @id @default(uuid()) @db.Uuid
-  userId      String   @unique @db.Uuid
-  firstName   String
-  lastName    String
-  avatarUrl   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @db.Uuid
+  firstName String
+  lastName  String
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bookings    Booking[]
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings Booking[]
 
   @@map("customer_profiles")
 }
@@ -180,14 +180,14 @@ model WorkerProfile {
   updatedAt          DateTime     @updatedAt
 
   // Relations
-  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  homeBarangay       Barangay            @relation("HomeBarangay", fields: [homeBarangayId], references: [id])
-  categories         WorkerCategory[]
-  serviceAreas       WorkerServiceArea[]
-  verificationDocs   VerificationDoc[]
-  bookings           Booking[]
-  reviews            Review[]
-  strikes            Strike[]
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  homeBarangay     Barangay            @relation("HomeBarangay", fields: [homeBarangayId], references: [id])
+  categories       WorkerCategory[]
+  serviceAreas     WorkerServiceArea[]
+  verificationDocs VerificationDoc[]
+  bookings         Booking[]
+  reviews          Review[]
+  strikes          Strike[]
 
   @@index([status, isOnline])
   @@index([homeBarangayId])
@@ -197,14 +197,14 @@ model WorkerProfile {
 
 // Up to 3 categories per worker; optional rate override per category
 model WorkerCategory {
-  id           String          @id @default(uuid()) @db.Uuid
-  workerId     String          @db.Uuid
-  categoryId   String          @db.Uuid
-  rateOverride Decimal?        @db.Decimal(10, 2)
-  createdAt    DateTime        @default(now())
+  id           String   @id @default(uuid()) @db.Uuid
+  workerId     String   @db.Uuid
+  categoryId   String   @db.Uuid
+  rateOverride Decimal? @db.Decimal(10, 2)
+  createdAt    DateTime @default(now())
 
-  worker       WorkerProfile   @relation(fields: [workerId], references: [id], onDelete: Cascade)
-  category     ServiceCategory @relation(fields: [categoryId], references: [id])
+  worker   WorkerProfile   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  category ServiceCategory @relation(fields: [categoryId], references: [id])
 
   @@unique([workerId, categoryId])
   @@map("worker_categories")
@@ -212,13 +212,13 @@ model WorkerCategory {
 
 // Barangays a worker is willing to serve (max 5)
 model WorkerServiceArea {
-  id          String        @id @default(uuid()) @db.Uuid
-  workerId    String        @db.Uuid
-  barangayId  String        @db.Uuid
-  createdAt   DateTime      @default(now())
+  id         String   @id @default(uuid()) @db.Uuid
+  workerId   String   @db.Uuid
+  barangayId String   @db.Uuid
+  createdAt  DateTime @default(now())
 
-  worker      WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
-  barangay    Barangay      @relation(fields: [barangayId], references: [id])
+  worker   WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  barangay Barangay      @relation(fields: [barangayId], references: [id])
 
   @@unique([workerId, barangayId])
   @@map("worker_service_areas")
@@ -229,18 +229,18 @@ model WorkerServiceArea {
 // =============================================================================
 
 model VerificationDoc {
-  id             String             @id @default(uuid()) @db.Uuid
-  workerId       String             @db.Uuid
-  idPhotoUrl     String
-  selfieUrl      String
-  status         VerificationStatus @default(PENDING)
+  id              String             @id @default(uuid()) @db.Uuid
+  workerId        String             @db.Uuid
+  idPhotoUrl      String
+  selfieUrl       String
+  status          VerificationStatus @default(PENDING)
   rejectionReason String?
-  reviewedBy     String?            @db.Uuid // Admin user ID
-  reviewedAt     DateTime?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  reviewedBy      String?            @db.Uuid // Admin user ID
+  reviewedAt      DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
-  worker         WorkerProfile      @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  worker WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
 
   @@index([status])
   @@index([workerId])
@@ -252,15 +252,15 @@ model VerificationDoc {
 // =============================================================================
 
 model Barangay {
-  id           String  @id @default(uuid()) @db.Uuid
-  name         String  @unique
-  centroidLat  Decimal @db.Decimal(10, 7)
-  centroidLng  Decimal @db.Decimal(10, 7)
-  isActive     Boolean @default(true)
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String  @unique
+  centroidLat Decimal @db.Decimal(10, 7)
+  centroidLng Decimal @db.Decimal(10, 7)
+  isActive    Boolean @default(true)
 
-  workerHomes     WorkerProfile[]     @relation("HomeBarangay")
-  workerAreas     WorkerServiceArea[]
-  bookings        Booking[]
+  workerHomes WorkerProfile[]     @relation("HomeBarangay")
+  workerAreas WorkerServiceArea[]
+  bookings    Booking[]
 
   @@map("barangays")
 }
@@ -270,17 +270,17 @@ model Barangay {
 // =============================================================================
 
 model ServiceCategory {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String   @unique
-  slug        String   @unique
-  iconUrl     String?
-  isActive    Boolean  @default(true)
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  slug      String   @unique
+  iconUrl   String?
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  workers     WorkerCategory[]
-  bookings    Booking[]
+  workers  WorkerCategory[]
+  bookings Booking[]
 
   @@map("service_categories")
 }
@@ -303,33 +303,33 @@ model Booking {
   locationLng     Decimal       @db.Decimal(10, 7)
   locationAddress String?       @db.VarChar(300)
   notes           String?       @db.VarChar(500)
-  agreedRate      Decimal?      @db.Decimal(10, 2)  // Confirmed rate at booking time
+  agreedRate      Decimal?      @db.Decimal(10, 2) // Confirmed rate at booking time
 
   // Timestamps for lifecycle tracking
-  acceptedAt      DateTime?
-  startedAt       DateTime?
-  completedAt     DateTime?
-  cancelledAt     DateTime?
-  expiresAt       DateTime      // PENDING expiry: createdAt + 30 mins
+  acceptedAt  DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  cancelledAt DateTime?
+  expiresAt   DateTime // PENDING expiry: createdAt + 30 mins
 
   cancellationActor  CancellationActor?
-  cancellationReason String?    @db.VarChar(300)
+  cancellationReason String?            @db.VarChar(300)
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  customer        CustomerProfile  @relation(fields: [customerId], references: [id])
-  worker          WorkerProfile    @relation(fields: [workerId], references: [id])
-  category        ServiceCategory  @relation(fields: [categoryId], references: [id])
-  barangay        Barangay         @relation(fields: [barangayId], references: [id])
-  review          Review?
-  noShowReport    NoShowReport?
-  strikes         Strike[]
+  customer     CustomerProfile @relation(fields: [customerId], references: [id])
+  worker       WorkerProfile   @relation(fields: [workerId], references: [id])
+  category     ServiceCategory @relation(fields: [categoryId], references: [id])
+  barangay     Barangay        @relation(fields: [barangayId], references: [id])
+  review       Review?
+  noShowReport NoShowReport?
+  strikes      Strike[]
 
   @@index([customerId, status])
   @@index([workerId, status])
-  @@index([status, expiresAt])   // For expiry cron job
+  @@index([status, expiresAt]) // For expiry cron job
   @@index([scheduledDate])
   @@map("bookings")
 }
@@ -339,16 +339,16 @@ model Booking {
 // =============================================================================
 
 model Review {
-  id         String        @id @default(uuid()) @db.Uuid
-  bookingId  String        @unique @db.Uuid // 1:1 with bookings
-  customerId String        @db.Uuid
-  workerId   String        @db.Uuid
-  rating     Int           // 1–5
-  comment    String?       @db.VarChar(500)
-  createdAt  DateTime      @default(now())
+  id         String   @id @default(uuid()) @db.Uuid
+  bookingId  String   @unique @db.Uuid // 1:1 with bookings
+  customerId String   @db.Uuid
+  workerId   String   @db.Uuid
+  rating     Int // 1–5
+  comment    String?  @db.VarChar(500)
+  createdAt  DateTime @default(now())
 
-  booking    Booking       @relation(fields: [bookingId], references: [id])
-  worker     WorkerProfile @relation(fields: [workerId], references: [id])
+  booking Booking       @relation(fields: [bookingId], references: [id])
+  worker  WorkerProfile @relation(fields: [workerId], references: [id])
 
   @@index([workerId])
   @@map("reviews")
@@ -359,17 +359,17 @@ model Review {
 // =============================================================================
 
 model NoShowReport {
-  id           String    @id @default(uuid()) @db.Uuid
-  bookingId    String    @unique @db.Uuid
-  reportedBy   String    @db.Uuid // Customer user ID
-  description  String?   @db.VarChar(500)
-  resolvedBy   String?   @db.Uuid // Admin user ID
-  resolvedAt   DateTime?
-  confirmed    Boolean?  // Admin verdict: true = strike issued, false = dismissed
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id          String    @id @default(uuid()) @db.Uuid
+  bookingId   String    @unique @db.Uuid
+  reportedBy  String    @db.Uuid // Customer user ID
+  description String?   @db.VarChar(500)
+  resolvedBy  String?   @db.Uuid // Admin user ID
+  resolvedAt  DateTime?
+  confirmed   Boolean? // Admin verdict: true = strike issued, false = dismissed
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  booking      Booking   @relation(fields: [bookingId], references: [id])
+  booking Booking @relation(fields: [bookingId], references: [id])
 
   @@index([confirmed])
   @@map("no_show_reports")
@@ -380,16 +380,16 @@ model NoShowReport {
 // =============================================================================
 
 model Strike {
-  id         String        @id @default(uuid()) @db.Uuid
-  workerId   String        @db.Uuid
-  bookingId  String?       @db.Uuid
-  reason     StrikeReason
-  issuedBy   String        // Admin user ID or 'SYSTEM'
-  notes      String?       @db.VarChar(300)
-  createdAt  DateTime      @default(now())
+  id        String       @id @default(uuid()) @db.Uuid
+  workerId  String       @db.Uuid
+  bookingId String?      @db.Uuid
+  reason    StrikeReason
+  issuedBy  String // Admin user ID or 'SYSTEM'
+  notes     String?      @db.VarChar(300)
+  createdAt DateTime     @default(now())
 
-  worker     WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
-  booking    Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  worker  WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  booking Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
 
   @@index([workerId])
   @@map("strikes")
@@ -407,7 +407,7 @@ model PushToken {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("push_tokens")
