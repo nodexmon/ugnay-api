@@ -1,25 +1,33 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
+import { randomInt } from 'crypto';
+import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 
 @Injectable()
 export class OtpService {
     constructor(private prisma: PrismaService) {}
 
     private generateOtp(): string {
-        return Math.floor(100_000 + Math.random() * 900_000).toString()
+        return randomInt(100_000, 1000_000_000).toString()
     }
 
     async createOtp(phone: string) {
         const code = this.generateOtp()
-
         const expiresAt = new Date(Date.now() + 5 * 60 * 1000)
 
-        await this.prisma.otpRequest.create({
-            data: {
-                phone,
-                code,
-                expiresAt,
-            }
+        await this.prisma.$transaction(async (tx: TransactionClient) => {
+
+            // Invalid previous OTPs for this phone
+            await tx.otpRequest.updateMany({
+                where: { phone, verified: false },
+                data: { expiresAt: new Date() } // expires immediately 
+            })
+
+            await tx.otpRequest.create({
+                data: {
+                    phone, code, expiresAt
+                }
+            })
         })
 
         return code
@@ -30,18 +38,15 @@ export class OtpService {
             where: {
                 phone,
                 code,
-                verified: false
+                verified: false,
+                expiresAt: { gt: new Date()}
             }
         })
 
         if(!otp) {
-            throw new UnauthorizedException("Invalid OTP")
+            throw new UnauthorizedException("Invalid or expired OTP")
         }
         
-        if(otp.expiresAt < new Date()) {
-            throw new UnauthorizedException("OTP expired")
-        }
-
         await this.prisma.otpRequest.update({
             where: {
                 id: otp.id

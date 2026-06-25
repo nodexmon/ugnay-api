@@ -15,6 +15,7 @@ import { ConfigModule, ConfigType } from '@nestjs/config';
 import { jwtConfig, appConfig, uploadConfig, databaseConfig, textbeeConfig } from '@/config';
 import { loggerConfig } from '@/config/logger.config';
 import { LoggerModule } from 'nestjs-pino';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
   imports: [
@@ -36,7 +37,9 @@ import { LoggerModule } from 'nestjs-pino';
     LoggerModule.forRootAsync({
       inject: [loggerConfig.KEY],
       useFactory: (config: ConfigType<typeof loggerConfig>) => config
-    })
+    }),
+
+    HttpModule
   ],
   controllers: [AppController],
   providers: [
