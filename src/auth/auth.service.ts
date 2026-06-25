@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OtpService } from './otp/otp.service';
 import { SmsService } from './sms/sms.service';
@@ -41,9 +41,11 @@ export class AuthService {
                     role
                 }   
             })
+        } else if (user.role !== role) {
+            throw new ConflictException('Phone number is already registered with a different role')
         }
 
-        return this.issueTokens(user.id, user.phone)
+        return this.issueTokens(user.id, user.phone, user.role)
     }
 
     async refreshToken(refreshToken: string) {
@@ -70,7 +72,7 @@ export class AuthService {
         }
 
         const nextRefreshTokenId = randomUUID()
-        const tokens = this.jwtService.signTokens(user.id, user.phone, nextRefreshTokenId)
+        const tokens = this.jwtService.signTokens(user.id, user.phone, user.role, nextRefreshTokenId)
 
         await this.prisma.$transaction(async (tx) => {
             const revoked = await tx.refreshToken.updateMany({
@@ -144,9 +146,9 @@ export class AuthService {
         })
     }
 
-    private async issueTokens(userId: string, phone: string) {
+    private async issueTokens(userId: string, phone: string, role: Role) {
         const refreshTokenId = randomUUID()
-        const tokens = this.jwtService.signTokens(userId, phone, refreshTokenId)
+        const tokens = this.jwtService.signTokens(userId, phone, role, refreshTokenId)
 
         await this.prisma.refreshToken.create({
             data: {

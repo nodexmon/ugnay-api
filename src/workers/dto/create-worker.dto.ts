@@ -1,21 +1,56 @@
-import { WorkerStatus } from "../../generated/prisma/enums"
-
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+import { WorkerCategoryInputDto } from './input-worker-category.dto';
 
 export class CreateWorkerDto {
-    
-    firstName: string
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  firstName: string;
 
-    lastName: string
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  lastName: string;
 
-    bio: string 
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  bio?: string;
 
-    avatarUrl: string | null
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string | null;
 
-    baseRate: number
+  @IsNumber()
+  @Min(0)
+  baseRate: number;
 
-    status: WorkerStatus
+  @IsUUID()
+  homeBarangayId: string;
 
-    isOnline: Boolean
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(3)
+  @ValidateNested({ each: true })
+  @Type(() => WorkerCategoryInputDto)
+  categories: WorkerCategoryInputDto[];
 
-    homeBarangayId: string
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(5)
+  @IsUUID(undefined, { each: true })
+  serviceAreaBarangayIds: string[];
 }

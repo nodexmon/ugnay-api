@@ -1,3 +1,3 @@
 export const JWT_CONSTANTS = {
-    secret: "HI I AM A SECRET. CHANGE ME!"
-}
+  secret: process.env.JWT_SECRET ?? 'HI I AM A SECRET. CHANGE ME!',
+};

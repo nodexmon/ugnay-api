@@ -4,11 +4,19 @@ import { WorkersService } from './workers.service';
 
 describe('WorkersController', () => {
   let controller: WorkersController;
+  const workersService = {
+    search: jest.fn(),
+    findPublicProfile: jest.fn(),
+    createProfile: jest.fn(),
+    updateProfile: jest.fn(),
+    setAvailability: jest.fn(),
+    submitVerification: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [WorkersController],
-      providers: [WorkersService],
+      providers: [{ provide: WorkersService, useValue: workersService }],
     }).compile();
 
     controller = module.get<WorkersController>(WorkersController);
