@@ -38,8 +38,6 @@ import { HttpModule } from '@nestjs/axios';
       inject: [loggerConfig.KEY],
       useFactory: (config: ConfigType<typeof loggerConfig>) => config
     }),
-
-    HttpModule
   ],
   controllers: [AppController],
   providers: [

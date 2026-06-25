@@ -8,7 +8,7 @@ export class OtpService {
     constructor(private prisma: PrismaService) {}
 
     private generateOtp(): string {
-        return randomInt(100_000, 1000_000_000).toString()
+        return randomInt(100_000, 999_999).toString()
     }
 
     async createOtp(phone: string) {
@@ -46,7 +46,7 @@ export class OtpService {
         if(!otp) {
             throw new UnauthorizedException("Invalid or expired OTP")
         }
-        
+
         await this.prisma.otpRequest.update({
             where: {
                 id: otp.id
