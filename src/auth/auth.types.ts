@@ -8,3 +8,13 @@ export interface AuthJwtPayload {
   iat?: number;
   exp?: number;
 }
+
+
+export type SignedTokens = {
+  accessToken: string,
+  refreshToken: string
+}
+
+export type RefreshTokenPayload = AuthJwtPayload & {
+  tokenId: string
+}

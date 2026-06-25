@@ -25,7 +25,7 @@ export class OtpService {
         return code
     }
 
-    async verifyOtp(phone: string, code: string) {
+    async verifyOtp(phone: string, code: string): Promise<boolean> {
         const otp = await this.prisma.otpRequest.findFirst({
             where: {
                 phone,
@@ -34,9 +34,13 @@ export class OtpService {
             }
         })
 
-        if(!otp) throw new UnauthorizedException("Invalid OTP")
+        if(!otp) {
+            throw new UnauthorizedException("Invalid OTP")
+        }
         
-        if(otp.expiresAt < new Date()) throw new UnauthorizedException("OTP Expired")
+        if(otp.expiresAt < new Date()) {
+            throw new UnauthorizedException("OTP expired")
+        }
 
         await this.prisma.otpRequest.update({
             where: {
