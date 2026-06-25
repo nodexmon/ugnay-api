@@ -11,6 +11,8 @@ import { JwtAuthGuard } from './modules/auth/auth.guard';
 import { RolesGuard } from './modules/auth/roles.guard';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { ConfigModule } from '@nestjs/config';
+import { jwtConfig, appConfig, uploadConfig, databaseConfig } from './config/index.config';
 
 @Module({
   imports: [
@@ -21,6 +23,12 @@ import { AdminModule } from './modules/admin/admin.module';
     CustomersModule,
     CategoriesModule,
     AdminModule,
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [
+        appConfig, jwtConfig, uploadConfig, databaseConfig
+      ]
+    })
   ],
   controllers: [AppController],
   providers: [
