@@ -1,14 +1,14 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UploadedFiles, UseInterceptors } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { WorkersService } from './workers.service';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { CreateWorkerDto } from './dto/create-worker.dto';
-import { UpdateWorkerDto } from './dto/update-worker.dto';
-import { SetAvailabilityDto } from './dto/set-availability.dto';
-import { SearchWorkersDto } from './dto/search-workers.dto';
-import { type AuthJwtPayload } from '../auth/auth.types';
-import { type UploadedVerificationFiles } from './workers.types';
-import { VerificationFilesPipe } from '../../common/pipes/verification-files.pipe';
+import { WorkersService } from '@/modules/workers/workers.service';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { CreateWorkerDto } from '@/modules/workers/dto/create-worker.dto';
+import { UpdateWorkerDto } from '@/modules/workers/dto/update-worker.dto';
+import { SetAvailabilityDto } from '@/modules/workers/dto/set-availability.dto';
+import { SearchWorkersDto } from '@/modules/workers/dto/search-workers.dto';
+import { type AuthJwtPayload } from '@/modules/auth/auth.types';
+import { type UploadedVerificationFiles } from '@/modules/workers/workers.types';
+import { VerificationFilesPipe } from '@/common/pipes/verification-files.pipe';
 
 @Controller('workers')
 export class WorkersController {

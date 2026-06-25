@@ -1,11 +1,11 @@
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { SendOtpDto } from './dto/send-otp.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Public } from '../../common/decorators/public-endpoint.decorator';
-import { type AuthJwtPayload } from './auth.types';
+import { AuthService } from '@/modules/auth/auth.service';
+import { SendOtpDto } from '@/modules/auth/dto/send-otp.dto';
+import { VerifyOtpDto } from '@/modules/auth/dto/verify-otp.dto';
+import { RefreshTokenDto } from '@/modules/auth/dto/refresh-token.dto';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { Public } from '@/common/decorators/public-endpoint.decorator';
+import { type AuthJwtPayload } from '@/modules/auth/auth.types';
 
 @Controller('auth')
 export class AuthController {

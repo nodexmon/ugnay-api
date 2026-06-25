@@ -1,5 +1,5 @@
 import { IsEnum, IsNotEmpty, IsPhoneNumber, IsString, Length } from 'class-validator';
-import { Role } from '../../../generated/prisma/enums';
+import { Role } from '@/generated/prisma/enums';
 
 export class VerifyOtpDto {
   @IsNotEmpty()

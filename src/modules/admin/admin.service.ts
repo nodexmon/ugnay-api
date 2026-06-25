@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { UserStatus, VerificationStatus, WorkerStatus } from '../../generated/prisma/enums';
+import { PrismaService } from '@/prisma/prisma.service';
+import { UserStatus, VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
 
 @Injectable()
 export class AdminService {

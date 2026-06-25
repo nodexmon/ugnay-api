@@ -12,7 +12,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { WorkerCategoryInputDto } from './input-worker-category.dto';
+import { WorkerCategoryInputDto } from '@/modules/workers/dto/input-worker-category.dto';
 
 export class CreateWorkerDto {
   @IsString()

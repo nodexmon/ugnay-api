@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
-import { UsersService } from './users.service';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { type AuthJwtPayload } from '../auth/auth.types';
+import { UsersService } from '@/modules/users/users.service';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { type AuthJwtPayload } from '@/modules/auth/auth.types';
 
 @Controller('users')
 export class UsersController {

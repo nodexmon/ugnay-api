@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UserStatus, VerificationStatus, WorkerStatus } from '../../generated/prisma/enums';
-import { PrismaService } from '../../prisma/prisma.service';
-import { AdminService } from './admin.service';
+import { UserStatus, VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
+import { PrismaService } from '@/prisma/prisma.service';
+import { AdminService } from '@/modules/admin/admin.service';
 
 describe('AdminService', () => {
   let service: AdminService;

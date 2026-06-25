@@ -1,5 +1,5 @@
 import { ArgumentMetadata, BadRequestException, Injectable, PipeTransform } from "@nestjs/common";
-import { UploadedVerificationFiles } from "../../modules/workers/workers.types";
+import { UploadedVerificationFiles } from "@/modules/workers/workers.types";
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_BYTES = 5 * 1024 * 1024

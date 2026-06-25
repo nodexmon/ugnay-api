@@ -1,8 +1,8 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { type AuthJwtPayload } from '../auth.types';
-import { Role } from '../../../generated/prisma/enums';
-import type { SignedTokens, RefreshTokenPayload } from '../auth.types';
+import { type AuthJwtPayload } from '@/modules/auth/auth.types';
+import { Role } from '@/generated/prisma/enums';
+import type { SignedTokens, RefreshTokenPayload } from '@/modules/auth/auth.types';
 
 @Injectable()
 export class AuthJwtService {

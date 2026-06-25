@@ -1,8 +1,8 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Role, UserStatus, WorkerStatus } from '../../generated/prisma/enums';
-import { PrismaService } from '../../prisma/prisma.service';
-import { WorkersService } from './workers.service';
+import { Role, UserStatus, WorkerStatus } from '@/generated/prisma/enums';
+import { PrismaService } from '@/prisma/prisma.service';
+import { WorkersService } from '@/modules/workers/workers.service';
 
 describe('WorkersService', () => {
   let service: WorkersService;

@@ -1,11 +1,11 @@
 import { ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Role } from '../../generated/prisma/enums';
-import { PrismaService } from '../../prisma/prisma.service';
-import { AuthJwtService } from './jwt/jwt.service';
-import { OtpService } from './otp/otp.service';
-import { SmsService } from './sms/sms.service';
-import { AuthService } from './auth.service';
+import { Role } from '@/generated/prisma/enums';
+import { PrismaService } from '@/prisma/prisma.service';
+import { AuthJwtService } from '@/modules/auth/jwt/jwt.service';
+import { OtpService } from '@/modules/auth/otp/otp.service';
+import { SmsService } from '@/modules/auth/sms/sms.service';
+import { AuthService } from '@/modules/auth/auth.service';
 
 describe('AuthService', () => {
   let service: AuthService;

@@ -1,11 +1,11 @@
 import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '../../generated/prisma/enums';
-import { type AuthJwtPayload } from '../auth/auth.types';
-import { AdminService } from './admin.service';
-import { RejectVerificationDto } from './dto/reject-verification.dto';
-import { SuspendUserDto } from './dto/suspend-user.dto';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { Role } from '@/generated/prisma/enums';
+import { type AuthJwtPayload } from '@/modules/auth/auth.types';
+import { AdminService } from '@/modules/admin/admin.service';
+import { RejectVerificationDto } from '@/modules/admin/dto/reject-verification.dto';
+import { SuspendUserDto } from '@/modules/admin/dto/suspend-user.dto';
 
 @Roles(Role.ADMIN)
 @Controller('admin')

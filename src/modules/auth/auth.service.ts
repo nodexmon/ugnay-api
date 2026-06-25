@@ -1,9 +1,9 @@
 import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { OtpService } from './otp/otp.service';
-import { SmsService } from './sms/sms.service';
-import { AuthJwtService } from './jwt/jwt.service';
-import { Role } from '../../generated/prisma/enums';
+import { PrismaService } from '@/prisma/prisma.service';
+import { OtpService } from '@/modules/auth/otp/otp.service';
+import { SmsService } from '@/modules/auth/sms/sms.service';
+import { AuthJwtService } from '@/modules/auth/jwt/jwt.service';
+import { Role } from '@/generated/prisma/enums';
 import { createHash, randomUUID, timingSafeEqual } from 'crypto';
 
 @Injectable()

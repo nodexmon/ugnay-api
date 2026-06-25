@@ -1,7 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { PrismaService } from '../../prisma/prisma.service';
-import { UsersService } from './users.service';
+import { PrismaService } from '@/prisma/prisma.service';
+import { UsersService } from '@/modules/users/users.service';
 
 describe('UsersService', () => {
   let service: UsersService;

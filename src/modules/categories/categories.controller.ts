@@ -1,10 +1,10 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
-import { Role } from '../../generated/prisma/enums';
-import { Public } from '../../common/decorators/public-endpoint.decorator';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { CategoriesService } from './categories.service';
-import { CreateCategoryDto } from './dto/create-category.dto';
-import { UpdateCategoryDto } from './dto/update-category.dto';
+import { Role } from '@/generated/prisma/enums';
+import { Public } from '@/common/decorators/public-endpoint.decorator';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { CategoriesService } from '@/modules/categories/categories.service';
+import { CreateCategoryDto } from '@/modules/categories/dto/create-category.dto';
+import { UpdateCategoryDto } from '@/modules/categories/dto/update-category.dto';
 
 @Controller('categories')
 export class CategoriesController {

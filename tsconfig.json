@@ -14,7 +14,10 @@
     "types": ["node", "jest"],
     "sourceMap": true,
     "outDir": "./dist",
-    // "baseUrl": "./",
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["*"]
+    },
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": true,

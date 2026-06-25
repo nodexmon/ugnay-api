@@ -8,14 +8,14 @@ import {
 import { mkdir, writeFile } from 'fs/promises';
 import { extname, join } from 'path';
 import { randomUUID } from 'crypto';
-import { PrismaService } from '../../prisma/prisma.service';
-import { BookingStatus, Role, UserStatus, VerificationStatus, WorkerStatus } from '../../generated/prisma/enums';
-import { CreateWorkerDto } from './dto/create-worker.dto';
-import { WorkerCategoryInputDto } from './dto/input-worker-category.dto';
-import { UpdateWorkerDto } from './dto/update-worker.dto';
-import { SearchWorkersDto } from './dto/search-workers.dto';
-import type { FileMetadata, UploadedVerificationFiles } from './workers.types';
-import { Prisma } from '../../generated/prisma/client';
+import { PrismaService } from '@/prisma/prisma.service';
+import { BookingStatus, Role, UserStatus, VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
+import { CreateWorkerDto } from '@/modules/workers/dto/create-worker.dto';
+import { WorkerCategoryInputDto } from '@/modules/workers/dto/input-worker-category.dto';
+import { UpdateWorkerDto } from '@/modules/workers/dto/update-worker.dto';
+import { SearchWorkersDto } from '@/modules/workers/dto/search-workers.dto';
+import type { FileMetadata, UploadedVerificationFiles } from '@/modules/workers/workers.types';
+import { Prisma } from '@/generated/prisma/client';
 
 const WORKER_INCLUDE = {
   homeBarangay: true,
