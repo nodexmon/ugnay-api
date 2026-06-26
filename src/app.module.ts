@@ -16,6 +16,8 @@ import { jwtConfig, appConfig, uploadConfig, databaseConfig, textbeeConfig } fro
 import { loggerConfig } from '@/config/logger.config';
 import { LoggerModule } from 'nestjs-pino';
 import { HttpModule } from '@nestjs/axios';
+import { BookingsModule } from './modules/bookings/bookings.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -26,18 +28,22 @@ import { HttpModule } from '@nestjs/axios';
     CustomersModule,
     CategoriesModule,
     AdminModule,
+    BookingsModule,
 
     ConfigModule.forRoot({
       isGlobal: true,
       load: [
         appConfig, jwtConfig, uploadConfig, databaseConfig, loggerConfig, textbeeConfig
-      ]
+      ] 
     }),
 
     LoggerModule.forRootAsync({
       inject: [loggerConfig.KEY],
       useFactory: (config: ConfigType<typeof loggerConfig>) => config
     }),
+
+    ScheduleModule.forRoot()
+
   ],
   controllers: [AppController],
   providers: [
