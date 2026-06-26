@@ -15,7 +15,7 @@ datasource db {
 
 // =============================================================================
 // ENUMS
-// =============================================================================
+
 
 enum Role {
   CUSTOMER
@@ -39,6 +39,7 @@ enum WorkerStatus {
 enum BookingStatus {
   PENDING // Awaiting worker response (30-min window)
   ACCEPTED // Worker accepted — phone number revealed to customer
+  REJECTED // Worker rejects - customer books another
   IN_PROGRESS // Worker marked arrival
   COMPLETED // Worker marked job complete
   CANCELLED // Cancelled by customer (pre-accept) or worker (post-accept = strike)
@@ -307,6 +308,7 @@ model Booking {
 
   // Timestamps for lifecycle tracking
   acceptedAt  DateTime?
+  rejectedAt  DateTime?
   startedAt   DateTime?
   completedAt DateTime?
   cancelledAt DateTime?

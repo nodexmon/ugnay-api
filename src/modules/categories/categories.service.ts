@@ -7,21 +7,21 @@ import { UpdateCategoryDto } from '@/modules/categories/dto/update-category.dto'
 export class CategoriesService {
   constructor(private prisma: PrismaService) {}
 
-  findActive() {
-    return this.prisma.serviceCategory.findMany({
+  async findActive() {
+    return await this.prisma.serviceCategory.findMany({
       where: { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
   }
 
-  findAllForAdmin() {
-    return this.prisma.serviceCategory.findMany({
+  async findAllForAdmin() {
+    return await this.prisma.serviceCategory.findMany({
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
   }
 
-  create(dto: CreateCategoryDto) {
-    return this.prisma.serviceCategory.create({
+  async create(dto: CreateCategoryDto) {
+    return await this.prisma.serviceCategory.create({
       data: {
         name: dto.name,
         slug: dto.slug,
