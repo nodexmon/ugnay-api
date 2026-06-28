@@ -6,9 +6,9 @@ import { UpdateBookingDto } from './dto/update-booking.dto';
 import { BookingAction } from './booking.types';
 import { AuthJwtPayload } from '../auth/auth.types';
 import { Booking } from '@/generated/prisma/client';
-import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { FindBookingsQueryDto } from './dto/find-bookings-query.dto';
+import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 
 @Injectable()
 export class BookingsService {
@@ -221,7 +221,7 @@ export class BookingsService {
             this.assertBookingInStatus(booking, BookingStatus.ACCEPTED, BookingStatus.IN_PROGRESS)
         }
 
-        await this.prisma.$transaction(async (tx) => {
+        await this.prisma.$transaction(async (tx: TransactionClient) => {
             if (user.role === Role.WORKER) {
                 await tx.strike.create({
                     data: {

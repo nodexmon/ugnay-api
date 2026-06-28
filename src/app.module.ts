@@ -18,6 +18,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { HttpModule } from '@nestjs/axios';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ReviewsModule } from './modules/reviews/reviews.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     CategoriesModule,
     AdminModule,
     BookingsModule,
+    ReviewsModule,
 
     ConfigModule.forRoot({
       isGlobal: true,
@@ -42,7 +44,8 @@ import { ScheduleModule } from '@nestjs/schedule';
       useFactory: (config: ConfigType<typeof loggerConfig>) => config
     }),
 
-    ScheduleModule.forRoot()
+    ScheduleModule.forRoot(),
+
 
   ],
   controllers: [AppController],

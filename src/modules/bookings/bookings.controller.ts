@@ -37,38 +37,38 @@ export class BookingsController {
   }
 
   @Patch(':id/accept')
-    @Roles(Role.WORKER)
-    accept(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
-        return this.bookingsService.accept(id, user)
-    }
+  @Roles(Role.WORKER)
+  accept(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
+      return this.bookingsService.accept(id, user)
+  }
 
-    @Patch(':id/reject')
-    @Roles(Role.WORKER)
-    reject(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
-        return this.bookingsService.reject(id, user)
-    }
+  @Patch(':id/reject')
+  @Roles(Role.WORKER)
+  reject(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
+      return this.bookingsService.reject(id, user)
+  }
 
-    @Patch(':id/start')
-    @Roles(Role.WORKER)
-    start(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
-        return this.bookingsService.start(id, user)
-    }
+  @Patch(':id/start')
+  @Roles(Role.WORKER)
+  start(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
+      return this.bookingsService.start(id, user)
+  }
 
-    @Patch(':id/complete')
-    @Roles(Role.WORKER)
-    complete(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
-        return this.bookingsService.complete(id, user)
-    }
+  @Patch(':id/complete')
+  @Roles(Role.WORKER)
+  complete(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
+      return this.bookingsService.complete(id, user)
+  }
 
-    @Patch(':id/cancel')
-    cancel(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string, @Body() dto: CancelBookingDto) {
-        return this.bookingsService.cancel(id, user, dto)
-    }
+  @Patch(':id/cancel')
+  cancel(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string, @Body() dto: CancelBookingDto) {
+      return this.bookingsService.cancel(id, user, dto)
+  }
 
-    @Post(':id/no-show')
-    @Roles(Role.CUSTOMER)
-    reportNoShow(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string, @Body() dto: ReportNoShowDto) {
-        return this.bookingsService.reportNoShow(id, user, dto.description)
-    }
-  
+  @Post(':id/no-show')
+  @Roles(Role.CUSTOMER)
+  reportNoShow(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string, @Body() dto: ReportNoShowDto) {
+      return this.bookingsService.reportNoShow(id, user, dto.description)
+  }
+
 }
