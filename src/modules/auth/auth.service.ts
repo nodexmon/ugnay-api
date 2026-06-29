@@ -3,8 +3,10 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { OtpService } from '@/modules/auth/otp/otp.service';
 import { SmsService } from '@/modules/auth/sms/sms.service';
 import { AuthJwtService } from '@/modules/auth/jwt/jwt.service';
-import { Role } from '@/generated/prisma/enums';
+import { Role, UserStatus } from '@/generated/prisma/enums';
 import { createHash, randomUUID, timingSafeEqual } from 'crypto';
+import { RefreshToken, User } from '@/generated/prisma/client';
+import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 
 @Injectable()
 export class AuthService {
@@ -26,55 +28,50 @@ export class AuthService {
     }
 
     async verifyOtp(phone: string, code: string, role: Role) {
-        const valid = await this.otpService.verifyOtp(phone, code)
+        await this.otpService.verifyOtp(phone, code)
 
-        if(!valid) throw new UnauthorizedException()
+        const existingUser = await this.prisma.user.findUnique({ where: { phone} })
 
-        let user = await this.prisma.user.findUnique({
-            where:{phone}
-        })
+        if(existingUser) {
+            this.assertUserRoleMatches(existingUser.role, role)
 
-        if(!user) {
-            user = await this.prisma.user.create({
-                data: {
-                    phone,
-                    role
-                }   
-            })
-        } else if (user.role !== role) {
-            throw new ConflictException('Phone number is already registered with a different role')
+            return this.issueTokens(
+                existingUser.id,
+                existingUser.phone, 
+                existingUser.role
+            )
         }
 
-        return this.issueTokens(user.id, user.phone, user.role)
-    }
+        const user = await this.prisma.user.upsert({
+            where: { phone },
+            update: { },
+            create: { phone, role }
+        })
 
+        this.assertUserRoleMatches(user.role, role)
+        
+        return this.issueTokens(user.id, user.phone, user.role)
+
+    }
+    
     async refreshToken(refreshToken: string) {
         const payload = await this.jwtService.verifyRefreshToken(refreshToken)
-
-        const user = await this.prisma.user.findUnique({
-            where: { id: payload.sub },
-        })
-
-        if (!user) throw new UnauthorizedException()
-
-        const storedToken = await this.prisma.refreshToken.findUnique({
-            where: { id: payload.tokenId },
-        })
-
-        if (
-            !storedToken ||
-            storedToken.userId !== user.id ||
-            storedToken.revokedAt ||
-            storedToken.expiresAt < new Date() ||
-            !this.matchesTokenHash(refreshToken, storedToken.tokenHash)
-        ) {
-            throw new UnauthorizedException('Invalid refresh token')
-        }
-
+        
+        const user = await this.assertUserExists(payload.sub)
+        this.assertUserCanAuthenticate(user)
+        
+        const storedToken = await this.assertRefreshTokenExists(payload.tokenId)
+        this.assertTokenIsValid(user.id, storedToken, refreshToken)
+        
         const nextRefreshTokenId = randomUUID()
-        const tokens = this.jwtService.signTokens(user.id, user.phone, user.role, nextRefreshTokenId)
-
-        await this.prisma.$transaction(async (tx) => {
+        const tokens = this.jwtService.signTokens(
+            user.id,
+            user.phone, 
+            user.role, 
+            nextRefreshTokenId
+        )
+        
+        await this.prisma.$transaction(async (tx: TransactionClient) => {
             const revoked = await tx.refreshToken.updateMany({
                 where: {
                     id: storedToken.id,
@@ -82,8 +79,10 @@ export class AuthService {
                 },
                 data: { revokedAt: new Date() },
             })
-
-            if (revoked.count !== 1) throw new UnauthorizedException('Invalid refresh token')
+            
+            if (revoked.count !== 1) {
+                throw new UnauthorizedException('Invalid refresh token')
+            }
 
             await tx.refreshToken.create({
                 data: {
@@ -94,27 +93,28 @@ export class AuthService {
                 },
             })
         })
-
+            
         return tokens
     }
-
-
-
+    
     async revokeSession(userId: string, tokenId: string): Promise<void> {
         const result = await this.prisma.refreshToken.updateMany({
             where: {
                 id: tokenId,    
-                userId: userId,
+                userId,
                 revokedAt: null
             },
             data: {
                 revokedAt: new Date()
             }
         })
-
-        if(result.count === 0) throw new NotFoundException("Session not found or already revoked.")
+        
+        if(result.count === 0) {
+            throw new NotFoundException("Session not found or already revoked.")
+        }
+    
     }
-
+    
     async revokeAllSessions(userId: string): Promise<void> {
         await this.prisma.refreshToken.updateMany({
             where: {
@@ -123,11 +123,9 @@ export class AuthService {
             data: {
                 revokedAt: new Date()
             }
-        })
-
-    
+        })    
     }
-
+    
     async getAllSessions(userId: string) {
         return this.prisma.refreshToken.findMany({
             where: {
@@ -142,14 +140,14 @@ export class AuthService {
                 createdAt: true,
                 updatedAt: true
             },
-            orderBy: {createdAt: 'desc'}
+            orderBy: { createdAt: 'desc' }
         })
     }
-
+    
     private async issueTokens(userId: string, phone: string, role: Role) {
         const refreshTokenId = randomUUID()
         const tokens = this.jwtService.signTokens(userId, phone, role, refreshTokenId)
-
+        
         await this.prisma.refreshToken.create({
             data: {
                 id: refreshTokenId,
@@ -158,23 +156,65 @@ export class AuthService {
                 expiresAt: this.refreshTokenExpiryDate(),
             },
         })
-
+        
         return tokens
+    }
+    
+    private async assertUserExists(userId: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } })
+        
+        if(!user) {
+            throw new UnauthorizedException("Invalid refresh token.")
+        }
+        return user
+    }
+    
+    private assertTokenIsValid(userId: string, storedToken: RefreshToken, refreshToken: string) {
+        if (
+            storedToken.userId !== userId ||
+            storedToken.revokedAt ||
+            storedToken.expiresAt < new Date() ||
+            !this.matchesTokenHash(refreshToken, storedToken.tokenHash)
+        ) {
+            throw new UnauthorizedException('Invalid refresh token')
+        }
     }
 
     private hashToken(token: string) {
         return createHash('sha256').update(token).digest('hex')
     }
-
+    
     private matchesTokenHash(token: string, tokenHash: string) {
         const incomingHash = this.hashToken(token)
         const incomingBuffer = Buffer.from(incomingHash)
         const storedBuffer = Buffer.from(tokenHash)
-
+        
         return incomingBuffer.length === storedBuffer.length && timingSafeEqual(incomingBuffer, storedBuffer)
     }
-
+    
     private refreshTokenExpiryDate() {
         return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    }
+    
+    private assertUserRoleMatches(existingRole: Role, requestedRole: Role) {
+        if(existingRole !== requestedRole) {
+            throw new ConflictException("Phone number is already registered with a different role.")
+        }
+    }
+    
+    private assertUserCanAuthenticate(user: User) {
+            if (user.status !== UserStatus.ACTIVE) {
+            throw new UnauthorizedException('Account is inactive')
+        }
+    }
+
+    private async assertRefreshTokenExists(tokenId: string) {
+        const token = await this.prisma.refreshToken.findUnique({ where: { id: tokenId } })
+    
+        if(!token) {
+            throw new UnauthorizedException("Invalid refresh token.")
+        }
+
+        return token
     }
 }
