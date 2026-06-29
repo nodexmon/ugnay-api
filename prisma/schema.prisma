@@ -396,7 +396,7 @@ model Strike {
   worker  WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
   booking Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
 
-  @@unique([workerId, bookingId, reason])
+  @@unique([bookingId])
   @@index([workerId])
   @@map("strikes")
 }

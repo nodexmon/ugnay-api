@@ -33,7 +33,7 @@ export class AdminService {
 
     const doc = await this.getPendingVerification(docId);
 
-    await this.assertWorkerAlreadyVerified(doc.workerId)
+    await this.assertWorkerIsUnverified(doc.workerId)
 
     return this.prisma.$transaction(async (tx: TransactionClient) => {
       await tx.verificationDoc.update({
@@ -135,12 +135,12 @@ export class AdminService {
         
     if(dto.bookingId) {
       await this.assertBookingExist(dto.bookingId)
-      await this.assertNoDuplicateStrike(worker.id, dto.bookingId, dto.reason)
+      await this.assertBookingNotAlreadyStruck(dto.bookingId)
     }
 
     return this.prisma.strike.create({
       data: {
-        issuedBy: user.role,
+        issuedBy: user.sub,
         workerId: worker.id,
         bookingId: dto.bookingId,
         reason: dto.reason,
@@ -206,7 +206,7 @@ export class AdminService {
     return booking
   }
 
-  private async assertWorkerAlreadyVerified(workerId: string) {
+  private async assertWorkerIsUnverified(workerId: string) {
     const worker = await this.assertWorkerProfileExist(workerId)
 
     if(worker.status === WorkerStatus.VERIFIED) {
@@ -216,15 +216,12 @@ export class AdminService {
     return worker
   }
 
-  private async assertNoDuplicateStrike(workerId: string, bookingId: string, reason: StrikeReason) {
-    const existingStrike = await this.prisma.strike.findUnique({
-      where: {
-        workerId_bookingId_reason: { workerId, bookingId, reason }
-      }
-    })
+
+  private async assertBookingNotAlreadyStruck(bookingId: string) {
+    const existingStrike = await this.prisma.strike.findUnique({ where: { bookingId } })
 
     if (existingStrike) {
-      throw new ConflictException('A strike with the same reason already exists for this worker.')
+      throw new ConflictException('This bookings has already been used for a strike.')
     }
 
     return existingStrike
