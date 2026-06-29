@@ -9,7 +9,7 @@ import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 export class AdminService {
   constructor(private prisma: PrismaService) {}
 
-  async listPendingVerifications(user: AuthJwtPayload) {
+  async findPendingVerifications(user: AuthJwtPayload) {
     await this.assertAdminRole(user.role)
     
     return this.prisma.verificationDoc.findMany({
@@ -131,17 +131,17 @@ export class AdminService {
 
   async strikeWorker(user: AuthJwtPayload, dto: StrikeWorkerDto) {
     await this.assertAdminRole(user.role)
-    await this.assertWorkerProfileExist(dto.workerId)
+    const worker = await this.assertWorkerProfileExist(dto.workerId)
         
     if(dto.bookingId) {
       await this.assertBookingExist(dto.bookingId)
-      await this.assertNoDuplicateStrike(dto.workerId, dto.bookingId, dto.reason)
+      await this.assertNoDuplicateStrike(worker.id, dto.bookingId, dto.reason)
     }
 
     return this.prisma.strike.create({
       data: {
         issuedBy: user.role,
-        workerId: dto.workerId,
+        workerId: worker.id,
         bookingId: dto.bookingId,
         reason: dto.reason,
         notes: dto.notes,
@@ -177,7 +177,7 @@ export class AdminService {
   }
 
   private async assertWorkerProfileExist(workerId: string) {
-    const worker = await this.prisma.workerProfile.findUnique({ where: { userId: workerId } })
+    const worker = await this.prisma.workerProfile.findUnique({ where: { id: workerId } })
 
     if(!worker) {
       throw new NotFoundException("Worker profile does not exist.");
