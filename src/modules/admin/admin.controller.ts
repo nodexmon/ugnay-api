@@ -15,11 +15,14 @@ export class AdminController {
 
   @Get('verifications')
   listPendingVerifications(@CurrentUser() user: AuthJwtPayload) {
-    return this.adminService.listPendingVerifications(user);
+    return this.adminService.findPendingVerifications(user);
   }
 
   @Patch('verifications/:id/approve')
-  approveVerification(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
+  approveVerification(
+    @CurrentUser() user: AuthJwtPayload, 
+    @Param('id') id: string
+  ) {
     return this.adminService.approveVerification(id, user);
   }
 
@@ -33,12 +36,19 @@ export class AdminController {
   }
 
   @Patch('users/:id/suspend')
-  setUserSuspension(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string, @Body() dto: SuspendUserDto) {
+  setUserSuspension(
+    @CurrentUser() user: AuthJwtPayload, 
+    @Param('id') id: string, 
+    @Body() dto: SuspendUserDto
+  ) {
     return this.adminService.setUserSuspension(user, id, dto.suspended);
   }
   
   @Post('strikes')
-  strikeWorker(@CurrentUser() user: AuthJwtPayload, @Body() dto: StrikeWorkerDto) {
+  strikeWorker(
+    @CurrentUser() user: AuthJwtPayload, 
+    @Body() dto: StrikeWorkerDto
+  ) {
     return this.adminService.strikeWorker(user, dto)
   }
 }
