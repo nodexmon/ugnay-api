@@ -92,6 +92,7 @@ export class BookingsService {
     async create(user: AuthJwtPayload, dto: CreateBookingDto) {
         this.assertRole(user.role, BookingAction.CREATE)
         await this.assertUserIsActive(user.sub)
+        await this.assertWorkerIsAvailable(dto.workerId)
 
         const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
@@ -268,13 +269,7 @@ export class BookingsService {
         this.assertOwnership(booking.customerId, activeUser.id)
         this.assertBookingInStatus(booking, BookingStatus.ACCEPTED, BookingStatus.IN_PROGRESS)
 
-        const existingReport = await this.prisma.noShowReport.findUnique({
-            where: { bookingId }
-        })
-
-        if (existingReport) {
-            throw new ForbiddenException('A no-show report already exists for this booking.')
-        }
+        await this.assertReportExist(booking.id)
 
         return await this.prisma.noShowReport.create({
             data: {
@@ -283,6 +278,18 @@ export class BookingsService {
                 description
             }
         })
+    }
+
+    private async assertReportExist(bookingId: string) {
+        const existingReport = await this.prisma.noShowReport.findUnique({
+            where: { bookingId }
+        })
+
+        if (existingReport) {
+            throw new ForbiddenException('A no-show report already exists for this booking.')
+        }
+
+        return existingReport
     }
 
     private assertOwnership(entityId: string, currentUserId: string) {
@@ -323,9 +330,11 @@ export class BookingsService {
 
     private async assertBookingExist(bookingId: string) {
         const booking = await this.prisma.booking.findUnique({ where: {id: bookingId} })
+
         if(!booking) {
             throw new NotFoundException("Booking not found.")
         }
+        
         return booking
     }
 
@@ -345,8 +354,10 @@ export class BookingsService {
             }
         })
 
-        if(!activeBooking) {
+        if(activeBooking) {
             throw new ForbiddenException("Worker is currently unavailable")
         }
+
+        return activeBooking
     }
 }

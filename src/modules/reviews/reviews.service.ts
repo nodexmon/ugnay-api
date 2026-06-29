@@ -31,6 +31,8 @@ export class ReviewsService {
             skip: query.skip,
             take: query.take
         })
+
+        return reviews
     }
 
     private async assertBookingExist(bookingId: string) {

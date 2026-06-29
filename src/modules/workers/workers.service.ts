@@ -252,16 +252,23 @@ export class WorkersService {
     if (!user || user.status !== UserStatus.ACTIVE) {
       throw new ForbiddenException('Active user is required.');
     }
+
+    return user
   }
 
   private async assertProfileDoesNotExist(userId: string) {
     const existing = await this.prisma.workerProfile.findUnique({ where: { userId } });
-    if (existing) throw new ConflictException('Worker profile already exists');
+    if (existing) {
+      throw new ConflictException('Worker profile already exists');
+    }
+    return existing
   }
 
   private async getOwnProfile(userId: string) {
     const worker = await this.prisma.workerProfile.findUnique({ where: { userId } });
-    if (!worker) throw new NotFoundException('Worker profile not found');
+    if (!worker) {
+      throw new NotFoundException('Worker profile not found');
+    }
     return worker;
   }
 
