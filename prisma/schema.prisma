@@ -16,7 +16,6 @@ datasource db {
 // =============================================================================
 // ENUMS
 
-
 enum Role {
   CUSTOMER
   WORKER
@@ -154,6 +153,7 @@ model CustomerProfile {
 
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   bookings Booking[]
+  reviews  Review[]
 
   @@map("customer_profiles")
 }
@@ -349,10 +349,13 @@ model Review {
   comment    String?  @db.VarChar(500)
   createdAt  DateTime @default(now())
 
-  booking Booking       @relation(fields: [bookingId], references: [id])
-  worker  WorkerProfile @relation(fields: [workerId], references: [id])
+  booking  Booking         @relation(fields: [bookingId], references: [id])
+  worker   WorkerProfile   @relation(fields: [workerId], references: [id])
+  customer CustomerProfile @relation(fields: [customerId], references: [id])
 
+  @@index([bookingId])
   @@index([workerId])
+  @@index([customerId])
   @@map("reviews")
 }
 
@@ -393,6 +396,7 @@ model Strike {
   worker  WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
   booking Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
 
+  @@unique([bookingId])
   @@index([workerId])
   @@map("strikes")
 }
