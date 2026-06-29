@@ -1,4 +1,5 @@
 import { registerAs } from '@nestjs/config';
+import { StringValue } from 'ms';
 import { z } from 'zod';
 
 const schema = z.object({
@@ -8,5 +9,11 @@ const schema = z.object({
 });
 
 export const jwtConfig = registerAs('jwt', () => {
-  return schema.parse(process.env);
+  const env = schema.parse(process.env);
+
+  return { 
+    ...env,
+    JWT_ACCESS_EXPIRES_IN: env.JWT_ACCESS_EXPIRES_IN as StringValue,
+    JWT_REFRESH_EXPIRES_IN: env.JWT_REFRESH_EXPIRES_IN as StringValue
+  }
 });

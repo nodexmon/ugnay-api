@@ -5,16 +5,23 @@ import { OtpService } from '@/modules/auth/otp/otp.service';
 import { AuthJwtService } from '@/modules/auth/jwt/jwt.service';
 import { SmsService } from '@/modules/auth/sms/sms.service';
 import { JwtModule } from '@nestjs/jwt';
-import { JWT_CONSTANTS } from '@/modules/auth/constants';
 import { PrismaModule } from '@/prisma/prisma.module';
 import { JwtStrategy } from '@/modules/auth/strategies/jwt.strategy';
 import { HttpModule } from '@nestjs/axios';
+import { ConfigModule, ConfigType } from '@nestjs/config';
+import { jwtConfig } from '@/config';
 
 @Module({
   imports: [
-    JwtModule.register({
-      secret: JWT_CONSTANTS.secret,
-      signOptions: {expiresIn: '15m'}
+    JwtModule.registerAsync({
+      imports: [ConfigModule.forFeature(jwtConfig)],
+      inject: [jwtConfig.KEY],
+      useFactory: (config: ConfigType<typeof jwtConfig>) => ({
+        secret: config.JWT_SECRET,
+        signOptions: {
+          expiresIn: config.JWT_ACCESS_EXPIRES_IN
+        }
+      })
     }),
     PrismaModule,
     HttpModule
