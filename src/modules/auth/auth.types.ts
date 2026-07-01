@@ -9,8 +9,6 @@ export interface AuthJwtPayload {
   exp?: number;
 }
 
-
-
 export type SignedTokens = {
   accessToken: string,
   refreshToken: string

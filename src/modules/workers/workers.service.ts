@@ -16,6 +16,7 @@ import { UpdateWorkerDto } from '@/modules/workers/dto/update-worker.dto';
 import { SearchWorkersDto } from '@/modules/workers/dto/search-workers.dto';
 import type { FileMetadata, UploadedVerificationFiles } from '@/modules/workers/workers.types';
 import { Prisma } from '@/generated/prisma/client';
+import { AuthJwtPayload } from '../auth/auth.types';
 
 const WORKER_INCLUDE = {
   homeBarangay: true,
@@ -78,10 +79,10 @@ export class WorkersService {
     return worker;
   }
 
-  async createProfile(userId: string, role: Role, dto: CreateWorkerDto) {
-    this.assertWorkerRole(role);
-    await this.assertUserIsActive(userId);
-    await this.assertProfileDoesNotExist(userId);
+  async createProfile(user: AuthJwtPayload, dto: CreateWorkerDto) {
+    this.assertWorkerRole(user.role);
+    await this.assertUserIsActive(user.sub);
+    await this.assertProfileDoesNotExist(user.sub);
     await this.validateCategories(dto.categories);
 
     const barangayIds = [...new Set([dto.homeBarangayId, ...(dto.serviceAreaBarangayIds ?? [])])];
@@ -89,7 +90,7 @@ export class WorkersService {
 
     return this.prisma.workerProfile.create({
       data: {
-        userId,
+        userId: user.sub,
         firstName: dto.firstName,
         lastName: dto.lastName,
         bio: dto.bio,
