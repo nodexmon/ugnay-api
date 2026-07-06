@@ -1,5 +1,5 @@
 import { PrismaService } from '@/prisma/prisma.service';
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { BookingStatus, CancellationActor, Role, StrikeReason, UserStatus, WorkerStatus } from '@/generated/prisma/enums';
 import { UpdateBookingDto } from './dto/update-booking.dto';
@@ -9,10 +9,14 @@ import { Booking } from '@/generated/prisma/client';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { FindBookingsQueryDto } from './dto/find-bookings-query.dto';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
+import { NotificationsService } from '@/modules/notifications/notifications.service';
 
 @Injectable()
 export class BookingsService {
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly notifications: NotificationsService,
+    ) {}
 
     async findOne(bookingId: string, user: AuthJwtPayload) {
         const booking = await this.assertBookingExist(bookingId)
@@ -94,6 +98,11 @@ export class BookingsService {
         await this.assertUserIsActive(user.sub)
         await this.assertWorkerIsAvailable(dto.workerId)
 
+        const maxScheduledDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        if (dto.scheduledDate > maxScheduledDate) {
+            throw new BadRequestException('Scheduled booking must be within 7 days')
+        }
+
         const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
         const data = { 
@@ -103,7 +112,11 @@ export class BookingsService {
             ...dto
          }
 
-        return await this.prisma.booking.create({ data })
+        const booking = await this.prisma.booking.create({ data })
+
+        this.notify(booking.id, 'worker', { title: 'New booking request', body: 'A customer has requested your service.' })
+
+        return booking
     }
 
     async update(bookingId: string, user: AuthJwtPayload, dto: UpdateBookingDto) {
@@ -145,6 +158,8 @@ export class BookingsService {
                 acceptedAt: new Date()
             }
         })
+
+        this.notify(bookingId, 'customer', { title: 'Booking accepted', body: 'Your booking has been accepted.' })
     }
 
     async reject(bookingId: string, user: AuthJwtPayload) {
@@ -166,6 +181,8 @@ export class BookingsService {
                 rejectedAt: new Date()
             }
         })
+
+        this.notify(bookingId, 'customer', { title: 'Booking declined', body: 'The worker has declined your booking request.' })
     }
 
     async start(bookingId: string, user: AuthJwtPayload) {
@@ -207,6 +224,8 @@ export class BookingsService {
                 completedAt: new Date()
             }
         })
+
+        this.notify(bookingId, 'customer', { title: 'Job complete', body: 'The job is done. Leave a review for your worker!' })
     }
     async cancel(bookingId: string, user: AuthJwtPayload, dto: CancelBookingDto) {
         const activeUser = await this.assertUserIsActive(user.sub)
@@ -258,6 +277,12 @@ export class BookingsService {
                 }
             })
         })
+
+        if (user.role === Role.WORKER) {
+            this.notify(bookingId, 'customer', { title: 'Booking cancelled', body: 'The worker has cancelled the booking.' })
+        } else {
+            this.notify(bookingId, 'worker', { title: 'Booking cancelled', body: 'The customer has cancelled the booking.' })
+        }
     }
 
     async reportNoShow(bookingId: string, user: AuthJwtPayload, description?: string) {
@@ -342,6 +367,23 @@ export class BookingsService {
         if(!allowed.includes(booking.status)) {
             throw new ForbiddenException(`Booking must be in status: ${allowed.join(', ')}`)
         }
+    }
+
+    private notify(bookingId: string, party: 'worker' | 'customer', message: { title: string; body: string }) {
+        void (async () => {
+            try {
+                const booking = await this.prisma.booking.findUnique({
+                    where: { id: bookingId },
+                    include: {
+                        worker: { select: { userId: true } },
+                        customer: { select: { userId: true } },
+                    },
+                })
+                if (!booking) return
+                const userId = party === 'worker' ? booking.worker.userId : booking.customer.userId
+                await this.notifications.sendToUser(userId, message)
+            } catch {}
+        })()
     }
 
     private async assertWorkerIsAvailable(workerId: string) {

@@ -1,0 +1,94 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Commands
+
+```bash
+pnpm start:dev          # Run in watch mode
+pnpm build              # Compile (nest build + tsc-alias for path aliases)
+pnpm lint               # ESLint with auto-fix
+pnpm test               # Run unit tests (jest)
+pnpm test:watch         # Jest in watch mode
+pnpm test:e2e           # End-to-end tests
+pnpm db:seed            # Seed the database via prisma/seed.ts
+```
+
+Run a single test file:
+```bash
+pnpm jest src/path/to/file.spec.ts
+```
+
+## Architecture
+
+UGNAY is a mobile-first two-sided marketplace connecting Filipino households with verified local workers (electricians, plumbers, cleaners, etc.). MVP scope is a single municipality. The API is NestJS (`@nestjs/platform-express`) with **Prisma 7** and PostgreSQL. The package manager is **pnpm**.
+
+### Module layout
+
+```
+src/
+  app.module.ts          # Root module — registers global guards, config, logger, scheduler
+  prisma/                # PrismaModule/PrismaService (global singleton, exported)
+  config/                # Typed config factories: app, jwt, upload, database, logger, textbee
+  common/
+    decorators/          # @Public(), @Roles(...), @CurrentUser()
+    pipes/               # VerificationFilesPipe
+    types/               # express.d.ts augmentation (req.user)
+  modules/
+    auth/                # OTP + JWT auth, JwtStrategy, JwtAuthGuard, RolesGuard
+    users/               # User CRUD
+    workers/             # Worker profiles, service areas, verification docs
+    customers/           # Customer profiles
+    categories/          # ServiceCategory management
+    admin/               # Admin-only operations
+    bookings/            # Booking lifecycle with @nestjs/schedule cron jobs
+    reviews/             # Reviews tied 1:1 to completed bookings
+  uploads/               # File upload module (Multer)
+  generated/prisma/      # Auto-generated Prisma client (do not edit manually)
+```
+
+### Global guards
+
+Both guards are registered globally in `AppModule` via `APP_GUARD`:
+- **JwtAuthGuard** — applied to every route by default. Bypass with `@Public()`.
+- **RolesGuard** — restricts routes by role. Apply with `@Roles(Role.ADMIN)`, etc.
+
+### Auth flow
+
+Phone-based OTP auth via **TextBee SMS** service (`SmsService`). On success, the API issues a JWT access token and a hashed refresh token stored in `refresh_tokens`. The JWT payload (`AuthJwtPayload`) carries `sub` (userId) and `role`.
+
+### Validation
+
+`main.ts` registers a global `ValidationPipe` with `transform: true, whitelist: true, forbidNonWhitelisted: true`. All DTOs use `class-validator` decorators; config factories use **Zod** for schema validation.
+
+### Config pattern
+
+All config is loaded via `@nestjs/config` typed factories (`registerAs`). Inject them with:
+```ts
+@Inject(jwtConfig.KEY) private config: ConfigType<typeof jwtConfig>
+```
+
+### Database
+
+Prisma schema is at `prisma/schema.prisma`. The generated client outputs to `src/generated/prisma` in CJS format. After changing the schema, run:
+```bash
+pnpm prisma migrate dev
+pnpm prisma generate
+```
+
+The Prisma client is a `pg`-adapter-backed instance injected via `PrismaService` from `PrismaModule`.
+
+### Key domain rules (encoded in schema enums)
+
+- Workers go through `PENDING → VERIFIED/REJECTED` verification before accepting bookings.
+- Bookings expire 30 minutes after creation if the worker does not respond (`expiresAt` indexed; handled by a cron job in `BookingsModule`).
+- Workers accumulate `Strike`s (max 3 visible in `strikeCount`); reasons: `POST_ACCEPT_CANCELLATION`, `NO_SHOW`, `CUSTOMER_COMPLAINT`.
+- Reviews are 1:1 with `COMPLETED` bookings.
+
+### Path aliases
+
+`@/` maps to `src/`. The `tsc-alias` step in `pnpm build` rewrites these for the compiled output.
+
+### Testing
+
+Jest uses `ts-jest` in ESM mode. The Prisma client is mocked globally via `moduleNameMapper` pointing to `test/prisma-client.mock.ts` — no real DB is needed for unit tests.

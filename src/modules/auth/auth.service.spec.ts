@@ -6,6 +6,13 @@ import { AuthJwtService } from '@/modules/auth/jwt/jwt.service';
 import { OtpService } from '@/modules/auth/otp/otp.service';
 import { SmsService } from '@/modules/auth/sms/sms.service';
 import { AuthService } from '@/modules/auth/auth.service';
+import { jwtConfig } from '@/config';
+
+const mockJwtConfig = {
+  JWT_SECRET: 'test-secret-at-least-32-chars-long',
+  JWT_ACCESS_EXPIRES_IN: '15m',
+  JWT_REFRESH_EXPIRES_IN: '7d',
+};
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -13,6 +20,7 @@ describe('AuthService', () => {
     user: {
       findUnique: jest.fn(),
       create: jest.fn(),
+      upsert: jest.fn(),
     },
     refreshToken: {
       create: jest.fn(),
@@ -43,6 +51,7 @@ describe('AuthService', () => {
         { provide: OtpService, useValue: otpService },
         { provide: SmsService, useValue: smsService },
         { provide: AuthJwtService, useValue: jwtService },
+        { provide: jwtConfig.KEY, useValue: mockJwtConfig },
       ],
     }).compile();
 
@@ -63,7 +72,7 @@ describe('AuthService', () => {
   it('creates a user and issues tokens after OTP verification', async () => {
     otpService.verifyOtp.mockResolvedValue(true);
     prisma.user.findUnique.mockResolvedValue(null);
-    prisma.user.create.mockResolvedValue({
+    prisma.user.upsert.mockResolvedValue({
       id: 'user-id',
       phone: '+639171234567',
       role: Role.WORKER,

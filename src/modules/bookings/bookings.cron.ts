@@ -1,5 +1,6 @@
 import { BookingStatus } from "@/generated/prisma/enums";
 import { PrismaService } from "@/prisma/prisma.service";
+import { NotificationsService } from "@/modules/notifications/notifications.service";
 import { Injectable } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { Logger } from "nestjs-pino";
@@ -7,7 +8,11 @@ import { Logger } from "nestjs-pino";
 
 @Injectable()
 export class BookingsCron {
-    constructor(private readonly logger: Logger, private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly logger: Logger,
+        private readonly prisma: PrismaService,
+        private readonly notifications: NotificationsService,
+    ) {}
 
     @Cron(CronExpression.EVERY_MINUTE)
     async expiredPendingBookings() {
@@ -16,9 +21,8 @@ export class BookingsCron {
                 status: BookingStatus.PENDING,
                 expiresAt: { lt: new Date() }
             },
-            select: {
-                id: true,
-                customerId: true
+            include: {
+                customer: { select: { userId: true } }
             }
         })
 
@@ -29,9 +33,13 @@ export class BookingsCron {
         for (const booking of expiredBookings) {
             await this.prisma.booking.update({
                 where: { id: booking.id },
-                data: { status: BookingStatus.EXPIRED}
+                data: { status: BookingStatus.EXPIRED }
             })
+
+            void this.notifications.sendToUser(booking.customer.userId, {
+                title: 'Booking expired',
+                body: 'Your booking request was not responded to in time.',
+            }).catch(() => {})
         }
     }
-
 }
