@@ -1,11 +1,17 @@
-
+import { IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
 
 export class CreateCustomerDto {
-    
-    firstName: string
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  firstName: string;
 
-    lastName: string
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  lastName: string;
 
-    avatarUrl: string | null
-
+  @IsOptional()
+  @IsUrl()
+  avatarUrl?: string | null;
 }

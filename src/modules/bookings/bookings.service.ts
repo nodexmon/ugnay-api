@@ -35,13 +35,15 @@ export class BookingsService {
     ) {}
 
     async findOne(bookingId: string, user: AuthJwtPayload) {
-        const booking = await this.assertBookingExist(bookingId);
-
-        const isOwner = user.role === Role.CUSTOMER
-            ? booking.customerId === user.sub
-            : booking.workerId === user.sub;
-
-        if (!isOwner) throw new ForbiddenException('Insufficient permissions');
+        const booking = await this.prisma.booking.findFirst({
+            where: {
+                id: bookingId,
+                ...(user.role === Role.CUSTOMER
+                    ? { customer: { userId: user.sub } }
+                    : { worker: { userId: user.sub } }),
+            },
+        });
+        if (!booking) throw new NotFoundException('Booking not found.');
 
         const revealContact = CONTACT_REVEAL_STATUSES.has(booking.status);
 
@@ -80,7 +82,9 @@ export class BookingsService {
 
         return this.prisma.booking.findMany({
             where: {
-                ...(isCustomer ? { customerId: user.sub } : { workerId: user.sub }),
+                ...(isCustomer
+                    ? { customer: { userId: user.sub } }
+                    : { worker: { userId: user.sub } }),
                 ...(query.status === 'active' && { status: { in: activeStatuses } }),
                 ...(query.status === 'history' && { status: { in: historyStatuses } }),
             },
@@ -103,6 +107,13 @@ export class BookingsService {
     async create(user: AuthJwtPayload, dto: CreateBookingDto) {
         this.assertRole(user.role, BookingAction.CREATE);
         await this.assertUserIsActive(user.sub);
+
+        const customer = await this.prisma.customerProfile.findUnique({
+            where: { userId: user.sub },
+            select: { id: true },
+        });
+        if (!customer) throw new ForbiddenException('Customer profile is required to create a booking.');
+
         await this.assertWorkerIsAvailable(dto.workerId);
 
         const maxScheduledDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -112,7 +123,7 @@ export class BookingsService {
 
         const booking = await this.prisma.booking.create({
             data: {
-                customerId: user.sub,
+                customerId: customer.id,
                 status: BookingStatus.PENDING,
                 expiresAt: new Date(Date.now() + 30 * 60 * 1000),
                 ...dto,
@@ -126,38 +137,38 @@ export class BookingsService {
 
     async update(bookingId: string, user: AuthJwtPayload, dto: UpdateBookingDto) {
         this.assertRole(user.role, BookingAction.UPDATE);
-        const { activeUser, booking } = await this.prepareBookingAction(user.sub, bookingId, booking => booking.customerId, BookingStatus.PENDING);
-        this.assertOwnership(booking.customerId, activeUser.id);
+        const { booking, profileId } = await this.prepareBookingAction(user.sub, user.role, bookingId, BookingStatus.PENDING);
+        this.assertOwnership(booking.customerId, profileId);
         await this.prisma.booking.update({ where: { id: bookingId }, data: dto });
     }
 
     async accept(bookingId: string, user: AuthJwtPayload) {
         this.assertRole(user.role, BookingAction.ACCEPT);
-        const { activeUser, booking } = await this.prepareBookingAction(user.sub, bookingId, b => b.workerId, BookingStatus.PENDING);
-        this.assertOwnership(booking.workerId, activeUser.id);
+        const { booking, profileId } = await this.prepareBookingAction(user.sub, user.role, bookingId, BookingStatus.PENDING);
+        this.assertOwnership(booking.workerId, profileId);
         await this.prisma.booking.update({ where: { id: bookingId }, data: { status: BookingStatus.ACCEPTED, acceptedAt: new Date() } });
         this.notify(bookingId, 'customer', { title: 'Booking accepted', body: 'Your booking has been accepted.' });
     }
 
     async reject(bookingId: string, user: AuthJwtPayload) {
         this.assertRole(user.role, BookingAction.REJECT);
-        const { activeUser, booking } = await this.prepareBookingAction(user.sub, bookingId, b => b.workerId, BookingStatus.PENDING);
-        this.assertOwnership(booking.workerId, activeUser.id);
+        const { booking, profileId } = await this.prepareBookingAction(user.sub, user.role, bookingId, BookingStatus.PENDING);
+        this.assertOwnership(booking.workerId, profileId);
         await this.prisma.booking.update({ where: { id: bookingId }, data: { status: BookingStatus.REJECTED, rejectedAt: new Date() } });
         this.notify(bookingId, 'customer', { title: 'Booking declined', body: 'The worker has declined your booking request.' });
     }
 
     async start(bookingId: string, user: AuthJwtPayload) {
         this.assertRole(user.role, BookingAction.START);
-        const { activeUser, booking } = await this.prepareBookingAction(user.sub, bookingId, b => b.workerId, BookingStatus.ACCEPTED);
-        this.assertOwnership(booking.workerId, activeUser.id);
+        const { booking, profileId } = await this.prepareBookingAction(user.sub, user.role, bookingId, BookingStatus.ACCEPTED);
+        this.assertOwnership(booking.workerId, profileId);
         await this.prisma.booking.update({ where: { id: bookingId }, data: { status: BookingStatus.IN_PROGRESS, startedAt: new Date() } });
     }
 
     async complete(bookingId: string, user: AuthJwtPayload) {
         this.assertRole(user.role, BookingAction.COMPLETE);
-        const { activeUser, booking } = await this.prepareBookingAction(user.sub, bookingId, b => b.workerId, BookingStatus.IN_PROGRESS);
-        this.assertOwnership(booking.workerId, activeUser.id);
+        const { booking, profileId } = await this.prepareBookingAction(user.sub, user.role, bookingId, BookingStatus.IN_PROGRESS);
+        this.assertOwnership(booking.workerId, profileId);
         await this.prisma.booking.update({ where: { id: bookingId }, data: { status: BookingStatus.COMPLETED, completedAt: new Date() } });
         this.notify(bookingId, 'customer', { title: 'Job complete', body: 'The job is done. Leave a review for your worker!' });
     }
@@ -165,14 +176,15 @@ export class BookingsService {
     async cancel(bookingId: string, user: AuthJwtPayload, dto: CancelBookingDto) {
         const activeUser = await this.assertUserIsActive(user.sub);
         const booking = await this.assertBookingExist(bookingId);
+        const profileId = await this.getProfileId(user.sub, user.role);
 
         if (user.role === Role.CUSTOMER) {
-            this.assertOwnership(booking.customerId, activeUser.id);
+            this.assertOwnership(booking.customerId, profileId);
             this.assertBookingInStatus(booking, BookingStatus.PENDING);
         }
 
         if (user.role === Role.WORKER) {
-            this.assertOwnership(booking.workerId, activeUser.id);
+            this.assertOwnership(booking.workerId, profileId);
             this.assertBookingInStatus(booking, BookingStatus.ACCEPTED, BookingStatus.IN_PROGRESS);
         }
 
@@ -201,8 +213,8 @@ export class BookingsService {
 
     async reportNoShow(bookingId: string, user: AuthJwtPayload, description?: string) {
         this.assertRole(user.role, BookingAction.REPORT_NO_SHOW);
-        const { activeUser, booking } = await this.prepareBookingAction(user.sub, bookingId, b => b.customerId, BookingStatus.ACCEPTED, BookingStatus.IN_PROGRESS);
-        this.assertOwnership(booking.customerId, activeUser.id);
+        const { activeUser, booking, profileId } = await this.prepareBookingAction(user.sub, user.role, bookingId, BookingStatus.ACCEPTED, BookingStatus.IN_PROGRESS);
+        this.assertOwnership(booking.customerId, profileId);
         await this.assertNoReportExists(booking.id);
 
         return this.prisma.noShowReport.create({
@@ -212,43 +224,54 @@ export class BookingsService {
 
     // ─── Private helpers ──────────────────────────────────────────────────────
 
+    private async getProfileId(userId: string, role: Role): Promise<string> {
+        if (role === Role.CUSTOMER) {
+            const profile = await this.prisma.customerProfile.findUnique({ where: { userId }, select: { id: true } });
+            if (!profile) throw new ForbiddenException('Customer profile not found.');
+            return profile.id;
+        }
+        const profile = await this.prisma.workerProfile.findUnique({ where: { userId }, select: { id: true } });
+        if (!profile) throw new ForbiddenException('Worker profile not found.');
+        return profile.id;
+    }
+
     private async prepareBookingAction(
         userId: string,
+        role: Role,
         bookingId: string,
-        _ownerField: (booking: Booking) => string,
         ...allowedStatuses: BookingStatus[]
-    ): Promise<{ activeUser: User; booking: Booking }> {
+    ): Promise<{ activeUser: User; booking: Booking; profileId: string }> {
         const activeUser = await this.assertUserIsActive(userId);
         const booking = await this.assertBookingExist(bookingId);
         this.assertBookingInStatus(booking, ...allowedStatuses);
-        return { activeUser, booking };
+        const profileId = await this.getProfileId(userId, role);
+        return { activeUser, booking, profileId };
     }
 
     private async handleWorkerCancellationPenalty(tx: TransactionClient, worker: User): Promise<void> {
-        await tx.strike.create({
-            data: {
-                workerId: worker.id,
-                bookingId: undefined,
-                reason: StrikeReason.POST_ACCEPT_CANCELLATION,
-                issuedBy: 'SYSTEM',
-            },
-        });
-
         const workerProfile = await tx.workerProfile.update({
             where: { userId: worker.id },
             data: { strikeCount: { increment: 1 } },
         });
 
+        await tx.strike.create({
+            data: {
+                workerId: workerProfile.id,
+                reason: StrikeReason.POST_ACCEPT_CANCELLATION,
+                issuedBy: 'SYSTEM',
+            },
+        });
+
         if (workerProfile.strikeCount >= 3) {
             await tx.workerProfile.update({
-                where: { userId: worker.id },
+                where: { id: workerProfile.id },
                 data: { status: WorkerStatus.SUSPENDED },
             });
         }
     }
 
-    private assertOwnership(entityId: string, currentUserId: string): void {
-        if (entityId !== currentUserId) {
+    private assertOwnership(entityId: string, profileId: string): void {
+        if (entityId !== profileId) {
             throw new ForbiddenException('Insufficient permissions.');
         }
     }
