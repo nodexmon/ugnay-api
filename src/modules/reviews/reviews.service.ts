@@ -11,71 +11,67 @@ export class ReviewsService {
     constructor(private readonly prisma: PrismaService) {}
 
     async create(dto: CreateReviewDto, user: AuthJwtPayload) {
-        const booking = await this.assertBookingExist(dto.bookingId)
+        const booking = await this.assertBookingExist(dto.bookingId);
 
         if (booking.status !== BookingStatus.COMPLETED) {
-            throw new ForbiddenException('Reviews can only be submitted for completed bookings.')
+            throw new ForbiddenException('Reviews can only be submitted for completed bookings.');
         }
 
-        if (booking.customerId !== user.sub) {
-            throw new ForbiddenException('Only the customer of this booking may submit a review.')
+        const customerProfile = await this.prisma.customerProfile.findUnique({
+            where: { userId: user.sub },
+            select: { id: true },
+        });
+        if (!customerProfile || booking.customerId !== customerProfile.id) {
+            throw new ForbiddenException('Only the customer of this booking may submit a review.');
         }
 
-        return await this.prisma.$transaction(async (tx: TransactionClient) => {
+        return this.prisma.$transaction(async (tx: TransactionClient) => {
             const review = await tx.review.create({
                 data: {
                     workerId: booking.workerId,
                     customerId: booking.customerId,
                     ...dto,
                 },
-            })
+            });
 
             const { _avg, _count } = await tx.review.aggregate({
                 where: { workerId: booking.workerId },
                 _avg: { rating: true },
                 _count: true,
-            })
+            });
 
             await tx.workerProfile.update({
-                where: { userId: booking.workerId },
+                where: { id: booking.workerId },
                 data: {
                     averageRating: _avg.rating ?? 0,
                     totalReviews: _count,
                 },
-            })
+            });
 
-            return review
-        })
+            return review;
+        });
     }
 
-    async findAllByWorkerId(id: string, query: FindReviewsQueryDto) {
-        const worker = await this.assertWorkerExist(id)
+    async findAllByWorkerId(workerId: string, query: FindReviewsQueryDto) {
+        const worker = await this.assertWorkerExist(workerId);
 
         return this.prisma.review.findMany({
-            where: { workerId: worker.userId },
+            where: { workerId: worker.id },
             orderBy: { createdAt: 'desc' },
             skip: query.skip,
             take: query.take,
-        })
+        });
     }
 
     private async assertBookingExist(bookingId: string) {
-        const booking = await this.prisma.booking.findUnique({ where: { id: bookingId } })
-
-        if (!booking) {
-            throw new NotFoundException('Booking not found.')
-        }
-
-        return booking
+        const booking = await this.prisma.booking.findUnique({ where: { id: bookingId } });
+        if (!booking) throw new NotFoundException('Booking not found.');
+        return booking;
     }
 
     private async assertWorkerExist(workerId: string) {
-        const worker = await this.prisma.workerProfile.findUnique({ where: { userId: workerId } })
-
-        if (!worker) {
-            throw new NotFoundException('Worker not found.')
-        }
-
-        return worker
+        const worker = await this.prisma.workerProfile.findUnique({ where: { id: workerId } });
+        if (!worker) throw new NotFoundException('Worker not found.');
+        return worker;
     }
 }
