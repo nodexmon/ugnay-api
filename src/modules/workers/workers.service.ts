@@ -60,6 +60,15 @@ export class WorkersService {
     });
   }
 
+  async findOwnProfile(userId: string) {
+    const worker = await this.prisma.workerProfile.findUnique({
+      where: { userId },
+      include: WORKER_INCLUDE,
+    });
+    if (!worker) throw new NotFoundException('Worker profile not found.');
+    return worker;
+  }
+
   async findPublicProfile(id: string) {
     const worker = await this.prisma.workerProfile.findUnique({
       where: {
