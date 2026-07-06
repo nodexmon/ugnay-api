@@ -1,10 +1,9 @@
-import { BookingStatus } from "@/generated/prisma/enums";
-import { PrismaService } from "@/prisma/prisma.service";
-import { NotificationsService } from "@/modules/notifications/notifications.service";
-import { Injectable } from "@nestjs/common";
-import { Cron, CronExpression } from "@nestjs/schedule";
-import { Logger } from "nestjs-pino";
-
+import { BookingStatus } from '@/generated/prisma/enums';
+import { PrismaService } from '@/prisma/prisma.service';
+import { NotificationsService } from '@/modules/notifications/notifications.service';
+import { Injectable } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { Logger } from 'nestjs-pino';
 
 @Injectable()
 export class BookingsCron {
@@ -17,29 +16,28 @@ export class BookingsCron {
     @Cron(CronExpression.EVERY_MINUTE)
     async expiredPendingBookings() {
         const expiredBookings = await this.prisma.booking.findMany({
-            where: {
-                status: BookingStatus.PENDING,
-                expiresAt: { lt: new Date() }
-            },
-            include: {
-                customer: { select: { userId: true } }
-            }
-        })
+            where: { status: BookingStatus.PENDING, expiresAt: { lt: new Date() } },
+            include: { customer: { select: { userId: true } } },
+        });
 
-        if(expiredBookings.length === 0) return
+        if (expiredBookings.length === 0) return;
 
-        this.logger.log(`Expiring ${expiredBookings.length} pending bookings`)
+        this.logger.log(`Expiring ${expiredBookings.length} pending bookings`);
 
-        for (const booking of expiredBookings) {
-            await this.prisma.booking.update({
-                where: { id: booking.id },
-                data: { status: BookingStatus.EXPIRED }
-            })
+        await this.prisma.booking.updateMany({
+            where: { id: { in: expiredBookings.map((b) => b.id) } },
+            data: { status: BookingStatus.EXPIRED },
+        });
 
-            void this.notifications.sendToUser(booking.customer.userId, {
-                title: 'Booking expired',
-                body: 'Your booking request was not responded to in time.',
-            }).catch(() => {})
-        }
+        await Promise.all(
+            expiredBookings.map((booking) =>
+                this.notifications
+                    .sendToUser(booking.customer.userId, {
+                        title: 'Booking expired',
+                        body: 'Your booking request was not responded to in time.',
+                    })
+                    .catch(() => {}),
+            ),
+        );
     }
 }

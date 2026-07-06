@@ -75,7 +75,6 @@ describe('WorkersController', () => {
     expect(controller.createProfile(user, dto)).resolves.toBe(expected);
     expect(workersService.createProfile).toHaveBeenCalledWith(
       user.sub,
-      user.role,
       dto,
     );
   });
@@ -88,7 +87,6 @@ describe('WorkersController', () => {
     expect(controller.updateProfile(user, dto)).resolves.toBe(expected);
     expect(workersService.updateProfile).toHaveBeenCalledWith(
       user.sub,
-      user.role,
       dto,
     );
   });
@@ -102,7 +100,6 @@ describe('WorkersController', () => {
     );
     expect(workersService.setAvailability).toHaveBeenCalledWith(
       user.sub,
-      user.role,
       true,
     );
   });
@@ -120,7 +117,6 @@ describe('WorkersController', () => {
     );
     expect(workersService.submitVerification).toHaveBeenCalledWith(
       user.sub,
-      user.role,
       files,
     );
   });

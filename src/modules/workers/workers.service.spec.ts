@@ -1,8 +1,9 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Role, UserStatus, WorkerStatus } from '@/generated/prisma/enums';
+import { UserStatus, WorkerStatus } from '@/generated/prisma/enums';
 import { PrismaService } from '@/prisma/prisma.service';
 import { WorkersService } from '@/modules/workers/workers.service';
+import { FileStorageService } from '@/modules/workers/file-storage.service';
 
 describe('WorkersService', () => {
   let service: WorkersService;
@@ -31,10 +32,16 @@ describe('WorkersService', () => {
     $transaction: jest.fn(),
   };
 
+  const fileStorage = { resolvePath: jest.fn(), write: jest.fn() };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [WorkersService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        WorkersService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: FileStorageService, useValue: fileStorage },
+      ],
     }).compile();
 
     service = module.get<WorkersService>(WorkersService);
@@ -78,7 +85,7 @@ describe('WorkersService', () => {
     prisma.workerProfile.findUnique.mockResolvedValue(null);
 
     await expect(
-      service.createProfile('user-id', Role.WORKER, {
+      service.createProfile('user-id', {
         firstName: 'Ana',
         lastName: 'Santos',
         baseRate: 500,
@@ -99,7 +106,7 @@ describe('WorkersService', () => {
     });
 
     await expect(
-      service.setAvailability('user-id', Role.WORKER, true),
+      service.setAvailability('user-id', true),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

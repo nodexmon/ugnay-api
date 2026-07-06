@@ -1,11 +1,21 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import { BookingStatus, Role, StrikeReason, UserStatus, VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
+import { BookingStatus, StrikeReason, UserStatus, VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
 import { StrikeWorkerDto } from './dto/strike-worker.dto';
 import { ResolveNoShowDto } from './dto/resolve-no-show.dto';
 import { AuthJwtPayload } from '../auth/auth.types';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
+import { assertExists } from '@/common/utils/assert.util';
+
+const STRIKE_SUSPENSION_THRESHOLD = 3;
+
+const WORKER_PROFILE_INCLUDE = {
+  verificationDocs: { orderBy: { createdAt: 'desc' as const } },
+  homeBarangay: true,
+  categories: { include: { category: true } },
+  serviceAreas: { include: { barangay: true } },
+};
 
 @Injectable()
 export class AdminService {
@@ -15,8 +25,6 @@ export class AdminService {
   ) {}
 
   async findPendingVerifications(user: AuthJwtPayload) {
-    await this.assertAdminRole(user.role)
-    
     return this.prisma.verificationDoc.findMany({
       where: { status: VerificationStatus.PENDING },
       include: {
@@ -34,11 +42,8 @@ export class AdminService {
   }
 
   async approveVerification(docId: string, user: AuthJwtPayload) {
-    await this.assertAdminRole(user.role)
-
     const doc = await this.getPendingVerification(docId);
-
-    await this.assertWorkerIsUnverified(doc.workerId)
+    await this.assertWorkerIsUnverified(doc.workerId);
 
     return this.prisma.$transaction(async (tx: TransactionClient) => {
       await tx.verificationDoc.update({
@@ -52,33 +57,20 @@ export class AdminService {
 
       return tx.workerProfile.update({
         where: { id: doc.workerId },
-        data: {
-          status: WorkerStatus.VERIFIED,
-        },
-        include: {
-          verificationDocs: { orderBy: { createdAt: 'desc' } },
-          homeBarangay: true,
-          categories: { include: { category: true } },
-          serviceAreas: { include: { barangay: true } },
-        },
+        data: { status: WorkerStatus.VERIFIED },
+        include: WORKER_PROFILE_INCLUDE,
       });
     });
   }
 
   async rejectVerification(docId: string, user: AuthJwtPayload, reason: string) {
-    await this.assertAdminRole(user.role)
-
     const doc = await this.getPendingVerification(docId);
 
     return this.prisma.$transaction(async (tx: TransactionClient) => {
-
       const previousRejections = await tx.verificationDoc.count({
-        where: {
-          workerId: doc.workerId,
-          status: VerificationStatus.REJECTED,
-        },
+        where: { workerId: doc.workerId, status: VerificationStatus.REJECTED },
       });
-      const secondRejection = previousRejections + 1 >= 2;
+      const isSecondRejection = previousRejections + 1 >= 2;
 
       await tx.verificationDoc.update({
         where: { id: docId },
@@ -93,87 +85,65 @@ export class AdminService {
       return tx.workerProfile.update({
         where: { id: doc.workerId },
         data: {
-          status: secondRejection ? WorkerStatus.SUSPENDED : WorkerStatus.REJECTED,
+          status: isSecondRejection ? WorkerStatus.SUSPENDED : WorkerStatus.REJECTED,
           isOnline: false,
         },
-        include: {
-          verificationDocs: { orderBy: { createdAt: 'desc' } },
-          homeBarangay: true,
-          categories: { include: { category: true } },
-          serviceAreas: { include: { barangay: true } },
-        },
+        include: WORKER_PROFILE_INCLUDE,
       });
     });
   }
 
   async setUserSuspension(user: AuthJwtPayload, workerId: string, suspended: boolean) {
-    await this.assertAdminRole(user.role)
-
-    await this.assertUserExist(workerId)
+    await assertExists(
+      () => this.prisma.user.findUnique({ where: { id: workerId } }),
+      'User not found.',
+    );
 
     return this.prisma.$transaction(async (tx: TransactionClient) => {
-
-      const updatedUser =  await tx.user.update({
+      const updatedUser = await tx.user.update({
         where: { id: workerId },
-        data: {
-          status: suspended ? UserStatus.SUSPENDED : UserStatus.ACTIVE
-        }
-      })
+        data: { status: suspended ? UserStatus.SUSPENDED : UserStatus.ACTIVE },
+      });
 
-      if(suspended) {
+      if (suspended) {
         await tx.workerProfile.updateMany({
           where: { userId: workerId },
-          data: {
-            status: WorkerStatus.SUSPENDED,
-            isOnline: false
-          }
-        })
+          data: { status: WorkerStatus.SUSPENDED, isOnline: false },
+        });
       }
 
-      return updatedUser
-    })
+      return updatedUser;
+    });
   }
 
   async strikeWorker(user: AuthJwtPayload, dto: StrikeWorkerDto) {
-    await this.assertAdminRole(user.role)
-    const worker = await this.assertWorkerProfileExist(dto.workerId)
+    const worker = await assertExists(
+      () => this.prisma.workerProfile.findUnique({ where: { id: dto.workerId } }),
+      'Worker profile does not exist.',
+    );
 
     if (dto.bookingId) {
-      await this.assertBookingExist(dto.bookingId)
-      await this.assertBookingNotAlreadyStruck(dto.bookingId)
+      await assertExists(
+        () => this.prisma.booking.findUnique({ where: { id: dto.bookingId } }),
+        'Booking not found.',
+      );
+      await this.assertBookingNotAlreadyStruck(dto.bookingId);
     }
 
     return this.prisma.$transaction(async (tx: TransactionClient) => {
-      await tx.strike.create({
-        data: {
-          issuedBy: user.sub,
-          workerId: worker.id,
-          bookingId: dto.bookingId,
-          reason: dto.reason,
-          notes: dto.notes,
-        },
-      })
+      await this.createStrikeRecord(tx, {
+        workerId: worker.id,
+        bookingId: dto.bookingId,
+        reason: dto.reason,
+        issuedBy: user.sub,
+        notes: dto.notes,
+      });
 
-      const updatedWorker = await tx.workerProfile.update({
-        where: { id: worker.id },
-        data: { strikeCount: { increment: 1 } },
-      })
-
-      if (updatedWorker.strikeCount >= 3) {
-        await tx.workerProfile.update({
-          where: { id: worker.id },
-          data: { status: WorkerStatus.SUSPENDED, isOnline: false },
-        })
-      }
-
-      return updatedWorker
-    })
+      return this.incrementStrikeAndSuspendIfNeeded(tx, { id: worker.id });
+    });
   }
 
-
   async findPendingNoShows(user: AuthJwtPayload) {
-    await this.assertAdminRole(user.role)
-
     return this.prisma.noShowReport.findMany({
       where: { confirmed: null },
       include: {
@@ -186,85 +156,79 @@ export class AdminService {
         },
       },
       orderBy: { createdAt: 'asc' },
-    })
+    });
   }
 
   async resolveNoShow(reportId: string, user: AuthJwtPayload, dto: ResolveNoShowDto) {
-    await this.assertAdminRole(user.role)
-
-    const report = await this.prisma.noShowReport.findUnique({
-      where: { id: reportId },
-      include: {
-        booking: {
-          select: {
-            id: true,
-            workerId: true,
-            worker: { select: { userId: true } },
+    const report = await assertExists(
+      () =>
+        this.prisma.noShowReport.findUnique({
+          where: { id: reportId },
+          include: {
+            booking: {
+              select: {
+                id: true,
+                workerId: true,
+                worker: { select: { userId: true } },
+              },
+            },
           },
-        },
-      },
-    })
+        }),
+      'No-show report not found.',
+    );
 
-    if (!report) throw new NotFoundException('No-show report not found.')
-    if (report.confirmed !== null) throw new ConflictException('This report has already been resolved.')
+    if (report.confirmed !== null) {
+      throw new ConflictException('This report has already been resolved.');
+    }
 
-    return this.prisma.$transaction(async (tx: TransactionClient) => {
-      await tx.noShowReport.update({
-        where: { id: reportId },
-        data: { confirmed: dto.confirmed, resolvedBy: user.sub, resolvedAt: new Date() },
-      })
+    return this.prisma
+      .$transaction(async (tx: TransactionClient) => {
+        await tx.noShowReport.update({
+          where: { id: reportId },
+          data: { confirmed: dto.confirmed, resolvedBy: user.sub, resolvedAt: new Date() },
+        });
 
-      if (dto.confirmed) {
-        await this.assertBookingNotAlreadyStruck(report.bookingId)
+        if (dto.confirmed) {
+          await this.assertBookingNotAlreadyStruck(report.bookingId);
 
-        await tx.strike.create({
-          data: {
+          await this.createStrikeRecord(tx, {
             workerId: report.booking.workerId,
             bookingId: report.bookingId,
             reason: StrikeReason.NO_SHOW,
             issuedBy: user.sub,
             notes: dto.notes,
-          },
-        })
+          });
 
-        const updatedWorker = await tx.workerProfile.update({
-          where: { userId: report.booking.workerId },
-          data: { strikeCount: { increment: 1 } },
-        })
+          await this.incrementStrikeAndSuspendIfNeeded(tx, { userId: report.booking.workerId });
 
-        if (updatedWorker.strikeCount >= 3) {
-          await tx.workerProfile.update({
-            where: { id: updatedWorker.id },
-            data: { status: WorkerStatus.SUSPENDED, isOnline: false },
-          })
+          await tx.booking.update({
+            where: { id: report.bookingId },
+            data: { status: BookingStatus.NO_SHOW },
+          });
         }
 
-        await tx.booking.update({
-          where: { id: report.bookingId },
-          data: { status: BookingStatus.NO_SHOW },
-        })
-      }
-
-      return { resolved: true, confirmed: dto.confirmed }
-    }).then((result) => {
-      if (dto.confirmed) {
-        void this.notifications.sendToUser(report.booking.worker.userId, {
-          title: 'No-show confirmed',
-          body: 'A no-show report against you has been confirmed. A strike has been issued.',
-        }).catch(() => {})
-      }
-      return result
-    })
+        return { resolved: true, confirmed: dto.confirmed };
+      })
+      .then((result) => {
+        if (dto.confirmed) {
+          void this.notifications
+            .sendToUser(report.booking.worker.userId, {
+              title: 'No-show confirmed',
+              body: 'A no-show report against you has been confirmed. A strike has been issued.',
+            })
+            .catch(() => {});
+        }
+        return result;
+      });
   }
 
-  private async assertAdminRole(role: Role) {
-    if(role !== Role.ADMIN) {
-      throw new ForbiddenException("Admin role is required.")
-    }
-  }
+  // ─── Private helpers ─────────────────────────────────────────────────────
 
   private async getPendingVerification(id: string) {
-    const doc = await this.assertDocExist(id);
+    const doc = await assertExists(
+      () => this.prisma.verificationDoc.findUnique({ where: { id } }),
+      'Verification submission not found.',
+    );
 
     if (doc.status !== VerificationStatus.PENDING) {
       throw new ConflictException('Verification submission has already been reviewed');
@@ -273,65 +237,56 @@ export class AdminService {
     return doc;
   }
 
-  private async assertUserExist(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } })
-
-    if(!user) {
-      throw new NotFoundException("User not found.")
-    } 
-
-    return user
-  }
-
-  private async assertWorkerProfileExist(workerId: string) {
-    const worker = await this.prisma.workerProfile.findUnique({ where: { id: workerId } })
-
-    if(!worker) {
-      throw new NotFoundException("Worker profile does not exist.");
-    }
-
-    return worker
-  }
-
-  private async assertDocExist(docId: string) {
-    const doc = await this.prisma.verificationDoc.findUnique({ where: { id: docId } })
-
-    if(!doc) {
-      throw new NotFoundException("Verification submission not found.")
-    }
-
-    return doc
-  }
-
-  private async assertBookingExist(bookingId: string) {
-    const booking = await this.prisma.booking.findUnique({ where: { id: bookingId } })
-
-    if(!booking) {
-      throw new NotFoundException("Booking not found.")
-    }
-
-    return booking
-  }
-
   private async assertWorkerIsUnverified(workerId: string) {
-    const worker = await this.assertWorkerProfileExist(workerId)
+    const worker = await assertExists(
+      () => this.prisma.workerProfile.findUnique({ where: { id: workerId } }),
+      'Worker profile does not exist.',
+    );
 
-    if(worker.status === WorkerStatus.VERIFIED) {
-      throw new ConflictException("Worker is already verified.")
+    if (worker.status === WorkerStatus.VERIFIED) {
+      throw new ConflictException('Worker is already verified.');
     }
-    
-    return worker
+
+    return worker;
   }
 
-
-  private async assertBookingNotAlreadyStruck(bookingId: string) {
-    const existingStrike = await this.prisma.strike.findUnique({ where: { bookingId } })
+  private async assertBookingNotAlreadyStruck(bookingId: string): Promise<void> {
+    const existingStrike = await this.prisma.strike.findUnique({ where: { bookingId } });
 
     if (existingStrike) {
-      throw new ConflictException('This bookings has already been used for a strike.')
+      throw new ConflictException('This booking has already been used for a strike.');
     }
-
-    return existingStrike
   }
 
+  private async createStrikeRecord(
+    tx: TransactionClient,
+    data: {
+      workerId: string;
+      bookingId?: string;
+      reason: StrikeReason;
+      issuedBy: string;
+      notes?: string;
+    },
+  ): Promise<void> {
+    await tx.strike.create({ data });
+  }
+
+  private async incrementStrikeAndSuspendIfNeeded(
+    tx: TransactionClient,
+    where: { id: string } | { userId: string },
+  ) {
+    const updated = await tx.workerProfile.update({
+      where,
+      data: { strikeCount: { increment: 1 } },
+    });
+
+    if (updated.strikeCount >= STRIKE_SUSPENSION_THRESHOLD) {
+      await tx.workerProfile.update({
+        where: { id: updated.id },
+        data: { status: WorkerStatus.SUSPENDED, isOnline: false },
+      });
+    }
+
+    return updated;
+  }
 }

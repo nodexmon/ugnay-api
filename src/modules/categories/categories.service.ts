@@ -3,6 +3,8 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { CreateCategoryDto } from '@/modules/categories/dto/create-category.dto';
 import { UpdateCategoryDto } from '@/modules/categories/dto/update-category.dto';
 
+const CATEGORY_ORDER = [{ sortOrder: 'asc' as const }, { name: 'asc' as const }];
+
 @Injectable()
 export class CategoriesService {
   constructor(private prisma: PrismaService) {}
@@ -10,13 +12,13 @@ export class CategoriesService {
   async findActive() {
     return this.prisma.serviceCategory.findMany({
       where: { isActive: true },
-      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      orderBy: CATEGORY_ORDER,
     });
   }
 
   async findAllForAdmin() {
     return this.prisma.serviceCategory.findMany({
-      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      orderBy: CATEGORY_ORDER,
     });
   }
 
