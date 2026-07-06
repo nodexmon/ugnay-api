@@ -22,6 +22,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { BarangaysModule } from './modules/barangays/barangays.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     BookingsModule,
     ReviewsModule,
     NotificationsModule,
+    BarangaysModule,
 
     ConfigModule.forRoot({
       isGlobal: true,
