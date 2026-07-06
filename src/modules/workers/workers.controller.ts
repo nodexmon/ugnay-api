@@ -26,7 +26,7 @@ export class WorkersController {
 
   @Post('profile')
   createProfile(@CurrentUser() user: AuthJwtPayload, @Body() dto: CreateWorkerDto) {
-    return this.workersService.createProfile(user, dto);
+    return this.workersService.createProfile(user.sub, user.role, dto);
   }
 
   @Patch('profile')
