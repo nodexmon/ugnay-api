@@ -45,52 +45,72 @@ export class AdminService {
     const doc = await this.getPendingVerification(docId);
     await this.assertWorkerIsUnverified(doc.workerId);
 
-    return this.prisma.$transaction(async (tx: TransactionClient) => {
-      await tx.verificationDoc.update({
-        where: { id: docId },
-        data: {
-          status: VerificationStatus.APPROVED,
-          reviewedBy: user.sub,
-          reviewedAt: new Date(),
-        },
-      });
+    return this.prisma
+      .$transaction(async (tx: TransactionClient) => {
+        await tx.verificationDoc.update({
+          where: { id: docId },
+          data: {
+            status: VerificationStatus.APPROVED,
+            reviewedBy: user.sub,
+            reviewedAt: new Date(),
+          },
+        });
 
-      return tx.workerProfile.update({
-        where: { id: doc.workerId },
-        data: { status: WorkerStatus.VERIFIED },
-        include: WORKER_PROFILE_INCLUDE,
+        return tx.workerProfile.update({
+          where: { id: doc.workerId },
+          data: { status: WorkerStatus.VERIFIED },
+          include: WORKER_PROFILE_INCLUDE,
+        });
+      })
+      .then((result) => {
+        void this.notifications
+          .sendToUser(doc.worker.userId, {
+            title: 'Verification approved',
+            body: 'Your profile has been verified. You can now receive booking requests.',
+          })
+          .catch(() => {});
+        return result;
       });
-    });
   }
 
   async rejectVerification(docId: string, user: AuthJwtPayload, reason: string) {
     const doc = await this.getPendingVerification(docId);
 
-    return this.prisma.$transaction(async (tx: TransactionClient) => {
-      const previousRejections = await tx.verificationDoc.count({
-        where: { workerId: doc.workerId, status: VerificationStatus.REJECTED },
-      });
-      const isSecondRejection = previousRejections + 1 >= 2;
+    return this.prisma
+      .$transaction(async (tx: TransactionClient) => {
+        const previousRejections = await tx.verificationDoc.count({
+          where: { workerId: doc.workerId, status: VerificationStatus.REJECTED },
+        });
+        const isSecondRejection = previousRejections + 1 >= 2;
 
-      await tx.verificationDoc.update({
-        where: { id: docId },
-        data: {
-          status: VerificationStatus.REJECTED,
-          rejectionReason: reason,
-          reviewedBy: user.sub,
-          reviewedAt: new Date(),
-        },
-      });
+        await tx.verificationDoc.update({
+          where: { id: docId },
+          data: {
+            status: VerificationStatus.REJECTED,
+            rejectionReason: reason,
+            reviewedBy: user.sub,
+            reviewedAt: new Date(),
+          },
+        });
 
-      return tx.workerProfile.update({
-        where: { id: doc.workerId },
-        data: {
-          status: isSecondRejection ? WorkerStatus.SUSPENDED : WorkerStatus.REJECTED,
-          isOnline: false,
-        },
-        include: WORKER_PROFILE_INCLUDE,
+        return tx.workerProfile.update({
+          where: { id: doc.workerId },
+          data: {
+            status: isSecondRejection ? WorkerStatus.SUSPENDED : WorkerStatus.REJECTED,
+            isOnline: false,
+          },
+          include: WORKER_PROFILE_INCLUDE,
+        });
+      })
+      .then((result) => {
+        void this.notifications
+          .sendToUser(doc.worker.userId, {
+            title: 'Verification rejected',
+            body: reason,
+          })
+          .catch(() => {});
+        return result;
       });
-    });
   }
 
   async setUserSuspension(user: AuthJwtPayload, workerId: string, suspended: boolean) {
@@ -226,7 +246,11 @@ export class AdminService {
 
   private async getPendingVerification(id: string) {
     const doc = await assertExists(
-      () => this.prisma.verificationDoc.findUnique({ where: { id } }),
+      () =>
+        this.prisma.verificationDoc.findUnique({
+          where: { id },
+          include: { worker: { select: { userId: true } } },
+        }),
       'Verification submission not found.',
     );
 
