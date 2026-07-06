@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
+import { Throttle, ThrottlerOptions } from '@nestjs/throttler';
 import { AuthService } from '@/modules/auth/auth.service';
 import { SendOtpDto } from '@/modules/auth/dto/send-otp.dto';
 import { VerifyOtpDto } from '@/modules/auth/dto/verify-otp.dto';
@@ -8,26 +8,30 @@ import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Public } from '@/common/decorators/public-endpoint.decorator';
 import { type AuthJwtPayload } from '@/modules/auth/auth.types';
 
+const OTP_REQUEST_THROTTLE: ThrottlerOptions = { limit: 3, ttl: 900000 };
+const OTP_VERIFY_THROTTLE: ThrottlerOptions = { limit: 5, ttl: 900000 };
+const REFRESH_THROTTLE: ThrottlerOptions = { limit: 10, ttl: 3600000 };
+
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Public()
-  @Throttle({ default: { limit: 3, ttl: 900000 } })
+  @Throttle({ default: OTP_REQUEST_THROTTLE })
   @Post('request-otp')
   sendOtp(@Body() dto: SendOtpDto) {
     return this.authService.sendOtp(dto.phone);
   }
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 900000 } })
+  @Throttle({ default: OTP_VERIFY_THROTTLE })
   @Post('verify-otp')
   verifyOtp(@Body() dto: VerifyOtpDto) {
     return this.authService.verifyOtp(dto.phone, dto.code, dto.role);
   }
 
   @Public()
-  @Throttle({ default: { limit: 10, ttl: 3600000 } })
+  @Throttle({ default: REFRESH_THROTTLE })
   @Post('refresh')
   refreshToken(@Body() dto: RefreshTokenDto) {
     return this.authService.refreshToken(dto.refreshToken);

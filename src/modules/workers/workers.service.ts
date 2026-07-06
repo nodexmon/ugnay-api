@@ -5,28 +5,33 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { mkdir, writeFile } from 'fs/promises';
-import { extname, join } from 'path';
-import { randomUUID } from 'crypto';
 import { PrismaService } from '@/prisma/prisma.service';
-import { BookingStatus, Role, UserStatus, VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
+import { BookingStatus, UserStatus, VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
 import { CreateWorkerDto } from '@/modules/workers/dto/create-worker.dto';
 import { WorkerCategoryInputDto } from '@/modules/workers/dto/input-worker-category.dto';
 import { UpdateWorkerDto } from '@/modules/workers/dto/update-worker.dto';
 import { SearchWorkersDto } from '@/modules/workers/dto/search-workers.dto';
-import type { FileMetadata, UploadedVerificationFiles } from '@/modules/workers/workers.types';
+import type { UploadedVerificationFiles } from '@/modules/workers/workers.types';
 import { Prisma } from '@/generated/prisma/client';
+import { FileStorageService } from '@/modules/workers/file-storage.service';
 
-const WORKER_INCLUDE = {
+const PUBLIC_WORKER_INCLUDE = {
   homeBarangay: true,
   categories: { include: { category: true } },
   serviceAreas: { include: { barangay: true } },
+};
+
+const WORKER_INCLUDE = {
+  ...PUBLIC_WORKER_INCLUDE,
   verificationDocs: { orderBy: { createdAt: 'desc' as const } },
 };
 
 @Injectable()
 export class WorkersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private fileStorage: FileStorageService,
+  ) {}
 
   // ─── Public ───────────────────────────────────────────────────────────────
 
@@ -48,11 +53,7 @@ export class WorkersService {
           },
         },
       },
-      include: {
-        homeBarangay: true,
-        categories: { include: { category: true } },
-        serviceAreas: { include: { barangay: true } },
-      },
+      include: PUBLIC_WORKER_INCLUDE,
       orderBy: [{ averageRating: 'desc' }, { totalReviews: 'desc' }, { createdAt: 'desc' }],
       skip: (page - 1) * limit,
       take: limit,
@@ -66,11 +67,7 @@ export class WorkersService {
         status: WorkerStatus.VERIFIED,
         user: { status: UserStatus.ACTIVE },
       },
-      include: {
-        homeBarangay: true,
-        categories: { include: { category: true } },
-        serviceAreas: { include: { barangay: true } },
-      },
+      include: PUBLIC_WORKER_INCLUDE,
     });
 
     if (!worker) throw new NotFoundException('Worker profile is not found.');
@@ -81,8 +78,7 @@ export class WorkersService {
     };
   }
 
-  async createProfile(userId: string, role: Role, dto: CreateWorkerDto) {
-    this.assertWorkerRole(role);
+  async createProfile(userId: string, dto: CreateWorkerDto) {
     await this.assertUserIsActive(userId);
     await this.assertProfileDoesNotExist(userId);
     await this.validateCategories(dto.categories);
@@ -114,8 +110,7 @@ export class WorkersService {
     });
   }
 
-  async updateProfile(userId: string, role: Role, dto: UpdateWorkerDto) {
-    this.assertWorkerRole(role);
+  async updateProfile(userId: string, dto: UpdateWorkerDto) {
     const worker = await this.getOwnProfile(userId);
 
     if (dto.homeBarangayId || dto.serviceAreaBarangayIds) {
@@ -126,7 +121,6 @@ export class WorkersService {
     }
 
     if (dto.categories) {
-      this.assertUnique(dto.categories.map((c) => c.categoryId), 'categories');
       await this.validateCategories(dto.categories);
     }
 
@@ -167,8 +161,7 @@ export class WorkersService {
     });
   }
 
-  async setAvailability(userId: string, role: Role, isOnline: boolean) {
-    this.assertWorkerRole(role);
+  async setAvailability(userId: string, isOnline: boolean) {
     const worker = await this.getOwnProfile(userId);
 
     if (isOnline && worker.status !== WorkerStatus.VERIFIED) {
@@ -182,8 +175,7 @@ export class WorkersService {
     });
   }
 
-  async submitVerification(userId: string, role: Role, files: UploadedVerificationFiles) {
-    this.assertWorkerRole(role);
+  async submitVerification(userId: string, files: UploadedVerificationFiles) {
     const worker = await this.getOwnProfile(userId);
 
     if (worker.status === WorkerStatus.VERIFIED) {
@@ -194,11 +186,11 @@ export class WorkersService {
       throw new ForbiddenException('Worker account is suspended');
     }
 
-    const idPhoto = files.idPhoto[0]
-    const selfie = files.selfie[0]
+    const idPhoto = files.idPhoto[0];
+    const selfie = files.selfie[0];
 
-    const idPhotoPath = this.resolveVerificationPath(worker.id, 'id-photo', idPhoto);
-    const selfiePath = this.resolveVerificationPath(worker.id, 'selfie', selfie);
+    const idPhotoPath = this.fileStorage.resolvePath(worker.id, 'id-photo', idPhoto);
+    const selfiePath = this.fileStorage.resolvePath(worker.id, 'selfie', selfie);
 
     const doc = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const pendingDoc = await tx.verificationDoc.findFirst({
@@ -229,42 +221,28 @@ export class WorkersService {
       });
     });
 
-    try {
-      await Promise.all([
-        this.writeVerificationFile(idPhotoPath, idPhoto),
-        this.writeVerificationFile(selfiePath, selfie),
-      ]);
-    } catch (err) {
-      console.error(`File write failed after verification doc ${doc.id} was created`);
-      throw err;
-    }
+    await Promise.all([
+      this.fileStorage.write(idPhotoPath, idPhoto),
+      this.fileStorage.write(selfiePath, selfie),
+    ]);
 
     return doc;
   }
 
-  // ─── Guards / Assertions ──────────────────────────────────────────────────
+  // ─── Assertions ───────────────────────────────────────────────────────────
 
-  private assertWorkerRole(role: string) {
-    if (role !== Role.WORKER) {
-      throw new ForbiddenException('Worker role is required.');
-    }
-  }
-
-  private async assertUserIsActive(userId: string) {
+  private async assertUserIsActive(userId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.status !== UserStatus.ACTIVE) {
       throw new ForbiddenException('Active user is required.');
     }
-
-    return user
   }
 
-  private async assertProfileDoesNotExist(userId: string) {
+  private async assertProfileDoesNotExist(userId: string): Promise<void> {
     const existing = await this.prisma.workerProfile.findUnique({ where: { userId } });
     if (existing) {
       throw new ConflictException('Worker profile already exists');
     }
-    return existing
   }
 
   private async getOwnProfile(userId: string) {
@@ -277,54 +255,37 @@ export class WorkersService {
 
   // ─── Validators ───────────────────────────────────────────────────────────
 
-  private async validateBarangays(barangayIds: string[]) {
-    this.assertUnique(barangayIds, 'barangays');
-
-    const count = await this.prisma.barangay.count({
-      where: { id: { in: barangayIds }, isActive: true },
-    });
-
-    if (count !== barangayIds.length) {
-      throw new BadRequestException('One or more barangays are invalid or inactive');
+  private async validateActiveEntities(
+    ids: string[],
+    countFn: (ids: string[]) => Promise<number>,
+    label: string,
+  ): Promise<void> {
+    this.assertUnique(ids, label);
+    const count = await countFn(ids);
+    if (count !== ids.length) {
+      throw new BadRequestException(`One or more ${label} are invalid or inactive`);
     }
   }
 
-  private async validateCategories(categories: WorkerCategoryInputDto[]) {
-    const categoryIds = categories.map((c) => c.categoryId);
-    this.assertUnique(categoryIds, 'categories');
-
-    const count = await this.prisma.serviceCategory.count({
-      where: { id: { in: categoryIds }, isActive: true },
-    });
-
-    if (count !== categoryIds.length) {
-      throw new BadRequestException('One or more categories are invalid or inactive');
-    }
+  private async validateBarangays(barangayIds: string[]): Promise<void> {
+    await this.validateActiveEntities(
+      barangayIds,
+      (ids) => this.prisma.barangay.count({ where: { id: { in: ids }, isActive: true } }),
+      'barangays',
+    );
   }
 
-  private assertUnique(values: string[], label: string) {
+  private async validateCategories(categories: WorkerCategoryInputDto[]): Promise<void> {
+    await this.validateActiveEntities(
+      categories.map((c) => c.categoryId),
+      (ids) => this.prisma.serviceCategory.count({ where: { id: { in: ids }, isActive: true } }),
+      'categories',
+    );
+  }
+
+  private assertUnique(values: string[], label: string): void {
     if (new Set(values).size !== values.length) {
-      throw new BadRequestException(`Duplicate ${values} are not allowed`);
+      throw new BadRequestException(`Duplicate ${label} are not allowed`);
     }
-  }
-
-  // ─── File Handling ────────────────────────────────────────────────────────
-
-  private resolveVerificationPath(workerId: string, kind: string, file: FileMetadata) {
-    const uploadRoot = process.env.UPLOAD_DIR ?? 'uploads';
-    const relativeDir = join('verification', workerId);
-    const extension = extname(file.originalname).toLowerCase() || '.jpg';
-    const filename = `${kind}-${randomUUID()}${extension}`;
-    const relative = join(uploadRoot, relativeDir, filename).replace(/\\/g, '/');
-    const absolute = join(__dirname, '..', '..', uploadRoot, relativeDir, filename);
-    return { relative, absolute, dir: join(__dirname, '..', '..', uploadRoot, relativeDir) };
-  }
-
-  private async writeVerificationFile(
-    paths: ReturnType<typeof this.resolveVerificationPath>,
-    file: FileMetadata,
-  ) {
-    await mkdir(paths.dir, { recursive: true });
-    await writeFile(paths.absolute, file.buffer);
   }
 }

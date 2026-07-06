@@ -2,10 +2,12 @@ import { Body, Controller, Get, Param, Patch, Post, Query, UploadedFiles, UseInt
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { WorkersService } from '@/modules/workers/workers.service';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { Roles } from '@/common/decorators/roles.decorator';
 import { CreateWorkerDto } from '@/modules/workers/dto/create-worker.dto';
 import { UpdateWorkerDto } from '@/modules/workers/dto/update-worker.dto';
 import { SetAvailabilityDto } from '@/modules/workers/dto/set-availability.dto';
 import { SearchWorkersDto } from '@/modules/workers/dto/search-workers.dto';
+import { Role } from '@/generated/prisma/enums';
 import { type AuthJwtPayload } from '@/modules/auth/auth.types';
 import { type UploadedVerificationFiles } from '@/modules/workers/workers.types';
 import { VerificationFilesPipe } from '@/common/pipes/verification-files.pipe';
@@ -24,21 +26,25 @@ export class WorkersController {
     return this.workersService.findPublicProfile(id);
   }
 
+  @Roles(Role.WORKER)
   @Post('profile')
   createProfile(@CurrentUser() user: AuthJwtPayload, @Body() dto: CreateWorkerDto) {
-    return this.workersService.createProfile(user.sub, user.role, dto);
+    return this.workersService.createProfile(user.sub, dto);
   }
 
+  @Roles(Role.WORKER)
   @Patch('profile')
   updateProfile(@CurrentUser() user: AuthJwtPayload, @Body() dto: UpdateWorkerDto) {
-    return this.workersService.updateProfile(user.sub, user.role, dto);
+    return this.workersService.updateProfile(user.sub, dto);
   }
 
+  @Roles(Role.WORKER)
   @Patch('availability')
   setAvailability(@CurrentUser() user: AuthJwtPayload, @Body() dto: SetAvailabilityDto) {
-    return this.workersService.setAvailability(user.sub, user.role, dto.isOnline);
+    return this.workersService.setAvailability(user.sub, dto.isOnline);
   }
 
+  @Roles(Role.WORKER)
   @Post('verification')
   @UseInterceptors(
     FileFieldsInterceptor([
@@ -50,6 +56,6 @@ export class WorkersController {
     @CurrentUser() user: AuthJwtPayload,
     @UploadedFiles(VerificationFilesPipe) files: UploadedVerificationFiles,
   ) {
-    return this.workersService.submitVerification(user.sub, user.role, files);
+    return this.workersService.submitVerification(user.sub, files);
   }
 }

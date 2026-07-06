@@ -7,7 +7,7 @@ import { jwtConfig } from '@/config';
 import type { ConfigType } from '@nestjs/config';
 import { Role, UserStatus } from '@/generated/prisma/enums';
 import { createHash, randomUUID, timingSafeEqual } from 'crypto';
-import { RefreshToken, User } from '@/generated/prisma/client';
+import { Prisma, RefreshToken, User } from '@/generated/prisma/client';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import ms from 'ms';
 
@@ -102,32 +102,14 @@ export class AuthService {
     }
     
     async revokeSession(userId: string, tokenId: string): Promise<void> {
-        const result = await this.prisma.refreshToken.updateMany({
-            where: {
-                id: tokenId,    
-                userId,
-                revokedAt: null
-            },
-            data: {
-                revokedAt: new Date()
-            }
-        })
-        
-        if(result.count === 0) {
-            throw new NotFoundException("Session not found or already revoked.")
+        const result = await this.revokeTokensWhere({ id: tokenId, userId, revokedAt: null });
+        if (result.count === 0) {
+            throw new NotFoundException('Session not found or already revoked.');
         }
-    
     }
-    
+
     async revokeAllSessions(userId: string): Promise<void> {
-        await this.prisma.refreshToken.updateMany({
-            where: {
-                userId, revokedAt: null
-            },
-            data: {
-                revokedAt: new Date()
-            }
-        })    
+        await this.revokeTokensWhere({ userId, revokedAt: null });
     }
     
     async getAllSessions(userId: string) {
@@ -214,11 +196,15 @@ export class AuthService {
 
     private async assertRefreshTokenExists(tokenId: string) {
         const token = await this.prisma.refreshToken.findUnique({ where: { id: tokenId } })
-    
+
         if(!token) {
             throw new UnauthorizedException("Invalid refresh token.")
         }
 
         return token
+    }
+
+    private async revokeTokensWhere(where: Prisma.RefreshTokenWhereInput) {
+        return this.prisma.refreshToken.updateMany({ where, data: { revokedAt: new Date() } });
     }
 }
