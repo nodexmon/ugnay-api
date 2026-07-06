@@ -52,6 +52,21 @@ export class ReviewsService {
         });
     }
 
+    async findMyReviews(userId: string, query: FindReviewsQueryDto) {
+        const customerProfile = await this.prisma.customerProfile.findUnique({
+            where: { userId },
+            select: { id: true },
+        });
+        if (!customerProfile) throw new NotFoundException('Customer profile not found.');
+
+        return this.prisma.review.findMany({
+            where: { customerId: customerProfile.id },
+            orderBy: { createdAt: 'desc' },
+            skip: query.skip,
+            take: query.take,
+        });
+    }
+
     async findAllByWorkerId(workerId: string, query: FindReviewsQueryDto) {
         const worker = await this.assertWorkerExist(workerId);
 

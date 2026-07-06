@@ -21,6 +21,12 @@ export class WorkersController {
     return this.workersService.search(query);
   }
 
+  @Roles(Role.WORKER)
+  @Get('profile')
+  getOwnProfile(@CurrentUser() user: AuthJwtPayload) {
+    return this.workersService.findOwnProfile(user.sub);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.workersService.findPublicProfile(id);
