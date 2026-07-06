@@ -60,7 +60,7 @@ describe('AdminService', () => {
       providers: [
         AdminService,
         { provide: PrismaService, useValue: prisma },
-        { provide: NotificationsService, useValue: { sendToUser: jest.fn() } },
+        { provide: NotificationsService, useValue: { sendToUser: jest.fn().mockResolvedValue(undefined) } },
       ],
     }).compile();
 
@@ -72,6 +72,7 @@ describe('AdminService', () => {
       id: 'doc-id',
       workerId: 'worker-id',
       status: VerificationStatus.PENDING,
+      worker: { userId: 'user-id' },
     });
     tx.verificationDoc.count.mockResolvedValue(1);
     tx.workerProfile.update.mockResolvedValue({ id: 'worker-id', status: WorkerStatus.SUSPENDED });
