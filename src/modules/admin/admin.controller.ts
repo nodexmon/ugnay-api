@@ -7,6 +7,7 @@ import { AdminService } from '@/modules/admin/admin.service';
 import { RejectVerificationDto } from '@/modules/admin/dto/reject-verification.dto';
 import { SuspendUserDto } from '@/modules/admin/dto/suspend-user.dto';
 import { StrikeWorkerDto } from './dto/strike-worker.dto';
+import { ResolveNoShowDto } from './dto/resolve-no-show.dto';
 
 @Roles(Role.ADMIN)
 @Controller('admin')
@@ -46,9 +47,23 @@ export class AdminController {
   
   @Post('strikes')
   strikeWorker(
-    @CurrentUser() user: AuthJwtPayload, 
+    @CurrentUser() user: AuthJwtPayload,
     @Body() dto: StrikeWorkerDto
   ) {
     return this.adminService.strikeWorker(user, dto)
+  }
+
+  @Get('no-shows')
+  listPendingNoShows(@CurrentUser() user: AuthJwtPayload) {
+    return this.adminService.findPendingNoShows(user)
+  }
+
+  @Patch('no-shows/:id/resolve')
+  resolveNoShow(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('id') id: string,
+    @Body() dto: ResolveNoShowDto,
+  ) {
+    return this.adminService.resolveNoShow(id, user, dto)
   }
 }

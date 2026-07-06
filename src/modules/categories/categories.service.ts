@@ -1,35 +1,27 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CreateCategoryDto } from '@/modules/categories/dto/create-category.dto';
 import { UpdateCategoryDto } from '@/modules/categories/dto/update-category.dto';
-import { Role } from '@/generated/prisma/enums';
-import { AuthJwtPayload } from '../auth/auth.types';
 
 @Injectable()
 export class CategoriesService {
   constructor(private prisma: PrismaService) {}
 
-  async findActive(user: AuthJwtPayload) {
-    this.assertAdminRole(user.role)
-
-    return await this.prisma.serviceCategory.findMany({
+  async findActive() {
+    return this.prisma.serviceCategory.findMany({
       where: { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
   }
 
-  async findAllForAdmin(user: AuthJwtPayload) {
-    this.assertAdminRole(user.role)
-
-    return await this.prisma.serviceCategory.findMany({
+  async findAllForAdmin() {
+    return this.prisma.serviceCategory.findMany({
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
   }
 
-  async create(user: AuthJwtPayload,dto: CreateCategoryDto) {
-    this.assertAdminRole(user.role)
-
-    return await this.prisma.serviceCategory.create({
+  async create(dto: CreateCategoryDto) {
+    return this.prisma.serviceCategory.create({
       data: {
         name: dto.name,
         slug: dto.slug,
@@ -40,31 +32,14 @@ export class CategoriesService {
     });
   }
 
-  async update(user: AuthJwtPayload,  categoryId: string, dto: UpdateCategoryDto) {
-    this.assertAdminRole(user.role)
+  async update(categoryId: string, dto: UpdateCategoryDto) {
+    const category = await this.prisma.serviceCategory.findUnique({ where: { id: categoryId } })
 
-    const categoryExist = await this.assertCategoryExist(categoryId)
+    if (!category) throw new NotFoundException('Category not found.')
 
-    return await this.prisma.serviceCategory.update({
-      where: { id: categoryExist.id },
+    return this.prisma.serviceCategory.update({
+      where: { id: category.id },
       data: dto,
     });
-    
-  }
-
-  private assertAdminRole(role: Role) {
-    if(role !== Role.ADMIN) {
-      throw new ForbiddenException("Admin role is required.")
-    }
-  }
-
-  private async assertCategoryExist(categoryId: string) {
-    const category = await this.prisma.serviceCategory.findUnique({ where: { id: categoryId } })
-    
-    if(!category) {
-      throw new NotFoundException("Category not found.")
-    }
-
-    return category
   }
 }

@@ -1,12 +1,15 @@
-import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { OtpService } from '@/modules/auth/otp/otp.service';
 import { SmsService } from '@/modules/auth/sms/sms.service';
 import { AuthJwtService } from '@/modules/auth/jwt/jwt.service';
+import { jwtConfig } from '@/config';
+import type { ConfigType } from '@nestjs/config';
 import { Role, UserStatus } from '@/generated/prisma/enums';
 import { createHash, randomUUID, timingSafeEqual } from 'crypto';
 import { RefreshToken, User } from '@/generated/prisma/client';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
+import ms from 'ms';
 
 @Injectable()
 export class AuthService {
@@ -14,7 +17,8 @@ export class AuthService {
         private prisma: PrismaService,
         private otpService: OtpService,
         private smsService: SmsService,
-        private jwtService: AuthJwtService
+        private jwtService: AuthJwtService,
+        @Inject(jwtConfig.KEY) private config: ConfigType<typeof jwtConfig>,
     ) {}
 
     async sendOtp(phone: string) {
@@ -193,7 +197,7 @@ export class AuthService {
     }
     
     private refreshTokenExpiryDate() {
-        return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        return new Date(Date.now() + ms(this.config.JWT_REFRESH_EXPIRES_IN))
     }
     
     private assertUserRoleMatches(existingRole: Role, requestedRole: Role) {

@@ -28,14 +28,17 @@
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/mapped-types": "*",
     "@nestjs/passport": "^11.0.5",
-    "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-express": "^11.1.27",
     "@nestjs/schedule": "^6.1.3",
+    "@nestjs/throttler": "^6.5.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@types/ms": "^2.1.0",
     "axios": "^1.18.1",
     "dotenv": "^17.4.2",
+    "expo-server-sdk": "^6.1.0",
     "ms": "^2.1.3",
+    "multer": "^2.2.0",
     "nestjs-pino": "^4.6.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -102,8 +105,12 @@
         }
       ]
     },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(expo-server-sdk)/)"
+    ],
     "moduleNameMapper": {
       "^.*generated/prisma/client$": "<rootDir>/../test/prisma-client.mock.ts",
+      "^expo-server-sdk$": "<rootDir>/../test/expo-server-sdk.mock.ts",
       "^@/(.*)$": "<rootDir>/$1"
     },
     "collectCoverageFrom": [

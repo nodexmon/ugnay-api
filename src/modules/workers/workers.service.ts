@@ -76,7 +76,10 @@ export class WorkersService {
 
     if (!worker) throw new NotFoundException('Worker profile is not found.');
 
-    return worker;
+    return {
+      ...worker,
+      averageRating: worker.totalReviews >= 3 ? worker.averageRating : null,
+    };
   }
 
   async createProfile(user: AuthJwtPayload, dto: CreateWorkerDto) {

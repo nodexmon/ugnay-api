@@ -9,6 +9,7 @@ import { CustomersModule } from '@/modules/customers/customers.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from '@/modules/auth/auth.guard';
 import { RolesGuard } from '@/modules/auth/roles.guard';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { CategoriesModule } from '@/modules/categories/categories.module';
 import { AdminModule } from '@/modules/admin/admin.module';
 import { ConfigModule, ConfigType } from '@nestjs/config';
@@ -19,6 +20,8 @@ import { HttpModule } from '@nestjs/axios';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { UploadsModule } from './uploads/uploads.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -31,12 +34,13 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
     AdminModule,
     BookingsModule,
     ReviewsModule,
+    NotificationsModule,
 
     ConfigModule.forRoot({
       isGlobal: true,
       load: [
         appConfig, jwtConfig, uploadConfig, databaseConfig, loggerConfig, textbeeConfig
-      ] 
+      ]
     }),
 
     LoggerModule.forRootAsync({
@@ -46,7 +50,9 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 
     ScheduleModule.forRoot(),
 
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
 
+    UploadsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -58,6 +64,10 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })

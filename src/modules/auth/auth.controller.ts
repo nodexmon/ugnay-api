@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from '@/modules/auth/auth.service';
 import { SendOtpDto } from '@/modules/auth/dto/send-otp.dto';
 import { VerifyOtpDto } from '@/modules/auth/dto/verify-otp.dto';
@@ -12,18 +13,21 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 900000 } })
   @Post('request-otp')
   sendOtp(@Body() dto: SendOtpDto) {
     return this.authService.sendOtp(dto.phone);
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 900000 } })
   @Post('verify-otp')
   verifyOtp(@Body() dto: VerifyOtpDto) {
     return this.authService.verifyOtp(dto.phone, dto.code, dto.role);
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 3600000 } })
   @Post('refresh')
   refreshToken(@Body() dto: RefreshTokenDto) {
     return this.authService.refreshToken(dto.refreshToken);

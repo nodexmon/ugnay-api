@@ -24,7 +24,8 @@ import { jwtConfig } from '@/config';
       })
     }),
     PrismaModule,
-    HttpModule
+    HttpModule,
+    ConfigModule.forFeature(jwtConfig)
   ],
   controllers: [AuthController],
   providers: [AuthService, OtpService, AuthJwtService, SmsService, JwtStrategy],

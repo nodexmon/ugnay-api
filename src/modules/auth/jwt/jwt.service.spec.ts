@@ -2,6 +2,13 @@ import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthJwtService } from '@/modules/auth/jwt/jwt.service';
+import { jwtConfig } from '@/config';
+
+const mockJwtConfig = {
+  JWT_SECRET: 'test-secret-at-least-32-chars-long',
+  JWT_ACCESS_EXPIRES_IN: '15m',
+  JWT_REFRESH_EXPIRES_IN: '7d',
+};
 
 describe('AuthJwtService', () => {
   let service: AuthJwtService;
@@ -13,7 +20,11 @@ describe('AuthJwtService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AuthJwtService, { provide: JwtService, useValue: jwt }],
+      providers: [
+        AuthJwtService,
+        { provide: JwtService, useValue: jwt },
+        { provide: jwtConfig.KEY, useValue: mockJwtConfig },
+      ],
     }).compile();
 
     service = module.get<AuthJwtService>(AuthJwtService);
@@ -29,12 +40,12 @@ describe('AuthJwtService', () => {
     expect(jwt.sign).toHaveBeenNthCalledWith(
       1,
       { sub: 'user-id', phone: '+639171234567', role: 'WORKER' },
-      { expiresIn: '15m' },
+      { expiresIn: mockJwtConfig.JWT_ACCESS_EXPIRES_IN },
     );
     expect(jwt.sign).toHaveBeenNthCalledWith(
       2,
       { sub: 'user-id', phone: '+639171234567', role: 'WORKER', tokenId: 'token-id' },
-      { expiresIn: '30d' },
+      { expiresIn: mockJwtConfig.JWT_REFRESH_EXPIRES_IN },
     );
   });
 
