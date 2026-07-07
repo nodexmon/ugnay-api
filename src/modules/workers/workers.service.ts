@@ -14,17 +14,8 @@ import { SearchWorkersDto } from '@/modules/workers/dto/search-workers.dto';
 import type { UploadedVerificationFiles } from '@/modules/workers/workers.types';
 import { Prisma } from '@/generated/prisma/client';
 import { FileStorageService } from '@/modules/workers/file-storage.service';
-
-const PUBLIC_WORKER_INCLUDE = {
-  homeBarangay: true,
-  categories: { include: { category: true } },
-  serviceAreas: { include: { barangay: true } },
-};
-
-const WORKER_INCLUDE = {
-  ...PUBLIC_WORKER_INCLUDE,
-  verificationDocs: { orderBy: { createdAt: 'desc' as const } },
-};
+import { PUBLIC_WORKER_INCLUDE, WORKER_INCLUDE } from '@/common/constants/worker-includes';
+import { assertUserIsActive } from '@/common/utils/assert.util';
 
 @Injectable()
 export class WorkersService {
@@ -88,7 +79,7 @@ export class WorkersService {
   }
 
   async createProfile(userId: string, dto: CreateWorkerDto) {
-    await this.assertUserIsActive(userId);
+    await assertUserIsActive(this.prisma, userId);
     await this.assertProfileDoesNotExist(userId);
     await this.validateCategories(dto.categories);
 
@@ -239,13 +230,6 @@ export class WorkersService {
   }
 
   // ─── Assertions ───────────────────────────────────────────────────────────
-
-  private async assertUserIsActive(userId: string): Promise<void> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || user.status !== UserStatus.ACTIVE) {
-      throw new ForbiddenException('Active user is required.');
-    }
-  }
 
   private async assertProfileDoesNotExist(userId: string): Promise<void> {
     const existing = await this.prisma.workerProfile.findUnique({ where: { userId } });

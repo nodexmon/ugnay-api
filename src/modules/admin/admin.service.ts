@@ -7,15 +7,9 @@ import { AuthJwtPayload } from '../auth/auth.types';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { assertExists } from '@/common/utils/assert.util';
+import { WORKER_INCLUDE } from '@/common/constants/worker-includes';
 
 const STRIKE_SUSPENSION_THRESHOLD = 3;
-
-const WORKER_PROFILE_INCLUDE = {
-  verificationDocs: { orderBy: { createdAt: 'desc' as const } },
-  homeBarangay: true,
-  categories: { include: { category: true } },
-  serviceAreas: { include: { barangay: true } },
-};
 
 @Injectable()
 export class AdminService {
@@ -59,7 +53,7 @@ export class AdminService {
         return tx.workerProfile.update({
           where: { id: doc.workerId },
           data: { status: WorkerStatus.VERIFIED },
-          include: WORKER_PROFILE_INCLUDE,
+          include: WORKER_INCLUDE,
         });
       })
       .then((result) => {
@@ -99,7 +93,7 @@ export class AdminService {
             status: isSecondRejection ? WorkerStatus.SUSPENDED : WorkerStatus.REJECTED,
             isOnline: false,
           },
-          include: WORKER_PROFILE_INCLUDE,
+          include: WORKER_INCLUDE,
         });
       })
       .then((result) => {
