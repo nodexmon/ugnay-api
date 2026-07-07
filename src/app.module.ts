@@ -8,7 +8,8 @@ import { WorkersModule } from '@/modules/workers/workers.module';
 import { CustomersModule } from '@/modules/customers/customers.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from '@/modules/auth/auth.guard';
-import { RolesGuard } from '@/modules/auth/roles.guard';
+import { CaslGuard } from '@/casl/casl.guard';
+import { CaslModule } from '@/casl/casl.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { CategoriesModule } from '@/modules/categories/categories.module';
 import { AdminModule } from '@/modules/admin/admin.module';
@@ -37,6 +38,7 @@ import { BarangaysModule } from './modules/barangays/barangays.module';
     ReviewsModule,
     NotificationsModule,
     BarangaysModule,
+    CaslModule,
 
     ConfigModule.forRoot({
       isGlobal: true,
@@ -65,7 +67,7 @@ import { BarangaysModule } from './modules/barangays/barangays.module';
     },
     {
       provide: APP_GUARD,
-      useClass: RolesGuard,
+      useClass: CaslGuard,
     },
     {
       provide: APP_GUARD,
