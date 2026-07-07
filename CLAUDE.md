@@ -49,9 +49,10 @@ src/
 
 ### Global guards
 
-Both guards are registered globally in `AppModule` via `APP_GUARD`:
+Three guards are registered globally in `AppModule` via `APP_GUARD`:
 - **JwtAuthGuard** — applied to every route by default. Bypass with `@Public()`.
-- **RolesGuard** — restricts routes by role. Apply with `@Roles(Role.ADMIN)`, etc.
+- **CaslGuard** — permission-based authorization. Declare requirements with `@CheckAbility(Action, Subject)` from `src/casl/`. Permissions are defined per role in `CaslAbilityFactory`.
+- **ThrottlerGuard** — rate limiting.
 
 ### Auth flow
 
@@ -92,3 +93,7 @@ The Prisma client is a `pg`-adapter-backed instance injected via `PrismaService`
 ### Testing
 
 Jest uses `ts-jest` in ESM mode. The Prisma client is mocked globally via `moduleNameMapper` pointing to `test/prisma-client.mock.ts` — no real DB is needed for unit tests.
+
+## Dev Log
+
+After every successful commit or feature implementation, append a dated entry to `logs/dev.log`. Use bullet points per change. Separate sessions with `---`. Read the existing file first to preserve prior entries.
