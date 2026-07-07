@@ -94,6 +94,20 @@ The Prisma client is a `pg`-adapter-backed instance injected via `PrismaService`
 
 Jest uses `ts-jest` in ESM mode. The Prisma client is mocked globally via `moduleNameMapper` pointing to `test/prisma-client.mock.ts` — no real DB is needed for unit tests.
 
+## Skills
+
+Always invoke the project skills defined in `.claude/commands/` for the relevant task:
+
+| Skill | When to use |
+|---|---|
+| `branch` | Before starting any work — create and checkout a branch first |
+| `commit` | After every meaningful, self-contained unit of work |
+| `implement` | When implementing any feature or endpoint |
+| `refactor` | When refactoring a module or file |
+| `write-tests` | When writing or fixing spec files |
+| `clean-code` | Apply clean coding principles to everything written or modified |
+| `architecture` | Apply architectural rules to keep the codebase modular and layered |
+
 ## Dev Log
 
 After every successful commit or feature implementation, append a dated entry to `logs/dev.log`. Use bullet points per change. Separate sessions with `---`. Read the existing file first to preserve prior entries.
