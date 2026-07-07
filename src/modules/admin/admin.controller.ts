@@ -15,8 +15,8 @@ export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @Get('verifications')
-  listPendingVerifications(@CurrentUser() user: AuthJwtPayload) {
-    return this.adminService.findPendingVerifications(user);
+  listPendingVerifications() {
+    return this.adminService.findPendingVerifications();
   }
 
   @Patch('verifications/:id/approve')
@@ -34,12 +34,8 @@ export class AdminController {
   }
 
   @Patch('users/:id/suspend')
-  setUserSuspension(
-    @CurrentUser() user: AuthJwtPayload,
-    @Param('id') id: string,
-    @Body() dto: SuspendUserDto,
-  ) {
-    return this.adminService.setUserSuspension(user, id, dto.suspended);
+  setUserSuspension(@Param('id') id: string, @Body() dto: SuspendUserDto) {
+    return this.adminService.setUserSuspension(id, dto.suspended);
   }
 
   @Post('strikes')
@@ -48,8 +44,8 @@ export class AdminController {
   }
 
   @Get('no-shows')
-  listPendingNoShows(@CurrentUser() user: AuthJwtPayload) {
-    return this.adminService.findPendingNoShows(user);
+  listPendingNoShows() {
+    return this.adminService.findPendingNoShows();
   }
 
   @Patch('no-shows/:id/resolve')

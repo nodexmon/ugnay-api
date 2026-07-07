@@ -93,7 +93,7 @@ describe('AdminService', () => {
     prisma.user.findUnique.mockResolvedValue({ id: 'user-id', status: UserStatus.ACTIVE });
     tx.user.update.mockResolvedValue({ id: 'user-id', status: UserStatus.SUSPENDED });
 
-    await expect(service.setUserSuspension(adminUser, 'user-id', true)).resolves.toEqual({
+    await expect(service.setUserSuspension('user-id', true)).resolves.toEqual({
       id: 'user-id',
       status: UserStatus.SUSPENDED,
     });

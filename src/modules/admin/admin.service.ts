@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { BookingStatus, StrikeReason, UserStatus, VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
 import { StrikeWorkerDto } from './dto/strike-worker.dto';
@@ -6,7 +6,6 @@ import { ResolveNoShowDto } from './dto/resolve-no-show.dto';
 import { AuthJwtPayload } from '../auth/auth.types';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
-import { assertExists } from '@/common/utils/assert.util';
 import { WORKER_INCLUDE } from '@/common/constants/worker-includes';
 
 const STRIKE_SUSPENSION_THRESHOLD = 3;
@@ -18,7 +17,7 @@ export class AdminService {
     private notifications: NotificationsService,
   ) {}
 
-  async findPendingVerifications(user: AuthJwtPayload) {
+  async findPendingVerifications() {
     return this.prisma.verificationDoc.findMany({
       where: { status: VerificationStatus.PENDING },
       include: {
@@ -107,11 +106,9 @@ export class AdminService {
       });
   }
 
-  async setUserSuspension(user: AuthJwtPayload, workerId: string, suspended: boolean) {
-    await assertExists(
-      () => this.prisma.user.findUnique({ where: { id: workerId } }),
-      'User not found.',
-    );
+  async setUserSuspension(workerId: string, suspended: boolean) {
+    const user = await this.prisma.user.findUnique({ where: { id: workerId } });
+    if (!user) throw new NotFoundException('User not found.');
 
     return this.prisma.$transaction(async (tx: TransactionClient) => {
       const updatedUser = await tx.user.update({
@@ -131,16 +128,12 @@ export class AdminService {
   }
 
   async strikeWorker(user: AuthJwtPayload, dto: StrikeWorkerDto) {
-    const worker = await assertExists(
-      () => this.prisma.workerProfile.findUnique({ where: { id: dto.workerId } }),
-      'Worker profile does not exist.',
-    );
+    const worker = await this.prisma.workerProfile.findUnique({ where: { id: dto.workerId } });
+    if (!worker) throw new NotFoundException('Worker profile does not exist.');
 
     if (dto.bookingId) {
-      await assertExists(
-        () => this.prisma.booking.findUnique({ where: { id: dto.bookingId } }),
-        'Booking not found.',
-      );
+      const booking = await this.prisma.booking.findUnique({ where: { id: dto.bookingId } });
+      if (!booking) throw new NotFoundException('Booking not found.');
       await this.assertBookingNotAlreadyStruck(dto.bookingId);
     }
 
@@ -157,7 +150,7 @@ export class AdminService {
     });
   }
 
-  async findPendingNoShows(user: AuthJwtPayload) {
+  async findPendingNoShows() {
     return this.prisma.noShowReport.findMany({
       where: { confirmed: null },
       include: {
@@ -174,22 +167,19 @@ export class AdminService {
   }
 
   async resolveNoShow(reportId: string, user: AuthJwtPayload, dto: ResolveNoShowDto) {
-    const report = await assertExists(
-      () =>
-        this.prisma.noShowReport.findUnique({
-          where: { id: reportId },
-          include: {
-            booking: {
-              select: {
-                id: true,
-                workerId: true,
-                worker: { select: { userId: true } },
-              },
-            },
+    const report = await this.prisma.noShowReport.findUnique({
+      where: { id: reportId },
+      include: {
+        booking: {
+          select: {
+            id: true,
+            workerId: true,
+            worker: { select: { userId: true } },
           },
-        }),
-      'No-show report not found.',
-    );
+        },
+      },
+    });
+    if (!report) throw new NotFoundException('No-show report not found.');
 
     if (report.confirmed !== null) {
       throw new ConflictException('This report has already been resolved.');
@@ -239,14 +229,11 @@ export class AdminService {
   // ─── Private helpers ─────────────────────────────────────────────────────
 
   private async getPendingVerification(id: string) {
-    const doc = await assertExists(
-      () =>
-        this.prisma.verificationDoc.findUnique({
-          where: { id },
-          include: { worker: { select: { userId: true } } },
-        }),
-      'Verification submission not found.',
-    );
+    const doc = await this.prisma.verificationDoc.findUnique({
+      where: { id },
+      include: { worker: { select: { userId: true } } },
+    });
+    if (!doc) throw new NotFoundException('Verification submission not found.');
 
     if (doc.status !== VerificationStatus.PENDING) {
       throw new ConflictException('Verification submission has already been reviewed');
@@ -256,10 +243,8 @@ export class AdminService {
   }
 
   private async assertWorkerIsUnverified(workerId: string) {
-    const worker = await assertExists(
-      () => this.prisma.workerProfile.findUnique({ where: { id: workerId } }),
-      'Worker profile does not exist.',
-    );
+    const worker = await this.prisma.workerProfile.findUnique({ where: { id: workerId } });
+    if (!worker) throw new NotFoundException('Worker profile does not exist.');
 
     if (worker.status === WorkerStatus.VERIFIED) {
       throw new ConflictException('Worker is already verified.');
