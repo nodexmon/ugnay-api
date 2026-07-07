@@ -1,0 +1,30 @@
+================================
+        DEV LOG
+================================
+
+June 28, 2026
+
+- Added review module for submitting a customer review and rating
+- Added also a findMany method for retrieving worker's review
+
+---
+
+July 7, 2026
+
+- Fixed reviews bugs: ownership check now compares CustomerProfile.id (not User.id),
+  rating update uses correct WorkerProfile.id, findAllByWorkerId and assertWorkerExist
+  use WorkerProfile.id consistently
+- Implemented uploads module: POST /uploads/avatar (avatar upload), GET /uploads/*path (file serving)
+- Implemented customers module: GET/POST/PATCH /customers/profile
+- Implemented barangays listing: GET /barangays (public)
+- Added push notifications on worker verification approve/reject
+- Added missing endpoints: GET /workers/profile (own profile), GET /reviews/my (customer's reviews)
+- Removed dead UsersService.create() stub
+- Refactored shared utilities: PaginationDto base class, shared worker profile includes constant,
+  assertUserIsActive lifted to assert.util.ts
+- Replaced RolesGuard with CASL permission-based authorization (@casl/ability v7);
+  all controllers now use @CheckAbility(action, subject) instead of @Roles()
+- Refactored shared utilities: PaginationDto base class, shared worker profile
+  includes constant, assertUserIsActive lifted to assert.util.ts
+- Added dev log instruction and skills reference to CLAUDE.md
+
