@@ -10,6 +10,7 @@ import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { FindBookingsQueryDto } from './dto/find-bookings-query.dto';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
+import { assertUserIsActive } from '@/common/utils/assert.util';
 
 const ROLE_REQUIREMENTS: Partial<Record<BookingAction, Role>> = {
     [BookingAction.CREATE]: Role.CUSTOMER,
@@ -106,7 +107,7 @@ export class BookingsService {
 
     async create(user: AuthJwtPayload, dto: CreateBookingDto) {
         this.assertRole(user.role, BookingAction.CREATE);
-        await this.assertUserIsActive(user.sub);
+        await assertUserIsActive(this.prisma, user.sub);
 
         const customer = await this.prisma.customerProfile.findUnique({
             where: { userId: user.sub },
@@ -174,7 +175,7 @@ export class BookingsService {
     }
 
     async cancel(bookingId: string, user: AuthJwtPayload, dto: CancelBookingDto) {
-        const activeUser = await this.assertUserIsActive(user.sub);
+        const activeUser = await assertUserIsActive(this.prisma, user.sub);
         const booking = await this.assertBookingExist(bookingId);
         const profileId = await this.getProfileId(user.sub, user.role);
 
@@ -241,7 +242,7 @@ export class BookingsService {
         bookingId: string,
         ...allowedStatuses: BookingStatus[]
     ): Promise<{ activeUser: User; booking: Booking; profileId: string }> {
-        const activeUser = await this.assertUserIsActive(userId);
+        const activeUser = await assertUserIsActive(this.prisma, userId);
         const booking = await this.assertBookingExist(bookingId);
         this.assertBookingInStatus(booking, ...allowedStatuses);
         const profileId = await this.getProfileId(userId, role);
@@ -281,14 +282,6 @@ export class BookingsService {
         if (required && role !== required) {
             throw new ForbiddenException('Insufficient Permissions.');
         }
-    }
-
-    private async assertUserIsActive(userId: string): Promise<User> {
-        const user = await this.prisma.user.findUnique({ where: { id: userId } });
-        if (!user || user.status !== UserStatus.ACTIVE) {
-            throw new ForbiddenException('Active user is required.');
-        }
-        return user;
     }
 
     private async assertBookingExist(bookingId: string): Promise<Booking> {
