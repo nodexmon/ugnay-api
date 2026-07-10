@@ -346,8 +346,11 @@ export class BookingsService {
   ): Promise<{ activeUser: User; booking: Booking; profileId: string }> {
     const activeUser = await assertUserIsActive(this.prisma, userId);
     const booking = await assertBookingExists(this.prisma, bookingId);
+
     this.assertions.assertBookingInStatus(booking, ...allowedStatuses);
+
     const profileId = await this.getProfileId(userId, role);
+    
     return { activeUser, booking, profileId };
   }
 
@@ -389,6 +392,7 @@ export class BookingsService {
     party: 'worker' | 'customer',
     message: { title: string; body: string },
   ): Promise<void> {
+
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
@@ -396,9 +400,11 @@ export class BookingsService {
         customer: { select: { userId: true } },
       },
     });
+
     if (!booking) return;
-    const userId =
-      party === 'worker' ? booking.worker.userId : booking.customer.userId;
+
+    const userId = party === 'worker' ? booking.worker.userId : booking.customer.userId;
+
     await this.notifications.sendToUser(userId, message);
   }
 }
