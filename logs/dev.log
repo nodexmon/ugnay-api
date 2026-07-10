@@ -76,6 +76,25 @@ July 10, 2026 (continued — module standardization)
 
 ---
 
+July 10, 2026 (continued — codebase standardization refactor)
+
+- Standardized assertion class naming: all classes now follow [Name]Assertions pattern
+  (dropped "Service" suffix from BookingsAssertionsService, UsersAssertionsService,
+  CategoriesAssertionsService); renamed files to plural form (users.assertions.ts,
+  categories.assertions.ts)
+- Changed assertXExists methods to return the entity instead of void — eliminates
+  redundant DB fetches at call sites and removes silent runtime bugs
+- Fixed critical DI bug: UsersModule was exporting UsersAssertions without providing it
+- Fixed admin.assertions.ts wrong import (prisma/browser → prisma/client); added
+  assertWorkerProfileExists replacing standalone function in deleted assert.util.ts
+- Wired UsersModule into BookingsModule and WorkersModule imports so DI resolves correctly
+- Extracted ReviewsAssertions from inline validation in ReviewsService (assertBookingExistsAndCompleted, assertCustomerOwnsBooking)
+- Added private readonly to all service constructor params
+- Added section headers to ReviewsService; removed empty assert.util.ts
+- Updated all spec files to mock new assertion class names and patterns
+
+---
+
 July 10, 2026 (continued — per-module assertions classes)
 
 - Created BookingsAssertions, AdminAssertions, WorkersAssertions as @Injectable() classes
