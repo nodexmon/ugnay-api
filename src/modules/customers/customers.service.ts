@@ -20,11 +20,10 @@ export class CustomersService {
   }
 
   async createProfile(userId: string, dto: CreateCustomerDto) {
-    const existing = await this.prisma.customerProfile.findUnique({
-      where: { userId },
-    });
-    if (existing)
+    const existing = await this.getProfile(userId);
+    if (existing) {
       throw new ConflictException('Customer profile already exists.');
+    }
 
     return this.prisma.customerProfile.create({
       data: {
@@ -40,7 +39,11 @@ export class CustomersService {
     await this.getProfile(userId);
     return this.prisma.customerProfile.update({
       where: { userId },
-      data: dto,
+      data: {
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        avatarUrl: dto.avatarUrl,
+      },
     });
   }
 }
