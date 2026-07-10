@@ -146,7 +146,7 @@ export class AdminService {
         notes: dto.notes,
       });
 
-      return this.incrementStrikeAndSuspendIfNeeded(tx, { id: worker.id });
+      return this.incrementStrikeAndSuspendIfNeeded(tx, worker.id);
     });
   }
 
@@ -203,7 +203,7 @@ export class AdminService {
             notes: dto.notes,
           });
 
-          await this.incrementStrikeAndSuspendIfNeeded(tx, { userId: report.booking.workerId });
+          await this.incrementStrikeAndSuspendIfNeeded(tx, report.booking.workerId);
 
           await tx.booking.update({
             where: { id: report.bookingId },
@@ -274,12 +274,9 @@ export class AdminService {
     await tx.strike.create({ data });
   }
 
-  private async incrementStrikeAndSuspendIfNeeded(
-    tx: TransactionClient,
-    where: { id: string } | { userId: string },
-  ) {
+  private async incrementStrikeAndSuspendIfNeeded(tx: TransactionClient, workerId: string) {
     const updated = await tx.workerProfile.update({
-      where,
+      where: { id: workerId },
       data: { strikeCount: { increment: 1 } },
     });
 
