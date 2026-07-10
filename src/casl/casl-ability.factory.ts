@@ -24,10 +24,12 @@ export class CaslAbilityFactory {
         can(Action.Create, 'VerificationDoc');
 
         // Booking
+        can(Action.Read, 'Booking');
         can(Action.Accept, 'Booking');
         can(Action.Reject, 'Booking');
         can(Action.Start, 'Booking');
         can(Action.Complete, 'Booking');
+        can(Action.Cancel, 'Booking');
 
         // Service Category
         can(Action.Read, 'ServiceCategory');
