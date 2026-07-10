@@ -74,3 +74,20 @@ July 10, 2026 (continued — module standardization)
   file layout, section dividers, shared utilities, notification fire-and-forget rule
 - Applied ESLint auto-format across codebase
 
+---
+
+July 10, 2026 (continued — per-module assertions classes)
+
+- Created BookingsAssertions, AdminAssertions, WorkersAssertions as @Injectable() classes
+  in [name].assertions.ts; each holds all module-specific assertion methods (validate + throw)
+- Updated bookings.module.ts, admin.module.ts, workers.module.ts to register assertions
+  classes in providers
+- Refactored bookings.service.ts, admin.service.ts, workers.service.ts: inject assertions
+  class via constructor; replace this.assertX() with this.assertions.assertX(); remove
+  private assertion methods and Private: assertions divider (now only two dividers per service)
+- Updated all spec files to mock assertions class entirely, eliminating deep prisma mock
+  chains for assertion-path tests; fixed bookings.controller.spec.ts to also provide
+  BookingsAssertions mock
+- Updated CLAUDE.md module conventions and .claude/commands/implement.md with assertions
+  class pattern and two-divider service structure rule
+
