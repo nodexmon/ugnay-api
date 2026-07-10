@@ -3,11 +3,14 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { CreateCategoryDto } from '@/modules/categories/dto/create-category.dto';
 import { UpdateCategoryDto } from '@/modules/categories/dto/update-category.dto';
 import { CATEGORY_ORDER } from './categories.constants';
-import { CategoriesAssertionsService } from './categories.assertion';
+import { CategoriesAssertions } from './categories.assertions';
 
 @Injectable()
 export class CategoriesService {
-  constructor(private prisma: PrismaService, private assertions: CategoriesAssertionsService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly assertions: CategoriesAssertions,
+  ) {}
 
   async findActive() {
     return this.prisma.serviceCategory.findMany({

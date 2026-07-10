@@ -39,6 +39,9 @@ describe('AdminService', () => {
   const assertions = {
     assertWorkerIsUnverified: jest.fn(),
     assertBookingNotAlreadyStruck: jest.fn(),
+    assertUserExists: jest.fn(),
+    assertWorkerProfileExists: jest.fn(),
+    assertBookingExists: jest.fn(),
   };
 
   beforeEach(async () => {

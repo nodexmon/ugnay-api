@@ -5,6 +5,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { WorkersService } from '@/modules/workers/workers.service';
 import { FileStorageService } from '@/modules/workers/file-storage.service';
 import { WorkersAssertions } from '@/modules/workers/workers.assertions';
+import { UsersAssertions } from '@/modules/users/users.assertions';
 
 describe('WorkersService', () => {
   let service: WorkersService;
@@ -40,6 +41,10 @@ describe('WorkersService', () => {
     assertUnique: jest.fn(),
   };
 
+  const usersAssertions = {
+    assertUserExists: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
@@ -48,6 +53,7 @@ describe('WorkersService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: FileStorageService, useValue: fileStorage },
         { provide: WorkersAssertions, useValue: assertions },
+        { provide: UsersAssertions, useValue: usersAssertions },
       ],
     }).compile();
 

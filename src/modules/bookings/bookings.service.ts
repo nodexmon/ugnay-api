@@ -19,23 +19,21 @@ import { Booking, User } from '@/generated/prisma/client';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { FindBookingsQueryDto } from './dto/find-bookings-query.dto';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
-import {
-  assertBookingExists,
-  assertUserIsActive,
-} from '@/common/utils/assert.util';
 import { CONTACT_REVEAL_STATUSES } from './bookings.constants';
-import { BookingsAssertionsService } from './bookings.assertions';
+import { BookingsAssertions } from './bookings.assertions';
 import { BookingsNotificationService } from './bookings.notification';
+import { UsersAssertions } from '../users/users.assertions';
 
 @Injectable()
 export class BookingsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly assertions: BookingsAssertions,
+    private readonly usersAssertions: UsersAssertions,
     private readonly notifications: BookingsNotificationService,
-    private readonly assertions:  BookingsAssertionsService,
   ) {}
 
-  // ─── Public API ───────────────────────────────────────────────────────────
+  // ─── Public API ──────────────────────────────────────────────────────────────
 
   async findOne(bookingId: string, user: AuthJwtPayload) {
     const booking = await this.prisma.booking.findFirst({
@@ -46,6 +44,7 @@ export class BookingsService {
           : { worker: { userId: user.sub } }),
       },
     });
+
     if (!booking) throw new NotFoundException('Booking not found.');
 
     const revealContact = CONTACT_REVEAL_STATUSES.has(booking.status);
@@ -125,7 +124,7 @@ export class BookingsService {
   }
 
   async create(user: AuthJwtPayload, dto: CreateBookingDto) {
-    await assertUserIsActive(this.prisma, user.sub);
+    await this.usersAssertions.assertUserExists(user.sub);
 
     const customer = await this.prisma.customerProfile.findUnique({
       where: { userId: user.sub },
@@ -141,7 +140,7 @@ export class BookingsService {
 
     const maxScheduledDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     if (dto.scheduledDate > maxScheduledDate) {
-      throw new BadRequestException('Scheduled booking must be within 7 days');
+      throw new BadRequestException('Scheduled booking must be within 7 days.');
     }
 
     const booking = await this.prisma.booking.create({
@@ -241,8 +240,8 @@ export class BookingsService {
   }
 
   async cancel(bookingId: string, user: AuthJwtPayload, dto: CancelBookingDto) {
-    const activeUser = await assertUserIsActive(this.prisma, user.sub);
-    const booking = await assertBookingExists(this.prisma, bookingId);
+    const activeUser = await this.usersAssertions.assertUserExists(user.sub);
+    const booking = await this.assertions.assertBookingExists(bookingId);
     const profileId = await this.getProfileId(user.sub, user.role);
 
     if (user.role === Role.CUSTOMER) {
@@ -311,7 +310,7 @@ export class BookingsService {
     });
   }
 
-  // ─── Private: business logic ──────────────────────────────────────────────
+  // ─── Private: business logic ─────────────────────────────────────────────────
 
   private async getProfileId(userId: string, role: Role): Promise<string> {
     if (role === Role.CUSTOMER) {
@@ -336,8 +335,8 @@ export class BookingsService {
     bookingId: string,
     ...allowedStatuses: BookingStatus[]
   ): Promise<{ activeUser: User; booking: Booking; profileId: string }> {
-    const activeUser = await assertUserIsActive(this.prisma, userId);
-    const booking = await assertBookingExists(this.prisma, bookingId);
+    const activeUser = await this.usersAssertions.assertUserExists(userId);
+    const booking = await this.assertions.assertBookingExists(bookingId);
 
     this.assertions.assertBookingInStatus(booking.status, ...allowedStatuses);
 

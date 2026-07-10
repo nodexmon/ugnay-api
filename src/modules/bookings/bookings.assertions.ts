@@ -1,15 +1,22 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
+import { Booking } from '@/generated/prisma/client';
 import { BookingStatus } from '@/generated/prisma/enums';
 
 @Injectable()
-export class BookingsAssertionsService {
+export class BookingsAssertions {
   constructor(private readonly prisma: PrismaService) {}
 
   assertOwnership(entityId: string, profileId: string): void {
     if (entityId !== profileId) {
       throw new ForbiddenException('Insufficient permissions.');
     }
+  }
+
+  async assertBookingExists(bookingId: string): Promise<Booking> {
+    const booking = await this.prisma.booking.findUnique({ where: { id: bookingId } });
+    if (!booking) throw new NotFoundException('Booking not found.');
+    return booking;
   }
 
   assertBookingInStatus(status: BookingStatus, ...allowed: BookingStatus[]): void {
@@ -39,7 +46,7 @@ export class BookingsAssertionsService {
       },
     });
     if (activeBooking) {
-      throw new ForbiddenException('Worker is currently unavailable');
+      throw new ForbiddenException('Worker is currently unavailable.');
     }
   }
 }

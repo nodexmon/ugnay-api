@@ -24,14 +24,15 @@ import {
   PUBLIC_WORKER_INCLUDE,
   WORKER_INCLUDE,
 } from '@/common/constants/worker-includes';
-import { assertUserIsActive } from '@/common/utils/assert.util';
+import { UsersAssertions } from '../users/users.assertions';
 
 @Injectable()
 export class WorkersService {
   constructor(
-    private prisma: PrismaService,
-    private fileStorage: FileStorageService,
+    private readonly prisma: PrismaService,
+    private readonly fileStorage: FileStorageService,
     private readonly assertions: WorkersAssertions,
+    private readonly usersAssertions: UsersAssertions,
   ) {}
 
   // ─── Public API ──────────────────────────────────────────────────────────
@@ -99,7 +100,7 @@ export class WorkersService {
   }
 
   async createProfile(userId: string, dto: CreateWorkerDto) {
-    await assertUserIsActive(this.prisma, userId);
+    await this.usersAssertions.assertUserExists(userId);
     await this.assertions.assertProfileDoesNotExist(userId);
     await this.validateCategories(dto.categories);
 

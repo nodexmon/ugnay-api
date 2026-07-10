@@ -20,15 +20,14 @@ import { AuthJwtPayload } from '../auth/auth.types';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { WORKER_INCLUDE } from '@/common/constants/worker-includes';
-import { assertWorkerProfileExists } from '@/common/utils/assert.util';
 import { STRIKE_SUSPENSION_THRESHOLD } from './admin.constants';
 import { AdminAssertions } from './admin.assertions';
 
 @Injectable()
 export class AdminService {
   constructor(
-    private prisma: PrismaService,
-    private notifications: NotificationsService,
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
     private readonly assertions: AdminAssertions,
   ) {}
 
@@ -153,7 +152,7 @@ export class AdminService {
   }
 
   async strikeWorker(user: AuthJwtPayload, dto: StrikeWorkerDto) {
-    const worker = await assertWorkerProfileExists(this.prisma, dto.workerId);
+    const worker = await this.assertions.assertWorkerProfileExists(dto.workerId);
 
     if (dto.bookingId) {
       await this.assertions.assertBookingExists(dto.bookingId);
