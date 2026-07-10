@@ -1,6 +1,16 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import { BookingStatus, StrikeReason, UserStatus, VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
+import {
+  BookingStatus,
+  StrikeReason,
+  UserStatus,
+  VerificationStatus,
+  WorkerStatus,
+} from '@/generated/prisma/enums';
 import { StrikeWorkerDto } from './dto/strike-worker.dto';
 import { ResolveNoShowDto } from './dto/resolve-no-show.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
@@ -10,8 +20,8 @@ import { AuthJwtPayload } from '../auth/auth.types';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { WORKER_INCLUDE } from '@/common/constants/worker-includes';
-
-const STRIKE_SUSPENSION_THRESHOLD = 3;
+import { assertWorkerProfileExists } from '@/common/utils/assert.util';
+import { STRIKE_SUSPENSION_THRESHOLD } from './admin.constants';
 
 @Injectable()
 export class AdminService {
@@ -19,6 +29,8 @@ export class AdminService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
   ) {}
+
+  // ─── Public API ──────────────────────────────────────────────────────────
 
   async findPendingVerifications() {
     return this.prisma.verificationDoc.findMany({
@@ -69,13 +81,20 @@ export class AdminService {
       });
   }
 
-  async rejectVerification(docId: string, user: AuthJwtPayload, reason: string) {
+  async rejectVerification(
+    docId: string,
+    user: AuthJwtPayload,
+    reason: string,
+  ) {
     const doc = await this.getPendingVerification(docId);
 
     return this.prisma
       .$transaction(async (tx: TransactionClient) => {
         const previousRejections = await tx.verificationDoc.count({
-          where: { workerId: doc.workerId, status: VerificationStatus.REJECTED },
+          where: {
+            workerId: doc.workerId,
+            status: VerificationStatus.REJECTED,
+          },
         });
         const isSecondRejection = previousRejections + 1 >= 2;
 
@@ -92,7 +111,9 @@ export class AdminService {
         return tx.workerProfile.update({
           where: { id: doc.workerId },
           data: {
-            status: isSecondRejection ? WorkerStatus.SUSPENDED : WorkerStatus.REJECTED,
+            status: isSecondRejection
+              ? WorkerStatus.SUSPENDED
+              : WorkerStatus.REJECTED,
             isOnline: false,
           },
           include: WORKER_INCLUDE,
@@ -131,11 +152,12 @@ export class AdminService {
   }
 
   async strikeWorker(user: AuthJwtPayload, dto: StrikeWorkerDto) {
-    const worker = await this.prisma.workerProfile.findUnique({ where: { id: dto.workerId } });
-    if (!worker) throw new NotFoundException('Worker profile does not exist.');
+    const worker = await assertWorkerProfileExists(this.prisma, dto.workerId);
 
     if (dto.bookingId) {
-      const booking = await this.prisma.booking.findUnique({ where: { id: dto.bookingId } });
+      const booking = await this.prisma.booking.findUnique({
+        where: { id: dto.bookingId },
+      });
       if (!booking) throw new NotFoundException('Booking not found.');
       await this.assertBookingNotAlreadyStruck(dto.bookingId);
     }
@@ -159,7 +181,14 @@ export class AdminService {
       include: {
         booking: {
           include: {
-            worker: { select: { id: true, firstName: true, lastName: true, userId: true } },
+            worker: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                userId: true,
+              },
+            },
             customer: { select: { firstName: true, lastName: true } },
             category: { select: { name: true } },
           },
@@ -169,7 +198,11 @@ export class AdminService {
     });
   }
 
-  async resolveNoShow(reportId: string, user: AuthJwtPayload, dto: ResolveNoShowDto) {
+  async resolveNoShow(
+    reportId: string,
+    user: AuthJwtPayload,
+    dto: ResolveNoShowDto,
+  ) {
     const report = await this.prisma.noShowReport.findUnique({
       where: { id: reportId },
       include: {
@@ -192,7 +225,11 @@ export class AdminService {
       .$transaction(async (tx: TransactionClient) => {
         await tx.noShowReport.update({
           where: { id: reportId },
-          data: { confirmed: dto.confirmed, resolvedBy: user.sub, resolvedAt: new Date() },
+          data: {
+            confirmed: dto.confirmed,
+            resolvedBy: user.sub,
+            resolvedAt: new Date(),
+          },
         });
 
         if (dto.confirmed) {
@@ -206,7 +243,10 @@ export class AdminService {
             notes: dto.notes,
           });
 
-          await this.incrementStrikeAndSuspendIfNeeded(tx, report.booking.workerId);
+          await this.incrementStrikeAndSuspendIfNeeded(
+            tx,
+            report.booking.workerId,
+          );
 
           await tx.booking.update({
             where: { id: report.bookingId },
@@ -237,7 +277,13 @@ export class AdminService {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.user.findMany({
         where,
-        select: { id: true, phone: true, role: true, status: true, createdAt: true },
+        select: {
+          id: true,
+          phone: true,
+          role: true,
+          status: true,
+          createdAt: true,
+        },
         orderBy: { createdAt: 'desc' },
         skip: query.skip,
         take: query.take,
@@ -299,7 +345,7 @@ export class AdminService {
     return { items, total, skip: query.skip, take: query.take };
   }
 
-  // ─── Private helpers ─────────────────────────────────────────────────────
+  // ─── Private: business logic ─────────────────────────────────────────────
 
   private async getPendingVerification(id: string) {
     const doc = await this.prisma.verificationDoc.findUnique({
@@ -309,14 +355,20 @@ export class AdminService {
     if (!doc) throw new NotFoundException('Verification submission not found.');
 
     if (doc.status !== VerificationStatus.PENDING) {
-      throw new ConflictException('Verification submission has already been reviewed');
+      throw new ConflictException(
+        'Verification submission has already been reviewed',
+      );
     }
 
     return doc;
   }
 
+  // ─── Private: assertions ─────────────────────────────────────────────────
+
   private async assertWorkerIsUnverified(workerId: string) {
-    const worker = await this.prisma.workerProfile.findUnique({ where: { id: workerId } });
+    const worker = await this.prisma.workerProfile.findUnique({
+      where: { id: workerId },
+    });
     if (!worker) throw new NotFoundException('Worker profile does not exist.');
 
     if (worker.status === WorkerStatus.VERIFIED) {
@@ -326,11 +378,17 @@ export class AdminService {
     return worker;
   }
 
-  private async assertBookingNotAlreadyStruck(bookingId: string): Promise<void> {
-    const existingStrike = await this.prisma.strike.findUnique({ where: { bookingId } });
+  private async assertBookingNotAlreadyStruck(
+    bookingId: string,
+  ): Promise<void> {
+    const existingStrike = await this.prisma.strike.findUnique({
+      where: { bookingId },
+    });
 
     if (existingStrike) {
-      throw new ConflictException('This booking has already been used for a strike.');
+      throw new ConflictException(
+        'This booking has already been used for a strike.',
+      );
     }
   }
 
@@ -347,7 +405,10 @@ export class AdminService {
     await tx.strike.create({ data });
   }
 
-  private async incrementStrikeAndSuspendIfNeeded(tx: TransactionClient, workerId: string) {
+  private async incrementStrikeAndSuspendIfNeeded(
+    tx: TransactionClient,
+    workerId: string,
+  ) {
     const updated = await tx.workerProfile.update({
       where: { id: workerId },
       data: { strikeCount: { increment: 1 } },

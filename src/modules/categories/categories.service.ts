@@ -2,8 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CreateCategoryDto } from '@/modules/categories/dto/create-category.dto';
 import { UpdateCategoryDto } from '@/modules/categories/dto/update-category.dto';
-
-const CATEGORY_ORDER = [{ sortOrder: 'asc' as const }, { name: 'asc' as const }];
+import { CATEGORY_ORDER } from './categories.constants';
 
 @Injectable()
 export class CategoriesService {
@@ -35,9 +34,11 @@ export class CategoriesService {
   }
 
   async update(categoryId: string, dto: UpdateCategoryDto) {
-    const category = await this.prisma.serviceCategory.findUnique({ where: { id: categoryId } })
+    const category = await this.prisma.serviceCategory.findUnique({
+      where: { id: categoryId },
+    });
 
-    if (!category) throw new NotFoundException('Category not found.')
+    if (!category) throw new NotFoundException('Category not found.');
 
     return this.prisma.serviceCategory.update({
       where: { id: category.id },
@@ -46,7 +47,9 @@ export class CategoriesService {
   }
 
   async deactivate(categoryId: string) {
-    const category = await this.prisma.serviceCategory.findUnique({ where: { id: categoryId } });
+    const category = await this.prisma.serviceCategory.findUnique({
+      where: { id: categoryId },
+    });
     if (!category) throw new NotFoundException('Category not found.');
     return this.prisma.serviceCategory.update({
       where: { id: categoryId },

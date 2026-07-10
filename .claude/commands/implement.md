@@ -26,9 +26,28 @@ Apply these project-specific patterns when implementing any feature in this Nest
 - Inject config with `@Inject(myConfig.KEY) private config: ConfigType<typeof myConfig>`.
 - Use `import type { ConfigType }` to satisfy `isolatedModules`.
 
+## Module file layout
+- Every module gets a `[name].constants.ts` for module-scoped constants (thresholds, enum maps, sort arrays).
+- Module-scoped types go in `[name].types.ts` only if the module defines its own types.
+- Constants that are hardcoded inline in a service file belong in `[name].constants.ts`.
+
+## Service structure
+- Use three section dividers in every service:
+  ```
+  // ─── Public API ──────────────────────────────────────────────────────────────
+  // ─── Private: business logic ─────────────────────────────────────────────────
+  // ─── Private: assertions ─────────────────────────────────────────────────────
+  ```
+- Assertion methods (methods that only validate and throw) go under `Private: assertions`.
+
+## Shared utilities
+- Cross-module assertion helpers live in `src/common/utils/assert.util.ts`. Check there before writing a new private `assertXExist` in a service.
+- Existing shared helpers: `assertUserIsActive`, `assertBookingExists`, `assertWorkerProfileExists`.
+
 ## Notifications
 - Always fire-and-forget: `void this.notifications.sendToUser(...).catch(() => {})`.
 - Never `await` a notification call in the main flow — it must never block or throw.
+- When the userId requires a DB fetch first, extract a private async method and call it with `.catch(() => {})`. Never use the void async IIFE pattern.
 
 ## Error handling
 - Throw NestJS HTTP exceptions from services (`NotFoundException`, `ForbiddenException`, etc.).
