@@ -1,12 +1,11 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { BookingStatus, Role } from '@/generated/prisma/enums';
-import { Booking } from '@/generated/prisma/client';
 import { BookingAction } from './booking.types';
 import { ROLE_REQUIREMENTS } from './bookings.constants';
 
 @Injectable()
-export class BookingsAssertions {
+export class BookingsAssertionsService {
   constructor(private readonly prisma: PrismaService) {}
 
   assertOwnership(entityId: string, profileId: string): void {

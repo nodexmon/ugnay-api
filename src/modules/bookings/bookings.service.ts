@@ -20,20 +20,20 @@ import { Booking, User } from '@/generated/prisma/client';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { FindBookingsQueryDto } from './dto/find-bookings-query.dto';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
-import { NotificationsService } from '@/modules/notifications/notifications.service';
 import {
   assertBookingExists,
   assertUserIsActive,
 } from '@/common/utils/assert.util';
 import { CONTACT_REVEAL_STATUSES } from './bookings.constants';
-import { BookingsAssertions } from './bookings.assertions';
+import { BookingsAssertionsService } from './bookings.assertions';
+import { BookingsNotificationService } from './bookings.notification';
 
 @Injectable()
 export class BookingsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notifications: NotificationsService,
-    private readonly assertions: BookingsAssertions,
+    private readonly notifications: BookingsNotificationService,
+    private readonly assertions:  BookingsAssertionsService,
   ) {}
 
   // ─── Public API ───────────────────────────────────────────────────────────
@@ -155,7 +155,7 @@ export class BookingsService {
       },
     });
 
-    this.notify(booking.id, 'worker', {
+    this.notifications.notify(booking.id, 'worker', {
       title: 'New booking request',
       body: 'A customer has requested your service.',
     });
@@ -188,7 +188,7 @@ export class BookingsService {
       where: { id: bookingId },
       data: { status: BookingStatus.ACCEPTED, acceptedAt: new Date() },
     });
-    this.notify(bookingId, 'customer', {
+    this.notifications.notify(bookingId, 'customer', {
       title: 'Booking accepted',
       body: 'Your booking has been accepted.',
     });
@@ -207,7 +207,7 @@ export class BookingsService {
       where: { id: bookingId },
       data: { status: BookingStatus.REJECTED, rejectedAt: new Date() },
     });
-    this.notify(bookingId, 'customer', {
+    this.notifications.notify(bookingId, 'customer', {
       title: 'Booking declined',
       body: 'The worker has declined your booking request.',
     });
@@ -241,7 +241,7 @@ export class BookingsService {
       where: { id: bookingId },
       data: { status: BookingStatus.COMPLETED, completedAt: new Date() },
     });
-    this.notify(bookingId, 'customer', {
+    this.notifications.notify(bookingId, 'customer', {
       title: 'Job complete',
       body: 'The job is done. Leave a review for your worker!',
     });
@@ -286,12 +286,12 @@ export class BookingsService {
     });
 
     if (user.role === Role.WORKER) {
-      this.notify(bookingId, 'customer', {
+      this.notifications.notify(bookingId, 'customer', {
         title: 'Booking cancelled',
         body: 'The worker has cancelled the booking.',
       });
     } else {
-      this.notify(bookingId, 'worker', {
+      this.notifications.notify(bookingId, 'worker', {
         title: 'Booking cancelled',
         body: 'The customer has cancelled the booking.',
       });
@@ -377,34 +377,5 @@ export class BookingsService {
         data: { status: WorkerStatus.SUSPENDED },
       });
     }
-  }
-
-  private notify(
-    bookingId: string,
-    party: 'worker' | 'customer',
-    message: { title: string; body: string },
-  ): void {
-    void this.resolveAndNotify(bookingId, party, message).catch(() => {});
-  }
-
-  private async resolveAndNotify(
-    bookingId: string,
-    party: 'worker' | 'customer',
-    message: { title: string; body: string },
-  ): Promise<void> {
-
-    const booking = await this.prisma.booking.findUnique({
-      where: { id: bookingId },
-      include: {
-        worker: { select: { userId: true } },
-        customer: { select: { userId: true } },
-      },
-    });
-
-    if (!booking) return;
-
-    const userId = party === 'worker' ? booking.worker.userId : booking.customer.userId;
-
-    await this.notifications.sendToUser(userId, message);
   }
 }
