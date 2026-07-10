@@ -14,7 +14,6 @@ import {
   WorkerStatus,
 } from '@/generated/prisma/enums';
 import { UpdateBookingDto } from './dto/update-booking.dto';
-import { BookingAction } from './booking.types';
 import { AuthJwtPayload } from '../auth/auth.types';
 import { Booking, User } from '@/generated/prisma/client';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
