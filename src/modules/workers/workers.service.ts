@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -19,6 +18,7 @@ import { SearchWorkersDto } from '@/modules/workers/dto/search-workers.dto';
 import type { UploadedVerificationFiles } from '@/modules/workers/workers.types';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { FileStorageService } from '@/modules/workers/file-storage.service';
+import { WorkersAssertions } from '@/modules/workers/workers.assertions';
 import {
   PUBLIC_WORKER_INCLUDE,
   WORKER_INCLUDE,
@@ -30,6 +30,7 @@ export class WorkersService {
   constructor(
     private prisma: PrismaService,
     private fileStorage: FileStorageService,
+    private readonly assertions: WorkersAssertions,
   ) {}
 
   // ─── Public API ──────────────────────────────────────────────────────────
@@ -98,7 +99,7 @@ export class WorkersService {
 
   async createProfile(userId: string, dto: CreateWorkerDto) {
     await assertUserIsActive(this.prisma, userId);
-    await this.assertProfileDoesNotExist(userId);
+    await this.assertions.assertProfileDoesNotExist(userId);
     await this.validateCategories(dto.categories);
 
     const barangayIds = [
@@ -273,17 +274,6 @@ export class WorkersService {
     return doc;
   }
 
-  // ─── Private: assertions ─────────────────────────────────────────────────
-
-  private async assertProfileDoesNotExist(userId: string): Promise<void> {
-    const existing = await this.prisma.workerProfile.findUnique({
-      where: { userId },
-    });
-    if (existing) {
-      throw new ConflictException('Worker profile already exists');
-    }
-  }
-
   private async getOwnProfile(userId: string) {
     const worker = await this.prisma.workerProfile.findUnique({
       where: { userId },
@@ -294,14 +284,14 @@ export class WorkersService {
     return worker;
   }
 
-  // ─── Private: validators ─────────────────────────────────────────────────
+  // ─── Private: business logic ─────────────────────────────────────────────
 
   private async validateActiveEntities(
     ids: string[],
     countFn: (ids: string[]) => Promise<number>,
     label: string,
   ): Promise<void> {
-    this.assertUnique(ids, label);
+    this.assertions.assertUnique(ids, label);
     const count = await countFn(ids);
     if (count !== ids.length) {
       throw new BadRequestException(
@@ -334,9 +324,4 @@ export class WorkersService {
     );
   }
 
-  private assertUnique(values: string[], label: string): void {
-    if (new Set(values).size !== values.length) {
-      throw new BadRequestException(`Duplicate ${label} are not allowed`);
-    }
-  }
 }

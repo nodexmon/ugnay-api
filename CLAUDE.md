@@ -103,6 +103,7 @@ src/modules/[name]/
   [name].module.ts
   [name].controller.ts
   [name].service.ts
+  [name].assertions.ts   ← injectable assertions class (validate + throw, module-specific)
   [name].constants.ts    ← module-scoped constants (thresholds, enum maps, sort arrays)
   [name].types.ts        ← only when the module defines its own types/enums
   dto/
@@ -115,11 +116,11 @@ src/modules/[name]/
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 // ─── Private: business logic ─────────────────────────────────────────────────
-
-// ─── Private: assertions ─────────────────────────────────────────────────────
 ```
 
-**Shared assertion utilities** — cross-module helpers (`assertBookingExists`, `assertWorkerProfileExists`, `assertUserIsActive`) live in `src/common/utils/assert.util.ts`. Module-specific assertions stay private in the service.
+**Assertions class pattern** — module-specific assertion methods (validate + throw) live in `[name].assertions.ts` as an `@Injectable()` class, registered in the module's `providers` array and injected into the service constructor. Services call `this.assertions.assertX(...)`. In specs, mock the entire class: `{ provide: [Name]Assertions, useValue: { assertX: jest.fn() } }`.
+
+**Shared assertion utilities** — cross-module helpers (`assertBookingExists`, `assertWorkerProfileExists`, `assertUserIsActive`) live in `src/common/utils/assert.util.ts` as standalone functions (not injectable — avoids circular DI risk).
 
 **Notification fire-and-forget** — always use:
 

@@ -22,12 +22,14 @@ import { NotificationsService } from '@/modules/notifications/notifications.serv
 import { WORKER_INCLUDE } from '@/common/constants/worker-includes';
 import { assertWorkerProfileExists } from '@/common/utils/assert.util';
 import { STRIKE_SUSPENSION_THRESHOLD } from './admin.constants';
+import { AdminAssertions } from './admin.assertions';
 
 @Injectable()
 export class AdminService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private readonly assertions: AdminAssertions,
   ) {}
 
   // ─── Public API ──────────────────────────────────────────────────────────
@@ -51,7 +53,7 @@ export class AdminService {
 
   async approveVerification(docId: string, user: AuthJwtPayload) {
     const doc = await this.getPendingVerification(docId);
-    await this.assertWorkerIsUnverified(doc.workerId);
+    await this.assertions.assertWorkerIsUnverified(doc.workerId);
 
     return this.prisma
       .$transaction(async (tx: TransactionClient) => {
@@ -159,7 +161,7 @@ export class AdminService {
         where: { id: dto.bookingId },
       });
       if (!booking) throw new NotFoundException('Booking not found.');
-      await this.assertBookingNotAlreadyStruck(dto.bookingId);
+      await this.assertions.assertBookingNotAlreadyStruck(dto.bookingId);
     }
 
     return this.prisma.$transaction(async (tx: TransactionClient) => {
@@ -233,7 +235,7 @@ export class AdminService {
         });
 
         if (dto.confirmed) {
-          await this.assertBookingNotAlreadyStruck(report.bookingId);
+          await this.assertions.assertBookingNotAlreadyStruck(report.bookingId);
 
           await this.createStrikeRecord(tx, {
             workerId: report.booking.workerId,
@@ -361,35 +363,6 @@ export class AdminService {
     }
 
     return doc;
-  }
-
-  // ─── Private: assertions ─────────────────────────────────────────────────
-
-  private async assertWorkerIsUnverified(workerId: string) {
-    const worker = await this.prisma.workerProfile.findUnique({
-      where: { id: workerId },
-    });
-    if (!worker) throw new NotFoundException('Worker profile does not exist.');
-
-    if (worker.status === WorkerStatus.VERIFIED) {
-      throw new ConflictException('Worker is already verified.');
-    }
-
-    return worker;
-  }
-
-  private async assertBookingNotAlreadyStruck(
-    bookingId: string,
-  ): Promise<void> {
-    const existingStrike = await this.prisma.strike.findUnique({
-      where: { bookingId },
-    });
-
-    if (existingStrike) {
-      throw new ConflictException(
-        'This booking has already been used for a strike.',
-      );
-    }
   }
 
   private async createStrikeRecord(

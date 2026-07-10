@@ -4,11 +4,12 @@ import { WorkersService } from '@/modules/workers/workers.service';
 import { WorkersController } from '@/modules/workers/workers.controller';
 import { PrismaModule } from '@/prisma/prisma.module';
 import { FileStorageService } from '@/modules/workers/file-storage.service';
+import { WorkersAssertions } from '@/modules/workers/workers.assertions';
 import { uploadConfig } from '@/config';
 
 @Module({
   imports: [PrismaModule, ConfigModule.forFeature(uploadConfig)],
   controllers: [WorkersController],
-  providers: [WorkersService, FileStorageService],
+  providers: [WorkersService, FileStorageService, WorkersAssertions],
 })
 export class WorkersModule {}
