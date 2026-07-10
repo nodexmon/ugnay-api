@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Post, Param, Patch, Query } from '@nestjs/common';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { CheckAbility } from '@/common/decorators/check-ability.decorator';
 import { Action } from '@/casl/casl.types';
@@ -8,11 +8,29 @@ import { RejectVerificationDto } from '@/modules/admin/dto/reject-verification.d
 import { SuspendUserDto } from '@/modules/admin/dto/suspend-user.dto';
 import { StrikeWorkerDto } from './dto/strike-worker.dto';
 import { ResolveNoShowDto } from './dto/resolve-no-show.dto';
+import { ListUsersQueryDto } from './dto/list-users-query.dto';
+import { ListWorkersQueryDto } from './dto/list-workers-query.dto';
+import { ListBookingsQueryDto } from './dto/list-bookings-query.dto';
 
 @CheckAbility(Action.Manage, 'all')
 @Controller('admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
+
+  @Get('users')
+  listUsers(@Query() query: ListUsersQueryDto) {
+    return this.adminService.findUsers(query);
+  }
+
+  @Get('workers')
+  listWorkers(@Query() query: ListWorkersQueryDto) {
+    return this.adminService.findWorkers(query);
+  }
+
+  @Get('bookings')
+  listBookings(@Query() query: ListBookingsQueryDto) {
+    return this.adminService.findBookings(query);
+  }
 
   @Get('verifications')
   listPendingVerifications() {

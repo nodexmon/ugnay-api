@@ -39,12 +39,20 @@ describe('AdminService', () => {
       count: jest.fn(),
     },
     workerProfile: {
+      findMany: jest.fn(),
       findUnique: jest.fn(),
       updateMany: jest.fn(),
+      count: jest.fn(),
     },
     user: {
+      findMany: jest.fn(),
       update: jest.fn(),
       findUnique: jest.fn(),
+      count: jest.fn(),
+    },
+    booking: {
+      findMany: jest.fn(),
+      count: jest.fn(),
     },
     noShowReport: {
       findMany: jest.fn(),
@@ -54,8 +62,11 @@ describe('AdminService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    prisma.$transaction.mockImplementation((callback: (transaction: typeof tx) => unknown) =>
-      callback(tx),
+    prisma.$transaction.mockImplementation(
+      (callbackOrArray: ((transaction: typeof tx) => unknown) | unknown[]) =>
+        Array.isArray(callbackOrArray)
+          ? Promise.all(callbackOrArray)
+          : (callbackOrArray as (transaction: typeof tx) => unknown)(tx),
     );
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -199,6 +210,41 @@ describe('AdminService', () => {
       await expect(
         service.resolveNoShow('report-id', adminUser, { confirmed: true }),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('admin listings', () => {
+    it('findUsers returns paginated users matching optional filters', async () => {
+      const users = [{ id: 'u1', phone: '+63911', role: Role.CUSTOMER }];
+      prisma.user.findMany.mockResolvedValue(users);
+      prisma.user.count.mockResolvedValue(1);
+
+      const result = await service.findUsers({ skip: 0, take: 10 });
+
+      expect(result).toEqual({ items: users, total: 1, skip: 0, take: 10 });
+    });
+
+    it('findWorkers returns paginated workers with optional status filter', async () => {
+      const workers = [{ id: 'wp1', firstName: 'Juan' }];
+      prisma.workerProfile.findMany.mockResolvedValue(workers);
+      prisma.workerProfile.count.mockResolvedValue(1);
+
+      const result = await service.findWorkers({ skip: 0, take: 10, status: WorkerStatus.VERIFIED });
+
+      expect(result).toEqual({ items: workers, total: 1, skip: 0, take: 10 });
+      expect(prisma.workerProfile.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { status: WorkerStatus.VERIFIED } }),
+      );
+    });
+
+    it('findBookings returns paginated bookings with optional status filter', async () => {
+      const bookings = [{ id: 'b1', status: BookingStatus.PENDING }];
+      prisma.booking.findMany.mockResolvedValue(bookings);
+      prisma.booking.count.mockResolvedValue(5);
+
+      const result = await service.findBookings({ skip: 0, take: 10, status: BookingStatus.PENDING });
+
+      expect(result).toEqual({ items: bookings, total: 5, skip: 0, take: 10 });
     });
   });
 });

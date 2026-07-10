@@ -3,6 +3,9 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { BookingStatus, StrikeReason, UserStatus, VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
 import { StrikeWorkerDto } from './dto/strike-worker.dto';
 import { ResolveNoShowDto } from './dto/resolve-no-show.dto';
+import { ListUsersQueryDto } from './dto/list-users-query.dto';
+import { ListWorkersQueryDto } from './dto/list-workers-query.dto';
+import { ListBookingsQueryDto } from './dto/list-bookings-query.dto';
 import { AuthJwtPayload } from '../auth/auth.types';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
@@ -224,6 +227,76 @@ export class AdminService {
         }
         return result;
       });
+  }
+
+  async findUsers(query: ListUsersQueryDto) {
+    const where = {
+      ...(query.role && { role: query.role }),
+      ...(query.status && { status: query.status }),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where,
+        select: { id: true, phone: true, role: true, status: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+        skip: query.skip,
+        take: query.take,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+    return { items, total, skip: query.skip, take: query.take };
+  }
+
+  async findWorkers(query: ListWorkersQueryDto) {
+    const where = {
+      ...(query.status && { status: query.status }),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.workerProfile.findMany({
+        where,
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          status: true,
+          strikeCount: true,
+          averageRating: true,
+          totalJobsCompleted: true,
+          createdAt: true,
+          user: { select: { phone: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: query.skip,
+        take: query.take,
+      }),
+      this.prisma.workerProfile.count({ where }),
+    ]);
+    return { items, total, skip: query.skip, take: query.take };
+  }
+
+  async findBookings(query: ListBookingsQueryDto) {
+    const where = {
+      ...(query.status && { status: query.status }),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.booking.findMany({
+        where,
+        select: {
+          id: true,
+          status: true,
+          scheduledDate: true,
+          createdAt: true,
+          worker: { select: { firstName: true, lastName: true } },
+          customer: { select: { firstName: true, lastName: true } },
+          category: { select: { name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: query.skip,
+        take: query.take,
+      }),
+      this.prisma.booking.count({ where }),
+    ]);
+    return { items, total, skip: query.skip, take: query.take };
   }
 
   // ─── Private helpers ─────────────────────────────────────────────────────
