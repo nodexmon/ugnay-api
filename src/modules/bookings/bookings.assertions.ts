@@ -22,8 +22,8 @@ export class BookingsAssertions {
     }
   }
 
-  assertBookingInStatus(booking: Booking, ...allowed: BookingStatus[]): void {
-    if (!allowed.includes(booking.status)) {
+  assertBookingInStatus(status: BookingStatus, ...allowed: BookingStatus[]): void {
+    if (!allowed.includes(status)) {
       throw new ForbiddenException(
         `Booking must be in status: ${allowed.join(', ')}`,
       );

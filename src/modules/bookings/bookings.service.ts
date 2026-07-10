@@ -254,13 +254,13 @@ export class BookingsService {
 
     if (user.role === Role.CUSTOMER) {
       this.assertions.assertOwnership(booking.customerId, profileId);
-      this.assertions.assertBookingInStatus(booking, BookingStatus.PENDING);
+      this.assertions.assertBookingInStatus(booking.status, BookingStatus.PENDING);
     }
 
     if (user.role === Role.WORKER) {
       this.assertions.assertOwnership(booking.workerId, profileId);
       this.assertions.assertBookingInStatus(
-        booking,
+        booking.status,
         BookingStatus.ACCEPTED,
         BookingStatus.IN_PROGRESS,
       );
@@ -347,10 +347,10 @@ export class BookingsService {
     const activeUser = await assertUserIsActive(this.prisma, userId);
     const booking = await assertBookingExists(this.prisma, bookingId);
 
-    this.assertions.assertBookingInStatus(booking, ...allowedStatuses);
+    this.assertions.assertBookingInStatus(booking.status, ...allowedStatuses);
 
     const profileId = await this.getProfileId(userId, role);
-    
+
     return { activeUser, booking, profileId };
   }
 
