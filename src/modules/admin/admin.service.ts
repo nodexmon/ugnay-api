@@ -160,13 +160,13 @@ export class AdminService {
       await this.assertions.assertBookingNotAlreadyStruck(dto.bookingId);
     }
 
-    const payload = {
+    const strikePayload = {
       issuedBy: user.sub,
       ...dto
     }
 
     return this.prisma.$transaction(async (tx: TransactionClient) => {
-      await this.createStrikeRecord(tx, payload);
+      await this.createStrikeRecord(tx, strikePayload);
 
       return this.incrementStrikeAndSuspendIfNeeded(tx, worker.id);
     });
@@ -219,6 +219,14 @@ export class AdminService {
       throw new ConflictException('This report has already been resolved.');
     }
 
+    const strikeNoShowPayload = {
+      workerId: report.booking.workerId,
+      bookingId: report.bookingId,
+      reason: StrikeReason.NO_SHOW,
+      issuedBy: user.sub,
+      notes: dto.notes,
+    };
+
     return this.prisma
       .$transaction(async (tx: TransactionClient) => {
         await tx.noShowReport.update({
@@ -233,13 +241,7 @@ export class AdminService {
         if (dto.confirmed) {
           await this.assertions.assertBookingNotAlreadyStruck(report.bookingId);
 
-          await this.createStrikeRecord(tx, {
-            workerId: report.booking.workerId,
-            bookingId: report.bookingId,
-            reason: StrikeReason.NO_SHOW,
-            issuedBy: user.sub,
-            notes: dto.notes,
-          });
+          await this.createStrikeRecord(tx, strikeNoShowPayload);
 
           await this.incrementStrikeAndSuspendIfNeeded(
             tx,
