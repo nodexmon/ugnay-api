@@ -3,10 +3,11 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { CreateCategoryDto } from '@/modules/categories/dto/create-category.dto';
 import { UpdateCategoryDto } from '@/modules/categories/dto/update-category.dto';
 import { CATEGORY_ORDER } from './categories.constants';
+import { CategoriesAssertionsService } from './categories.assertion';
 
 @Injectable()
 export class CategoriesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private assertions: CategoriesAssertionsService) {}
 
   async findActive() {
     return this.prisma.serviceCategory.findMany({
@@ -34,23 +35,17 @@ export class CategoriesService {
   }
 
   async update(categoryId: string, dto: UpdateCategoryDto) {
-    const category = await this.prisma.serviceCategory.findUnique({
-      where: { id: categoryId },
-    });
-
-    if (!category) throw new NotFoundException('Category not found.');
+    await this.assertions.assertCategoryExists(categoryId);
 
     return this.prisma.serviceCategory.update({
-      where: { id: category.id },
+      where: { id: categoryId },
       data: dto,
     });
   }
 
   async deactivate(categoryId: string) {
-    const category = await this.prisma.serviceCategory.findUnique({
-      where: { id: categoryId },
-    });
-    if (!category) throw new NotFoundException('Category not found.');
+    await this.assertions.assertCategoryExists(categoryId);
+    
     return this.prisma.serviceCategory.update({
       where: { id: categoryId },
       data: { isActive: false },
