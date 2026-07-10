@@ -100,7 +100,7 @@ export class WorkersService {
   }
 
   async createProfile(userId: string, dto: CreateWorkerDto) {
-    await this.usersAssertions.assertUserExists(userId);
+    await this.usersAssertions.assertUserIsActive(userId);
     await this.assertions.assertProfileDoesNotExist(userId);
     await this.validateCategories(dto.categories);
 

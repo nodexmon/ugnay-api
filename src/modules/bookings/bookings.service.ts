@@ -124,7 +124,7 @@ export class BookingsService {
   }
 
   async create(user: AuthJwtPayload, dto: CreateBookingDto) {
-    await this.usersAssertions.assertUserExists(user.sub);
+    await this.usersAssertions.assertUserIsActive(user.sub);
 
     const customer = await this.prisma.customerProfile.findUnique({
       where: { userId: user.sub },
@@ -240,7 +240,11 @@ export class BookingsService {
   }
 
   async cancel(bookingId: string, user: AuthJwtPayload, dto: CancelBookingDto) {
-    const activeUser = await this.usersAssertions.assertUserExists(user.sub);
+    if (user.role !== Role.CUSTOMER && user.role !== Role.WORKER) {
+      throw new ForbiddenException('Insufficient permissions.');
+    }
+
+    const activeUser = await this.usersAssertions.assertUserIsActive(user.sub);
     const booking = await this.assertions.assertBookingExists(bookingId);
     const profileId = await this.getProfileId(user.sub, user.role);
 
@@ -335,7 +339,7 @@ export class BookingsService {
     bookingId: string,
     ...allowedStatuses: BookingStatus[]
   ): Promise<{ activeUser: User; booking: Booking; profileId: string }> {
-    const activeUser = await this.usersAssertions.assertUserExists(userId);
+    const activeUser = await this.usersAssertions.assertUserIsActive(userId);
     const booking = await this.assertions.assertBookingExists(bookingId);
 
     this.assertions.assertBookingInStatus(booking.status, ...allowedStatuses);
@@ -365,7 +369,7 @@ export class BookingsService {
     if (workerProfile.strikeCount >= 3) {
       await tx.workerProfile.update({
         where: { id: workerProfile.id },
-        data: { status: WorkerStatus.SUSPENDED },
+        data: { status: WorkerStatus.SUSPENDED, isOnline: false },
       });
     }
   }

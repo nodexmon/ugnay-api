@@ -42,7 +42,7 @@ describe('WorkersService', () => {
   };
 
   const usersAssertions = {
-    assertUserExists: jest.fn(),
+    assertUserIsActive: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -91,7 +91,7 @@ describe('WorkersService', () => {
   });
 
   it('rejects duplicate worker categories during profile creation', async () => {
-    prisma.user.findUnique.mockResolvedValue({
+    usersAssertions.assertUserIsActive.mockResolvedValueOnce({
       id: 'user-id',
       status: UserStatus.ACTIVE,
     });

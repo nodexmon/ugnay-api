@@ -20,10 +20,10 @@ export class CustomersService {
   }
 
   async createProfile(userId: string, dto: CreateCustomerDto) {
-    const existing = await this.getProfile(userId);
-    if (existing) {
-      throw new ConflictException('Customer profile already exists.');
-    }
+    const existing = await this.prisma.customerProfile.findUnique({
+      where: { userId },
+    });
+    if (existing) throw new ConflictException('Customer profile already exists.');
 
     return this.prisma.customerProfile.create({
       data: {

@@ -60,7 +60,7 @@ describe('BookingsService', () => {
   };
 
   const usersAssertions = {
-    assertUserExists: jest.fn(),
+    assertUserIsActive: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -69,7 +69,7 @@ describe('BookingsService', () => {
       cb(tx),
     );
     assertions.assertBookingExists.mockResolvedValue(pendingBooking);
-    usersAssertions.assertUserExists.mockResolvedValue(customerUser);
+    usersAssertions.assertUserIsActive.mockResolvedValue(customerUser);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -153,7 +153,7 @@ describe('BookingsService', () => {
 
   describe('accept', () => {
     it('transitions booking to ACCEPTED', async () => {
-      usersAssertions.assertUserExists.mockResolvedValue(workerUser);
+      usersAssertions.assertUserIsActive.mockResolvedValue(workerUser);
       prisma.workerProfile.findUnique.mockResolvedValue({
         id: 'worker-profile-id',
       });
@@ -168,7 +168,7 @@ describe('BookingsService', () => {
     });
 
     it('throws ForbiddenException when booking is not PENDING', async () => {
-      usersAssertions.assertUserExists.mockResolvedValue(workerUser);
+      usersAssertions.assertUserIsActive.mockResolvedValue(workerUser);
       assertions.assertBookingInStatus.mockImplementationOnce(() => {
         throw new ForbiddenException('Booking must be in status: PENDING');
       });
@@ -179,7 +179,7 @@ describe('BookingsService', () => {
     });
 
     it('throws ForbiddenException when worker does not own the booking', async () => {
-      usersAssertions.assertUserExists.mockResolvedValue(workerUser);
+      usersAssertions.assertUserIsActive.mockResolvedValue(workerUser);
       prisma.workerProfile.findUnique.mockResolvedValue({
         id: 'worker-profile-id',
       });
@@ -197,7 +197,7 @@ describe('BookingsService', () => {
 
   describe('reject', () => {
     it('transitions booking to REJECTED', async () => {
-      usersAssertions.assertUserExists.mockResolvedValue(workerUser);
+      usersAssertions.assertUserIsActive.mockResolvedValue(workerUser);
       prisma.workerProfile.findUnique.mockResolvedValue({
         id: 'worker-profile-id',
       });
@@ -216,7 +216,7 @@ describe('BookingsService', () => {
 
   describe('start', () => {
     it('transitions booking to IN_PROGRESS', async () => {
-      usersAssertions.assertUserExists.mockResolvedValue(workerUser);
+      usersAssertions.assertUserIsActive.mockResolvedValue(workerUser);
       assertions.assertBookingExists.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
@@ -235,7 +235,7 @@ describe('BookingsService', () => {
     });
 
     it('throws ForbiddenException when booking is not ACCEPTED', async () => {
-      usersAssertions.assertUserExists.mockResolvedValue(workerUser);
+      usersAssertions.assertUserIsActive.mockResolvedValue(workerUser);
       assertions.assertBookingInStatus.mockImplementationOnce(() => {
         throw new ForbiddenException('Booking must be in status: ACCEPTED');
       });
@@ -250,7 +250,7 @@ describe('BookingsService', () => {
 
   describe('complete', () => {
     it('transitions booking to COMPLETED', async () => {
-      usersAssertions.assertUserExists.mockResolvedValue(workerUser);
+      usersAssertions.assertUserIsActive.mockResolvedValue(workerUser);
       assertions.assertBookingExists.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.IN_PROGRESS,
@@ -269,7 +269,7 @@ describe('BookingsService', () => {
     });
 
     it('throws ForbiddenException when booking is not IN_PROGRESS', async () => {
-      usersAssertions.assertUserExists.mockResolvedValue(workerUser);
+      usersAssertions.assertUserIsActive.mockResolvedValue(workerUser);
       assertions.assertBookingInStatus.mockImplementationOnce(() => {
         throw new ForbiddenException('Booking must be in status: IN_PROGRESS');
       });
@@ -304,7 +304,7 @@ describe('BookingsService', () => {
     });
 
     it('issues a POST_ACCEPT_CANCELLATION strike when a worker cancels', async () => {
-      usersAssertions.assertUserExists.mockResolvedValue(workerUser);
+      usersAssertions.assertUserIsActive.mockResolvedValue(workerUser);
       assertions.assertBookingExists.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
@@ -337,7 +337,7 @@ describe('BookingsService', () => {
     });
 
     it('suspends a worker whose third strike comes from a cancellation', async () => {
-      usersAssertions.assertUserExists.mockResolvedValue(workerUser);
+      usersAssertions.assertUserIsActive.mockResolvedValue(workerUser);
       assertions.assertBookingExists.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
@@ -356,9 +356,18 @@ describe('BookingsService', () => {
 
       expect(tx.workerProfile.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ status: WorkerStatus.SUSPENDED }),
+          data: expect.objectContaining({
+            status: WorkerStatus.SUSPENDED,
+            isOnline: false,
+          }),
         }),
       );
+    });
+
+    it('throws ForbiddenException when caller is not CUSTOMER or WORKER', async () => {
+      await expect(
+        service.cancel('booking-id', { ...customerJwt, role: Role.ADMIN }, cancelDto),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
     it('throws ForbiddenException when a customer tries to cancel a post-accept booking', async () => {
@@ -375,7 +384,7 @@ describe('BookingsService', () => {
     });
 
     it('throws ForbiddenException when a worker tries to cancel a PENDING booking', async () => {
-      usersAssertions.assertUserExists.mockResolvedValue(workerUser);
+      usersAssertions.assertUserIsActive.mockResolvedValue(workerUser);
       prisma.workerProfile.findUnique.mockResolvedValue({
         id: 'worker-profile-id',
       });
