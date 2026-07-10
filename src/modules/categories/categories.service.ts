@@ -44,4 +44,13 @@ export class CategoriesService {
       data: dto,
     });
   }
+
+  async deactivate(categoryId: string) {
+    const category = await this.prisma.serviceCategory.findUnique({ where: { id: categoryId } });
+    if (!category) throw new NotFoundException('Category not found.');
+    return this.prisma.serviceCategory.update({
+      where: { id: categoryId },
+      data: { isActive: false },
+    });
+  }
 }

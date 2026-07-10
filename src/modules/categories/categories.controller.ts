@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { Public } from '@/common/decorators/public-endpoint.decorator';
 import { CheckAbility } from '@/common/decorators/check-ability.decorator';
 import { Action } from '@/casl/casl.types';
@@ -32,5 +32,11 @@ export class CategoriesController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
     return this.categoriesService.update(id, dto);
+  }
+
+  @CheckAbility(Action.Delete, 'ServiceCategory')
+  @Delete(':id')
+  deactivate(@Param('id') id: string) {
+    return this.categoriesService.deactivate(id);
   }
 }
