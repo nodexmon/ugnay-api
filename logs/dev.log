@@ -51,3 +51,26 @@ July 10, 2026
   optional status/role filters; returns { items, total, skip, take }
 - Added DELETE /categories/:id (admin-only) for soft-deactivation (isActive=false)
 
+---
+
+July 10, 2026 (continued — module standardization)
+
+- Extended assert.util.ts with two cross-module helpers: assertBookingExists,
+  assertWorkerProfileExists; eliminated 4+ duplicate private copies across services
+- Extracted per-module constants: bookings.constants.ts (ROLE_REQUIREMENTS,
+  CONTACT_REVEAL_STATUSES), admin.constants.ts (STRIKE_SUSPENSION_THRESHOLD),
+  categories.constants.ts (CATEGORY_ORDER)
+- Refactored bookings.service.ts: imports constants from bookings.constants.ts,
+  uses assertBookingExists from shared util, replaced void async IIFE notify() with
+  void this.resolveAndNotify().catch(() => {}), added section dividers
+- Refactored admin.service.ts: imports STRIKE_SUSPENSION_THRESHOLD from
+  admin.constants.ts, uses assertWorkerProfileExists for strikeWorker, added dividers
+- Refactored categories.service.ts: imports CATEGORY_ORDER from categories.constants.ts
+- Refactored reviews.service.ts: uses assertBookingExists and assertWorkerProfileExists
+  from shared util; removed duplicate private assertion methods
+- Refactored workers.service.ts: replaced Prisma.TransactionClient with TransactionClient
+  from internal prismaNamespace (consistent with other services), aligned section dividers
+- Documented module conventions in CLAUDE.md and .claude/commands/implement.md:
+  file layout, section dividers, shared utilities, notification fire-and-forget rule
+- Applied ESLint auto-format across codebase
+
