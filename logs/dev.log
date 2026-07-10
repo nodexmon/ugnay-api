@@ -28,3 +28,26 @@ July 7, 2026
   includes constant, assertUserIsActive lifted to assert.util.ts
 - Added dev log instruction and skills reference to CLAUDE.md
 
+---
+
+July 10, 2026
+
+- Fixed bug in admin.service.ts resolveNoShow: passed Booking.workerId as { userId }
+  to workerProfile.update, causing P2025 and rolling back the entire transaction;
+  corrected to { id: workerId } and simplified helper signature
+- Rewrote bookings.service.spec.ts: 21 cases covering full state machine (create,
+  accept, reject, start, complete, cancel with strike/suspend, reportNoShow)
+- Added bookings.cron.spec.ts: expiry batch, no-op, notification failure tolerance
+- Added casl-ability.factory.spec.ts: permission matrix for ADMIN, WORKER, CUSTOMER
+- Added casl.guard.spec.ts: public bypass, no-metadata allow, no-user deny,
+  permitted allow, ForbiddenException on denial
+- Added Postgres-backed e2e infrastructure: docker-compose.test.yml, .env.test,
+  jest-e2e.json (globalSetup, setupFiles, runInBand), test/e2e/test-app.ts
+  (createTestApp with ThrottlerGuard override, mintToken), test/e2e/db.ts
+  (resetDb + fixture factories)
+- Added e2e suites: auth-guards, bookings-lifecycle, bookings-expiry, no-show
+  (regression for the resolveNoShow bug), verification
+- Added GET /admin/users, /admin/workers, /admin/bookings with pagination and
+  optional status/role filters; returns { items, total, skip, take }
+- Added DELETE /categories/:id (admin-only) for soft-deactivation (isActive=false)
+
