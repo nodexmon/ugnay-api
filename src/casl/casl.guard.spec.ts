@@ -10,11 +10,16 @@ import { Action } from './casl.types';
 
 const workerUser = { sub: 'user-id', phone: '', role: Role.WORKER };
 
-const makeContext = (user: unknown, isPublic: unknown, required: unknown): ExecutionContext => ({
-  getHandler: () => ({}),
-  getClass: () => ({}),
-  switchToHttp: () => ({ getRequest: () => ({ user }) }),
-} as unknown as ExecutionContext);
+const makeContext = (
+  user: unknown,
+  isPublic: unknown,
+  required: unknown,
+): ExecutionContext =>
+  ({
+    getHandler: () => ({}),
+    getClass: () => ({}),
+    switchToHttp: () => ({ getRequest: () => ({ user }) }),
+  }) as unknown as ExecutionContext;
 
 describe('CaslGuard', () => {
   let guard: CaslGuard;
@@ -58,19 +63,28 @@ describe('CaslGuard', () => {
 
   it('denies access when no user is attached to the request', () => {
     setMetadata(undefined, { action: Action.Read, subject: 'Booking' });
-    const ctx = makeContext(undefined, undefined, { action: Action.Read, subject: 'Booking' });
+    const ctx = makeContext(undefined, undefined, {
+      action: Action.Read,
+      subject: 'Booking',
+    });
     expect(guard.canActivate(ctx)).toBe(false);
   });
 
   it('allows access when the user has the required ability', () => {
     setMetadata(undefined, { action: Action.Read, subject: 'Booking' });
-    const ctx = makeContext(workerUser, undefined, { action: Action.Read, subject: 'Booking' });
+    const ctx = makeContext(workerUser, undefined, {
+      action: Action.Read,
+      subject: 'Booking',
+    });
     expect(guard.canActivate(ctx)).toBe(true);
   });
 
   it('throws ForbiddenException when the user lacks the required ability', () => {
     setMetadata(undefined, { action: Action.Create, subject: 'Booking' });
-    const ctx = makeContext(workerUser, undefined, { action: Action.Create, subject: 'Booking' });
+    const ctx = makeContext(workerUser, undefined, {
+      action: Action.Create,
+      subject: 'Booking',
+    });
     expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
   });
 });

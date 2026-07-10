@@ -1,4 +1,12 @@
-import { IsBoolean, IsInt, IsOptional, IsString, MaxLength, Min, Matches } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  Matches,
+} from 'class-validator';
 
 export class CreateCategoryDto {
   @IsString()

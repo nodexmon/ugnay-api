@@ -37,7 +37,11 @@ export async function createTestApp(): Promise<TestApp> {
   const jwtService = app.get(JwtService, { strict: false });
   const prisma = app.get(PrismaService);
 
-  const mintToken = (payload: { sub: string; role: Role; phone?: string }): string => {
+  const mintToken = (payload: {
+    sub: string;
+    role: Role;
+    phone?: string;
+  }): string => {
     const jwtPayload: AuthJwtPayload = { phone: '', ...payload };
     return jwtService.sign(jwtPayload);
   };

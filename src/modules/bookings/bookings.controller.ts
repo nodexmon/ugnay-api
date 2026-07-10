@@ -1,4 +1,12 @@
-import { Body, Controller, Post, Get, Query, Param, Patch } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  Get,
+  Query,
+  Param,
+  Patch,
+} from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { CheckAbility } from '@/common/decorators/check-ability.decorator';
 import { Action } from '@/casl/casl.types';
@@ -22,7 +30,10 @@ export class BookingsController {
 
   @CheckAbility(Action.Read, 'Booking')
   @Get()
-  findMany(@CurrentUser() user: AuthJwtPayload, @Query() query: FindBookingsQueryDto) {
+  findMany(
+    @CurrentUser() user: AuthJwtPayload,
+    @Query() query: FindBookingsQueryDto,
+  ) {
     return this.bookingsService.findMany(user, query);
   }
 
@@ -34,7 +45,11 @@ export class BookingsController {
 
   @CheckAbility(Action.Update, 'Booking')
   @Patch(':id/update')
-  update(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string, @Body() dto: UpdateBookingDto) {
+  update(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateBookingDto,
+  ) {
     return this.bookingsService.update(id, user, dto);
   }
 
@@ -64,13 +79,21 @@ export class BookingsController {
 
   @CheckAbility(Action.Update, 'Booking')
   @Patch(':id/cancel')
-  cancel(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string, @Body() dto: CancelBookingDto) {
+  cancel(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('id') id: string,
+    @Body() dto: CancelBookingDto,
+  ) {
     return this.bookingsService.cancel(id, user, dto);
   }
 
   @CheckAbility(Action.Create, 'NoShowReport')
   @Post(':id/no-show')
-  reportNoShow(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string, @Body() dto: ReportNoShowDto) {
+  reportNoShow(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('id') id: string,
+    @Body() dto: ReportNoShowDto,
+  ) {
     return this.bookingsService.reportNoShow(id, user, dto.description);
   }
 }

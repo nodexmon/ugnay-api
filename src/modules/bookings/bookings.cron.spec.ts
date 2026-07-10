@@ -51,8 +51,14 @@ describe('BookingsCron', () => {
       }),
     );
     expect(notifications.sendToUser).toHaveBeenCalledTimes(2);
-    expect(notifications.sendToUser).toHaveBeenCalledWith('u1', expect.objectContaining({ title: 'Booking expired' }));
-    expect(notifications.sendToUser).toHaveBeenCalledWith('u2', expect.objectContaining({ title: 'Booking expired' }));
+    expect(notifications.sendToUser).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ title: 'Booking expired' }),
+    );
+    expect(notifications.sendToUser).toHaveBeenCalledWith(
+      'u2',
+      expect.objectContaining({ title: 'Booking expired' }),
+    );
   });
 
   it('is a no-op when there are no expired pending bookings', async () => {

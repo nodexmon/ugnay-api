@@ -1,4 +1,4 @@
-import { IsNumber, IsUUID, IsOptional, Min } from "class-validator";
+import { IsNumber, IsUUID, IsOptional, Min } from 'class-validator';
 
 export class WorkerCategoryInputDto {
   @IsUUID()

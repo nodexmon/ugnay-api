@@ -1,7 +1,14 @@
 import { BookingStatus } from '@/generated/prisma/enums';
 import { BookingsCron } from '@/modules/bookings/bookings.cron';
 import { createTestApp, TestApp } from './test-app';
-import { resetDb, createBarangay, createCategory, createCustomer, createWorker, createBooking } from './db';
+import {
+  resetDb,
+  createBarangay,
+  createCategory,
+  createCustomer,
+  createWorker,
+  createBooking,
+} from './db';
 
 describe('Booking expiry cron (e2e)', () => {
   let testApp: TestApp;
@@ -26,7 +33,10 @@ describe('Booking expiry cron (e2e)', () => {
 
   it('expires past-due PENDING bookings and leaves others untouched', async () => {
     const { profile: customerProfile } = await createCustomer(testApp.prisma);
-    const { profile: workerProfile } = await createWorker(testApp.prisma, barangayId);
+    const { profile: workerProfile } = await createWorker(
+      testApp.prisma,
+      barangayId,
+    );
 
     const expiredBooking = await createBooking(testApp.prisma, {
       customerId: customerProfile.id,
@@ -61,7 +71,9 @@ describe('Booking expiry cron (e2e)', () => {
     const [b1, b2, b3] = await Promise.all([
       testApp.prisma.booking.findUnique({ where: { id: expiredBooking.id } }),
       testApp.prisma.booking.findUnique({ where: { id: futureBooking.id } }),
-      testApp.prisma.booking.findUnique({ where: { id: acceptedExpiredBooking.id } }),
+      testApp.prisma.booking.findUnique({
+        where: { id: acceptedExpiredBooking.id },
+      }),
     ]);
 
     expect(b1?.status).toBe(BookingStatus.EXPIRED);

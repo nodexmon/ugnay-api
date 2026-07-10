@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Param, Patch, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Param,
+  Patch,
+  Query,
+} from '@nestjs/common';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { CheckAbility } from '@/common/decorators/check-ability.decorator';
 import { Action } from '@/casl/casl.types';
@@ -38,7 +46,10 @@ export class AdminController {
   }
 
   @Patch('verifications/:id/approve')
-  approveVerification(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
+  approveVerification(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('id') id: string,
+  ) {
     return this.adminService.approveVerification(id, user);
   }
 
@@ -57,7 +68,10 @@ export class AdminController {
   }
 
   @Post('strikes')
-  strikeWorker(@CurrentUser() user: AuthJwtPayload, @Body() dto: StrikeWorkerDto) {
+  strikeWorker(
+    @CurrentUser() user: AuthJwtPayload,
+    @Body() dto: StrikeWorkerDto,
+  ) {
     return this.adminService.strikeWorker(user, dto);
   }
 

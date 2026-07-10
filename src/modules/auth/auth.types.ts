@@ -1,4 +1,4 @@
-import { Role } from "@/generated/prisma/enums";
+import { Role } from '@/generated/prisma/enums';
 
 export interface AuthJwtPayload {
   sub: string;
@@ -10,10 +10,10 @@ export interface AuthJwtPayload {
 }
 
 export type SignedTokens = {
-  accessToken: string,
-  refreshToken: string
-}
+  accessToken: string;
+  refreshToken: string;
+};
 
 export type RefreshTokenPayload = AuthJwtPayload & {
-  tokenId: string
-}
+  tokenId: string;
+};

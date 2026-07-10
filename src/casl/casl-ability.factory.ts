@@ -19,20 +19,20 @@ export class CaslAbilityFactory {
         can(Action.Read, 'WorkerProfile');
         can(Action.Create, 'WorkerProfile');
         can(Action.Update, 'WorkerProfile');
-        
+
         // Verification Doc
         can(Action.Create, 'VerificationDoc');
-        
+
         // Booking
         can(Action.Read, 'Booking');
         can(Action.Update, 'Booking');
-        
+
         // Service Category
         can(Action.Read, 'ServiceCategory');
-        
+
         // Barangay
         can(Action.Read, 'Barangay');
-        
+
         // Push Token
         can(Action.Create, 'PushToken');
         can(Action.Delete, 'PushToken');
@@ -41,30 +41,30 @@ export class CaslAbilityFactory {
       case Role.CUSTOMER:
         // Worker Profile
         can(Action.Read, 'WorkerProfile');
-        
+
         // Customer Profile
         can(Action.Create, 'CustomerProfile');
         can(Action.Read, 'CustomerProfile');
         can(Action.Update, 'CustomerProfile');
-        
+
         // Booking
         can(Action.Create, 'Booking');
         can(Action.Read, 'Booking');
         can(Action.Update, 'Booking');
-        
+
         // No-show Report
         can(Action.Create, 'NoShowReport');
-        
+
         // Review
         can(Action.Create, 'Review');
         can(Action.Read, 'Review');
-        
+
         // Service Category
         can(Action.Read, 'ServiceCategory');
-        
+
         // Barangay
         can(Action.Read, 'Barangay');
-        
+
         // Push Token
         can(Action.Create, 'PushToken');
         can(Action.Delete, 'PushToken');

@@ -1,16 +1,14 @@
 type VerificationFilesMetadata = FileMetadata & {
-    mimetype: string
-}
+  mimetype: string;
+};
 
 export type FileMetadata = {
-    originalname : string, 
-    buffer: Buffer,
-    size: number
-}
-
+  originalname: string;
+  buffer: Buffer;
+  size: number;
+};
 
 export type UploadedVerificationFiles = {
-    idPhoto: VerificationFilesMetadata[];
-    selfie: VerificationFilesMetadata[]
-}
-
+  idPhoto: VerificationFilesMetadata[];
+  selfie: VerificationFilesMetadata[];
+};

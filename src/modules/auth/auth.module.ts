@@ -19,13 +19,13 @@ import { jwtConfig } from '@/config';
       useFactory: (config: ConfigType<typeof jwtConfig>) => ({
         secret: config.JWT_SECRET,
         signOptions: {
-          expiresIn: config.JWT_ACCESS_EXPIRES_IN
-        }
-      })
+          expiresIn: config.JWT_ACCESS_EXPIRES_IN,
+        },
+      }),
     }),
     PrismaModule,
     HttpModule,
-    ConfigModule.forFeature(jwtConfig)
+    ConfigModule.forFeature(jwtConfig),
   ],
   controllers: [AuthController],
   providers: [AuthService, OtpService, AuthJwtService, SmsService, JwtStrategy],

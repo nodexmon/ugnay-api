@@ -1,5 +1,13 @@
 import { PrismaService } from '@/prisma/prisma.service';
-import { BookingStatus, BookingType, Role, TimeWindow, UserStatus, VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
+import {
+  BookingStatus,
+  BookingType,
+  Role,
+  TimeWindow,
+  UserStatus,
+  VerificationStatus,
+  WorkerStatus,
+} from '@/generated/prisma/enums';
 
 export async function resetDb(prisma: PrismaService): Promise<void> {
   const tables = await prisma.$queryRaw<{ tablename: string }[]>`
@@ -8,10 +16,15 @@ export async function resetDb(prisma: PrismaService): Promise<void> {
   `;
   if (tables.length === 0) return;
   const names = tables.map((t) => `"${t.tablename}"`).join(', ');
-  await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${names} RESTART IDENTITY CASCADE`);
+  await prisma.$executeRawUnsafe(
+    `TRUNCATE TABLE ${names} RESTART IDENTITY CASCADE`,
+  );
 }
 
-export async function createBarangay(prisma: PrismaService, overrides: { name?: string } = {}) {
+export async function createBarangay(
+  prisma: PrismaService,
+  overrides: { name?: string } = {},
+) {
   return prisma.barangay.create({
     data: {
       name: overrides.name ?? `Barangay-${Date.now()}`,
@@ -21,7 +34,10 @@ export async function createBarangay(prisma: PrismaService, overrides: { name?: 
   });
 }
 
-export async function createCategory(prisma: PrismaService, overrides: { name?: string; slug?: string } = {}) {
+export async function createCategory(
+  prisma: PrismaService,
+  overrides: { name?: string; slug?: string } = {},
+) {
   const suffix = Date.now();
   return prisma.serviceCategory.create({
     data: {
@@ -37,7 +53,9 @@ export async function createUser(
 ) {
   return prisma.user.create({
     data: {
-      phone: overrides.phone ?? `+639${Math.floor(100000000 + Math.random() * 900000000)}`,
+      phone:
+        overrides.phone ??
+        `+639${Math.floor(100000000 + Math.random() * 900000000)}`,
       role: overrides.role ?? Role.CUSTOMER,
       status: overrides.status ?? UserStatus.ACTIVE,
     },
@@ -58,9 +76,16 @@ export async function createCustomer(
 export async function createWorker(
   prisma: PrismaService,
   barangayId: string,
-  overrides: { status?: WorkerStatus; strikeCount?: number; phone?: string } = {},
+  overrides: {
+    status?: WorkerStatus;
+    strikeCount?: number;
+    phone?: string;
+  } = {},
 ) {
-  const user = await createUser(prisma, { role: Role.WORKER, phone: overrides.phone });
+  const user = await createUser(prisma, {
+    role: Role.WORKER,
+    phone: overrides.phone,
+  });
   const profile = await prisma.workerProfile.create({
     data: {
       userId: user.id,

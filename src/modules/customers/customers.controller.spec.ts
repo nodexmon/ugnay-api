@@ -6,9 +6,17 @@ import { AuthJwtPayload } from '@/modules/auth/auth.types';
 
 describe('CustomersController', () => {
   let controller: CustomersController;
-  let customersService: { getProfile: jest.Mock; createProfile: jest.Mock; updateProfile: jest.Mock };
+  let customersService: {
+    getProfile: jest.Mock;
+    createProfile: jest.Mock;
+    updateProfile: jest.Mock;
+  };
 
-  const user: AuthJwtPayload = { sub: 'user-id', phone: '+639171234567', role: Role.CUSTOMER };
+  const user: AuthJwtPayload = {
+    sub: 'user-id',
+    phone: '+639171234567',
+    role: Role.CUSTOMER,
+  };
 
   beforeEach(async () => {
     customersService = {

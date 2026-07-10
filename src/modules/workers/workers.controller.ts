@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UploadedFiles,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { WorkersService } from '@/modules/workers/workers.service';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
@@ -37,19 +47,28 @@ export class WorkersController {
 
   @CheckAbility(Action.Create, 'WorkerProfile')
   @Post('profile')
-  createProfile(@CurrentUser() user: AuthJwtPayload, @Body() dto: CreateWorkerDto) {
+  createProfile(
+    @CurrentUser() user: AuthJwtPayload,
+    @Body() dto: CreateWorkerDto,
+  ) {
     return this.workersService.createProfile(user.sub, dto);
   }
 
   @CheckAbility(Action.Update, 'WorkerProfile')
   @Patch('profile')
-  updateProfile(@CurrentUser() user: AuthJwtPayload, @Body() dto: UpdateWorkerDto) {
+  updateProfile(
+    @CurrentUser() user: AuthJwtPayload,
+    @Body() dto: UpdateWorkerDto,
+  ) {
     return this.workersService.updateProfile(user.sub, dto);
   }
 
   @CheckAbility(Action.Update, 'WorkerProfile')
   @Patch('availability')
-  setAvailability(@CurrentUser() user: AuthJwtPayload, @Body() dto: SetAvailabilityDto) {
+  setAvailability(
+    @CurrentUser() user: AuthJwtPayload,
+    @Body() dto: SetAvailabilityDto,
+  ) {
     return this.workersService.setAvailability(user.sub, dto.isOnline);
   }
 

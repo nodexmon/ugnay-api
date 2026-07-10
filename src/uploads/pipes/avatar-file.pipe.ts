@@ -10,7 +10,9 @@ export class AvatarFilePipe implements PipeTransform {
     if (!file) throw new BadRequestException('avatar file is required');
 
     if (!ALLOWED_TYPES.includes(file.mimetype)) {
-      throw new BadRequestException('avatar must be a JPEG, PNG, or WEBP image');
+      throw new BadRequestException(
+        'avatar must be a JPEG, PNG, or WEBP image',
+      );
     }
 
     if (file.size > MAX_BYTES) {

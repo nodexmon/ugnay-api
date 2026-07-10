@@ -33,7 +33,9 @@ describe('AuthJwtService', () => {
   it('signs access and refresh tokens with role and refresh token id', () => {
     jwt.sign.mockReturnValueOnce('access').mockReturnValueOnce('refresh');
 
-    expect(service.signTokens('user-id', '+639171234567', 'WORKER', 'token-id')).toEqual({
+    expect(
+      service.signTokens('user-id', '+639171234567', 'WORKER', 'token-id'),
+    ).toEqual({
       accessToken: 'access',
       refreshToken: 'refresh',
     });
@@ -44,14 +46,25 @@ describe('AuthJwtService', () => {
     );
     expect(jwt.sign).toHaveBeenNthCalledWith(
       2,
-      { sub: 'user-id', phone: '+639171234567', role: 'WORKER', tokenId: 'token-id' },
+      {
+        sub: 'user-id',
+        phone: '+639171234567',
+        role: 'WORKER',
+        tokenId: 'token-id',
+      },
       { expiresIn: mockJwtConfig.JWT_REFRESH_EXPIRES_IN },
     );
   });
 
   it('rejects refresh tokens without token id', async () => {
-    jwt.verifyAsync.mockResolvedValue({ sub: 'user-id', phone: '+639171234567', role: 'WORKER' });
+    jwt.verifyAsync.mockResolvedValue({
+      sub: 'user-id',
+      phone: '+639171234567',
+      role: 'WORKER',
+    });
 
-    await expect(service.verifyRefreshToken('refresh')).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(service.verifyRefreshToken('refresh')).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 });

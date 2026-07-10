@@ -27,7 +27,10 @@ describe('Auth & guard chain (e2e)', () => {
 
   it('returns 401 when the token is signed with the wrong secret', async () => {
     const fakeToken = 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.invalid';
-    await request(server()).get('/users/me').set('Authorization', fakeToken).expect(401);
+    await request(server())
+      .get('/users/me')
+      .set('Authorization', fakeToken)
+      .expect(401);
   });
 
   it('returns 200 on a @Public route without a token', async () => {

@@ -73,10 +73,7 @@ describe('WorkersController', () => {
     workersService.createProfile.mockResolvedValue(expected);
 
     expect(controller.createProfile(user, dto)).resolves.toBe(expected);
-    expect(workersService.createProfile).toHaveBeenCalledWith(
-      user.sub,
-      dto,
-    );
+    expect(workersService.createProfile).toHaveBeenCalledWith(user.sub, dto);
   });
 
   it('updates a profile for the authenticated worker', () => {
@@ -85,10 +82,7 @@ describe('WorkersController', () => {
     workersService.updateProfile.mockResolvedValue(expected);
 
     expect(controller.updateProfile(user, dto)).resolves.toBe(expected);
-    expect(workersService.updateProfile).toHaveBeenCalledWith(
-      user.sub,
-      dto,
-    );
+    expect(workersService.updateProfile).toHaveBeenCalledWith(user.sub, dto);
   });
 
   it('sets availability using only the dto boolean', () => {
@@ -98,10 +92,7 @@ describe('WorkersController', () => {
     expect(controller.setAvailability(user, { isOnline: true })).resolves.toBe(
       expected,
     );
-    expect(workersService.setAvailability).toHaveBeenCalledWith(
-      user.sub,
-      true,
-    );
+    expect(workersService.setAvailability).toHaveBeenCalledWith(user.sub, true);
   });
 
   it('submits verification files for the authenticated worker', () => {

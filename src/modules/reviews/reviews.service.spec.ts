@@ -19,10 +19,7 @@ describe('ReviewsService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReviewsService,
-        { provide: PrismaService, useValue: prisma },
-      ],
+      providers: [ReviewsService, { provide: PrismaService, useValue: prisma }],
     }).compile();
 
     service = module.get<ReviewsService>(ReviewsService);
@@ -33,7 +30,10 @@ describe('ReviewsService', () => {
   });
 
   it('throws ForbiddenException when booking is not COMPLETED', async () => {
-    prisma.booking.findUnique.mockResolvedValue({ id: 'booking-id', status: BookingStatus.ACCEPTED });
+    prisma.booking.findUnique.mockResolvedValue({
+      id: 'booking-id',
+      status: BookingStatus.ACCEPTED,
+    });
     await expect(
       service.create({ bookingId: 'booking-id', rating: 5 }, user),
     ).rejects.toBeInstanceOf(ForbiddenException);
@@ -46,7 +46,9 @@ describe('ReviewsService', () => {
       customerId: 'other-profile-id',
       workerId: 'worker-profile-id',
     });
-    prisma.customerProfile.findUnique.mockResolvedValue({ id: 'my-profile-id' });
+    prisma.customerProfile.findUnique.mockResolvedValue({
+      id: 'my-profile-id',
+    });
 
     await expect(
       service.create({ bookingId: 'booking-id', rating: 5 }, user),
@@ -61,7 +63,10 @@ describe('ReviewsService', () => {
   });
 
   it('queries reviews by WorkerProfile.id not userId', async () => {
-    prisma.workerProfile.findUnique.mockResolvedValue({ id: 'profile-id', userId: 'user-id' });
+    prisma.workerProfile.findUnique.mockResolvedValue({
+      id: 'profile-id',
+      userId: 'user-id',
+    });
     prisma.review.findMany.mockResolvedValue([]);
 
     await service.findAllByWorkerId('profile-id', { skip: 0, take: 20 });

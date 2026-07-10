@@ -27,21 +27,32 @@ describe('CustomersService', () => {
 
   it('throws NotFoundException when profile does not exist', async () => {
     prisma.customerProfile.findUnique.mockResolvedValue(null);
-    await expect(service.getProfile('user-id')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.getProfile('user-id')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('throws ConflictException when profile already exists on create', async () => {
     prisma.customerProfile.findUnique.mockResolvedValue({ id: 'profile-id' });
     await expect(
-      service.createProfile('user-id', { firstName: 'Ana', lastName: 'Santos' }),
+      service.createProfile('user-id', {
+        firstName: 'Ana',
+        lastName: 'Santos',
+      }),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('creates a profile when none exists', async () => {
     prisma.customerProfile.findUnique.mockResolvedValue(null);
-    prisma.customerProfile.create.mockResolvedValue({ id: 'profile-id', firstName: 'Ana' });
+    prisma.customerProfile.create.mockResolvedValue({
+      id: 'profile-id',
+      firstName: 'Ana',
+    });
 
-    const result = await service.createProfile('user-id', { firstName: 'Ana', lastName: 'Santos' });
+    const result = await service.createProfile('user-id', {
+      firstName: 'Ana',
+      lastName: 'Santos',
+    });
     expect(result).toHaveProperty('id', 'profile-id');
   });
 });
