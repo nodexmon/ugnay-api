@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { WorkerStatus } from '@/generated/prisma/enums';
+import { User } from '@/generated/prisma/browser';
 
 @Injectable()
 export class AdminAssertions {
@@ -26,5 +27,20 @@ export class AdminAssertions {
         'This booking has already been used for a strike.',
       );
     }
+  }
+
+  async assertBookingExists(bookingId: string): Promise<void> {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
+
+    if (!booking) throw new NotFoundException('Booking does not exist.');
+      }
+  
+  async assertUserExists(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) throw new NotFoundException('User does not exist.');
   }
 }

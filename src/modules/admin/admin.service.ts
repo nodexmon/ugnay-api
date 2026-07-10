@@ -133,9 +133,8 @@ export class AdminService {
   }
 
   async setUserSuspension(workerId: string, suspended: boolean) {
-    const user = await this.prisma.user.findUnique({ where: { id: workerId } });
-    if (!user) throw new NotFoundException('User not found.');
-
+    await this.assertions.assertUserExists(workerId);
+    
     return this.prisma.$transaction(async (tx: TransactionClient) => {
       const updatedUser = await tx.user.update({
         where: { id: workerId },
@@ -157,21 +156,17 @@ export class AdminService {
     const worker = await assertWorkerProfileExists(this.prisma, dto.workerId);
 
     if (dto.bookingId) {
-      const booking = await this.prisma.booking.findUnique({
-        where: { id: dto.bookingId },
-      });
-      if (!booking) throw new NotFoundException('Booking not found.');
+      await this.assertions.assertBookingExists(dto.bookingId);
       await this.assertions.assertBookingNotAlreadyStruck(dto.bookingId);
     }
 
+    const payload = {
+      issuedBy: user.sub,
+      ...dto
+    }
+
     return this.prisma.$transaction(async (tx: TransactionClient) => {
-      await this.createStrikeRecord(tx, {
-        workerId: worker.id,
-        bookingId: dto.bookingId,
-        reason: dto.reason,
-        issuedBy: user.sub,
-        notes: dto.notes,
-      });
+      await this.createStrikeRecord(tx, payload);
 
       return this.incrementStrikeAndSuspendIfNeeded(tx, worker.id);
     });
@@ -217,6 +212,7 @@ export class AdminService {
         },
       },
     });
+
     if (!report) throw new NotFoundException('No-show report not found.');
 
     if (report.confirmed !== null) {
@@ -354,6 +350,7 @@ export class AdminService {
       where: { id },
       include: { worker: { select: { userId: true } } },
     });
+
     if (!doc) throw new NotFoundException('Verification submission not found.');
 
     if (doc.status !== VerificationStatus.PENDING) {
