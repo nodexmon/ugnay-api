@@ -2,10 +2,18 @@ import { MongoAbility } from '@casl/ability';
 
 export enum Action {
   Manage = 'manage',
+
   Create = 'create',
   Read = 'read',
   Update = 'update',
   Delete = 'delete',
+
+  Accept = 'accept',
+  Reject = 'reject',
+  Start = 'start',
+  Complete = 'complete',
+  Cancel = 'cancel',
+  ReportNoShow = 'report-no-show',
 }
 
 export type Subject =

@@ -24,8 +24,10 @@ export class CaslAbilityFactory {
         can(Action.Create, 'VerificationDoc');
 
         // Booking
-        can(Action.Read, 'Booking');
-        can(Action.Update, 'Booking');
+        can(Action.Accept, 'Booking');
+        can(Action.Reject, 'Booking');
+        can(Action.Start, 'Booking');
+        can(Action.Complete, 'Booking');
 
         // Service Category
         can(Action.Read, 'ServiceCategory');
@@ -51,9 +53,8 @@ export class CaslAbilityFactory {
         can(Action.Create, 'Booking');
         can(Action.Read, 'Booking');
         can(Action.Update, 'Booking');
-
-        // No-show Report
-        can(Action.Create, 'NoShowReport');
+        can(Action.Cancel, 'Booking');
+        can(Action.ReportNoShow, 'Booking');
 
         // Review
         can(Action.Create, 'Review');

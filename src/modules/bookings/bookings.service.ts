@@ -126,7 +126,6 @@ export class BookingsService {
   }
 
   async create(user: AuthJwtPayload, dto: CreateBookingDto) {
-    this.assertions.assertRole(user.role, BookingAction.CREATE);
     await assertUserIsActive(this.prisma, user.sub);
 
     const customer = await this.prisma.customerProfile.findUnique({
@@ -164,7 +163,6 @@ export class BookingsService {
   }
 
   async update(bookingId: string, user: AuthJwtPayload, dto: UpdateBookingDto) {
-    this.assertions.assertRole(user.role, BookingAction.UPDATE);
     const { booking, profileId } = await this.prepareBookingAction(
       user.sub,
       user.role,
@@ -176,7 +174,6 @@ export class BookingsService {
   }
 
   async accept(bookingId: string, user: AuthJwtPayload) {
-    this.assertions.assertRole(user.role, BookingAction.ACCEPT);
     const { booking, profileId } = await this.prepareBookingAction(
       user.sub,
       user.role,
@@ -195,7 +192,6 @@ export class BookingsService {
   }
 
   async reject(bookingId: string, user: AuthJwtPayload) {
-    this.assertions.assertRole(user.role, BookingAction.REJECT);
     const { booking, profileId } = await this.prepareBookingAction(
       user.sub,
       user.role,
@@ -214,7 +210,6 @@ export class BookingsService {
   }
 
   async start(bookingId: string, user: AuthJwtPayload) {
-    this.assertions.assertRole(user.role, BookingAction.START);
     const { booking, profileId } = await this.prepareBookingAction(
       user.sub,
       user.role,
@@ -229,7 +224,6 @@ export class BookingsService {
   }
 
   async complete(bookingId: string, user: AuthJwtPayload) {
-    this.assertions.assertRole(user.role, BookingAction.COMPLETE);
     const { booking, profileId } = await this.prepareBookingAction(
       user.sub,
       user.role,
@@ -303,7 +297,6 @@ export class BookingsService {
     user: AuthJwtPayload,
     description?: string,
   ) {
-    this.assertions.assertRole(user.role, BookingAction.REPORT_NO_SHOW);
     const { activeUser, booking, profileId } = await this.prepareBookingAction(
       user.sub,
       user.role,

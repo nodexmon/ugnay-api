@@ -53,31 +53,31 @@ export class BookingsController {
     return this.bookingsService.update(id, user, dto);
   }
 
-  @CheckAbility(Action.Update, 'Booking')
+  @CheckAbility(Action.Accept, 'Booking')
   @Patch(':id/accept')
   accept(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
     return this.bookingsService.accept(id, user);
   }
 
-  @CheckAbility(Action.Update, 'Booking')
+  @CheckAbility(Action.Reject, 'Booking')
   @Patch(':id/reject')
   reject(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
     return this.bookingsService.reject(id, user);
   }
 
-  @CheckAbility(Action.Update, 'Booking')
+  @CheckAbility(Action.Start, 'Booking')
   @Patch(':id/start')
   start(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
     return this.bookingsService.start(id, user);
   }
 
-  @CheckAbility(Action.Update, 'Booking')
+  @CheckAbility(Action.Complete, 'Booking')
   @Patch(':id/complete')
   complete(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
     return this.bookingsService.complete(id, user);
   }
 
-  @CheckAbility(Action.Update, 'Booking')
+  @CheckAbility(Action.Cancel, 'Booking')
   @Patch(':id/cancel')
   cancel(
     @CurrentUser() user: AuthJwtPayload,
@@ -87,8 +87,8 @@ export class BookingsController {
     return this.bookingsService.cancel(id, user, dto);
   }
 
-  @CheckAbility(Action.Create, 'NoShowReport')
-  @Post(':id/no-show')
+  @CheckAbility(Action.ReportNoShow, 'Booking')
+  @Patch(':id/report-no-show')
   reportNoShow(
     @CurrentUser() user: AuthJwtPayload,
     @Param('id') id: string,

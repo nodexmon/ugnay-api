@@ -1,8 +1,6 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import { BookingStatus, Role } from '@/generated/prisma/enums';
-import { BookingAction } from './booking.types';
-import { ROLE_REQUIREMENTS } from './bookings.constants';
+import { BookingStatus } from '@/generated/prisma/enums';
 
 @Injectable()
 export class BookingsAssertionsService {
@@ -11,13 +9,6 @@ export class BookingsAssertionsService {
   assertOwnership(entityId: string, profileId: string): void {
     if (entityId !== profileId) {
       throw new ForbiddenException('Insufficient permissions.');
-    }
-  }
-
-  assertRole(role: Role, action: BookingAction): void {
-    const required = ROLE_REQUIREMENTS[action];
-    if (required && role !== required) {
-      throw new ForbiddenException('Insufficient Permissions.');
     }
   }
 
