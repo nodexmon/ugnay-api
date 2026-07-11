@@ -195,3 +195,19 @@ July 11, 2026 (code review fixes — second pass)
   matching BookingsAssertions; added NotFoundException test for null-profile path in reviews spec
 - Test count: 160 → 161
 
+---
+
+July 11, 2026 (BRD sync)
+
+- Updated docs/UGNAY_BRD_v1_1.md to match current implementation:
+  - AUTH-03: corrected refresh token expiry from 30d to 7d (JWT_REFRESH_EXPIRES_IN default)
+  - WRK-05: added explicit second-rejection permanent ban note (enforced server-side)
+  - REV-04: clarified 3-review threshold is a UI-layer display rule, not enforced by API
+  - 7.2 stack table: SMS provider updated from Semaphore/Vonage to TextBee
+  - 7.3 modules: removed phantom SearchModule (search lives in WorkersModule); added BarangaysModule
+  - 8.1 entities: users status enum now includes DELETED
+  - 9.1-9.8: added all missing endpoint sections (session management, reviews/my,
+    users/customers/profile, categories full CRUD, barangays, full admin listings,
+    no-show resolution, push token management); fixed /bookings/:id/no-show →
+    PATCH /bookings/:id/report-no-show
+
