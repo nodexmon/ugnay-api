@@ -2,7 +2,13 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { BookingStatus, Role, WorkerStatus } from '@/generated/prisma/enums';
 import { createTestApp, TestApp } from './test-app';
-import { resetDb, createBarangay, createCategory, createCustomer, createWorker } from './db';
+import {
+  resetDb,
+  createBarangay,
+  createCategory,
+  createCustomer,
+  createWorker,
+} from './db';
 
 describe('Booking lifecycle (e2e)', () => {
   let testApp: TestApp;
@@ -32,10 +38,20 @@ describe('Booking lifecycle (e2e)', () => {
   const server = () => testApp.app.getHttpServer() as App;
 
   it('create → accept → start → complete happy path', async () => {
-    const { user: customerUser, profile: customerProfile } = await createCustomer(testApp.prisma);
-    const { user: workerUser, profile: workerProfile } = await createWorker(testApp.prisma, barangayId);
-    const customerToken = testApp.mintToken({ sub: customerUser.id, role: Role.CUSTOMER });
-    const workerToken = testApp.mintToken({ sub: workerUser.id, role: Role.WORKER });
+    const { user: customerUser, profile: customerProfile } =
+      await createCustomer(testApp.prisma);
+    const { user: workerUser, profile: workerProfile } = await createWorker(
+      testApp.prisma,
+      barangayId,
+    );
+    const customerToken = testApp.mintToken({
+      sub: customerUser.id,
+      role: Role.CUSTOMER,
+    });
+    const workerToken = testApp.mintToken({
+      sub: workerUser.id,
+      role: Role.WORKER,
+    });
 
     // Create
     const createRes = await request(server())
@@ -69,7 +85,9 @@ describe('Booking lifecycle (e2e)', () => {
       .set('Authorization', `Bearer ${workerToken}`)
       .expect(200);
 
-    const accepted = await testApp.prisma.booking.findUnique({ where: { id: bookingId } });
+    const accepted = await testApp.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
     expect(accepted?.status).toBe(BookingStatus.ACCEPTED);
     expect(accepted?.acceptedAt).not.toBeNull();
 
@@ -79,7 +97,9 @@ describe('Booking lifecycle (e2e)', () => {
       .set('Authorization', `Bearer ${workerToken}`)
       .expect(200);
 
-    const inProgress = await testApp.prisma.booking.findUnique({ where: { id: bookingId } });
+    const inProgress = await testApp.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
     expect(inProgress?.status).toBe(BookingStatus.IN_PROGRESS);
 
     // Complete
@@ -88,17 +108,31 @@ describe('Booking lifecycle (e2e)', () => {
       .set('Authorization', `Bearer ${workerToken}`)
       .expect(200);
 
-    const completed = await testApp.prisma.booking.findUnique({ where: { id: bookingId } });
+    const completed = await testApp.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
     expect(completed?.status).toBe(BookingStatus.COMPLETED);
     expect(completed?.completedAt).not.toBeNull();
   });
 
   it('returns 403 when a different worker tries to accept the booking', async () => {
     const { user: customerUser } = await createCustomer(testApp.prisma);
-    const { profile: workerProfile } = await createWorker(testApp.prisma, barangayId);
-    const { user: otherWorkerUser } = await createWorker(testApp.prisma, barangayId);
-    const customerToken = testApp.mintToken({ sub: customerUser.id, role: Role.CUSTOMER });
-    const otherWorkerToken = testApp.mintToken({ sub: otherWorkerUser.id, role: Role.WORKER });
+    const { profile: workerProfile } = await createWorker(
+      testApp.prisma,
+      barangayId,
+    );
+    const { user: otherWorkerUser } = await createWorker(
+      testApp.prisma,
+      barangayId,
+    );
+    const customerToken = testApp.mintToken({
+      sub: customerUser.id,
+      role: Role.CUSTOMER,
+    });
+    const otherWorkerToken = testApp.mintToken({
+      sub: otherWorkerUser.id,
+      role: Role.WORKER,
+    });
 
     const createRes = await request(server())
       .post('/bookings')
@@ -123,9 +157,18 @@ describe('Booking lifecycle (e2e)', () => {
 
   it('returns 403 when trying to start a PENDING booking', async () => {
     const { user: customerUser } = await createCustomer(testApp.prisma);
-    const { user: workerUser, profile: workerProfile } = await createWorker(testApp.prisma, barangayId);
-    const customerToken = testApp.mintToken({ sub: customerUser.id, role: Role.CUSTOMER });
-    const workerToken = testApp.mintToken({ sub: workerUser.id, role: Role.WORKER });
+    const { user: workerUser, profile: workerProfile } = await createWorker(
+      testApp.prisma,
+      barangayId,
+    );
+    const customerToken = testApp.mintToken({
+      sub: customerUser.id,
+      role: Role.CUSTOMER,
+    });
+    const workerToken = testApp.mintToken({
+      sub: workerUser.id,
+      role: Role.WORKER,
+    });
 
     const createRes = await request(server())
       .post('/bookings')
@@ -150,9 +193,19 @@ describe('Booking lifecycle (e2e)', () => {
 
   it('worker cancel at strikeCount 2 suspends the worker and creates a strike', async () => {
     const { user: customerUser } = await createCustomer(testApp.prisma);
-    const { user: workerUser, profile: workerProfile } = await createWorker(testApp.prisma, barangayId, { strikeCount: 2 });
-    const customerToken = testApp.mintToken({ sub: customerUser.id, role: Role.CUSTOMER });
-    const workerToken = testApp.mintToken({ sub: workerUser.id, role: Role.WORKER });
+    const { user: workerUser, profile: workerProfile } = await createWorker(
+      testApp.prisma,
+      barangayId,
+      { strikeCount: 2 },
+    );
+    const customerToken = testApp.mintToken({
+      sub: customerUser.id,
+      role: Role.CUSTOMER,
+    });
+    const workerToken = testApp.mintToken({
+      sub: workerUser.id,
+      role: Role.WORKER,
+    });
 
     const createRes = await request(server())
       .post('/bookings')
@@ -181,10 +234,14 @@ describe('Booking lifecycle (e2e)', () => {
       .send({ cancellationReason: 'Emergency' })
       .expect(200);
 
-    const updatedWorker = await testApp.prisma.workerProfile.findUnique({ where: { id: workerProfile.id } });
+    const updatedWorker = await testApp.prisma.workerProfile.findUnique({
+      where: { id: workerProfile.id },
+    });
     expect(updatedWorker?.status).toBe(WorkerStatus.SUSPENDED);
 
-    const strike = await testApp.prisma.strike.findFirst({ where: { workerId: workerProfile.id } });
+    const strike = await testApp.prisma.strike.findFirst({
+      where: { workerId: workerProfile.id },
+    });
     expect(strike).not.toBeNull();
   });
 });

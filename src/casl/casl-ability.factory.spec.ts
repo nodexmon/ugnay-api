@@ -26,11 +26,13 @@ describe('CaslAbilityFactory', () => {
   });
 
   describe('WORKER', () => {
-    it('can read and update bookings but not create them', () => {
+    it('can read and action bookings but not create them', () => {
       const ability = factory.createForUser(makeUser(Role.WORKER));
       expect(ability.can(Action.Read, 'Booking')).toBe(true);
-      expect(ability.can(Action.Update, 'Booking')).toBe(true);
+      expect(ability.can(Action.Accept, 'Booking')).toBe(true);
+      expect(ability.can(Action.Cancel, 'Booking')).toBe(true);
       expect(ability.can(Action.Create, 'Booking')).toBe(false);
+      expect(ability.can(Action.Update, 'Booking')).toBe(false);
     });
 
     it('can create verification docs but not no-show reports', () => {
@@ -48,10 +50,10 @@ describe('CaslAbilityFactory', () => {
   });
 
   describe('CUSTOMER', () => {
-    it('can create bookings and no-show reports', () => {
+    it('can create bookings and report no-shows', () => {
       const ability = factory.createForUser(makeUser(Role.CUSTOMER));
       expect(ability.can(Action.Create, 'Booking')).toBe(true);
-      expect(ability.can(Action.Create, 'NoShowReport')).toBe(true);
+      expect(ability.can(Action.ReportNoShow, 'Booking')).toBe(true);
     });
 
     it('cannot create verification docs', () => {

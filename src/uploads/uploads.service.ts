@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException, StreamableFile } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  StreamableFile,
+} from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Role } from '@/generated/prisma/enums';
 import { uploadConfig } from '@/config';
@@ -20,10 +25,15 @@ const MIME_TYPES: Record<string, string> = {
 export class UploadsService {
   constructor(
     private readonly prisma: PrismaService,
-    @Inject(uploadConfig.KEY) private readonly config: ConfigType<typeof uploadConfig>,
+    @Inject(uploadConfig.KEY)
+    private readonly config: ConfigType<typeof uploadConfig>,
   ) {}
 
-  async uploadAvatar(userId: string, role: Role, file: AvatarFile): Promise<{ avatarUrl: string }> {
+  async uploadAvatar(
+    userId: string,
+    role: Role,
+    file: AvatarFile,
+  ): Promise<{ avatarUrl: string }> {
     const ext = extname(file.originalname).toLowerCase() || '.jpg';
     const filename = `${randomUUID()}${ext}`;
     const uploadRoot = this.config.UPLOAD_DIR;
@@ -34,9 +44,15 @@ export class UploadsService {
     await writeFile(join(absoluteDir, filename), file.buffer);
 
     if (role === Role.WORKER) {
-      await this.prisma.workerProfile.update({ where: { userId }, data: { avatarUrl } });
+      await this.prisma.workerProfile.update({
+        where: { userId },
+        data: { avatarUrl },
+      });
     } else {
-      await this.prisma.customerProfile.update({ where: { userId }, data: { avatarUrl } });
+      await this.prisma.customerProfile.update({
+        where: { userId },
+        data: { avatarUrl },
+      });
     }
 
     return { avatarUrl };

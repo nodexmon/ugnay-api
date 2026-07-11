@@ -1,4 +1,12 @@
-import { Controller, Post, Body, Get, Param, Query } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Query,
+} from '@nestjs/common';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { FindReviewsQueryDto } from './dto/find-reviews-query.dto';
@@ -14,19 +22,28 @@ export class ReviewsController {
 
   @CheckAbility(Action.Create, 'Review')
   @Post()
-  submitReview(@Body() dto: CreateReviewDto, @CurrentUser() user: AuthJwtPayload) {
+  submitReview(
+    @Body() dto: CreateReviewDto,
+    @CurrentUser() user: AuthJwtPayload,
+  ) {
     return this.reviewsService.create(dto, user);
   }
 
   @CheckAbility(Action.Read, 'Review')
   @Get('my')
-  findMyReviews(@CurrentUser() user: AuthJwtPayload, @Query() query: FindReviewsQueryDto) {
+  findMyReviews(
+    @CurrentUser() user: AuthJwtPayload,
+    @Query() query: FindReviewsQueryDto,
+  ) {
     return this.reviewsService.findMyReviews(user.sub, query);
   }
 
   @Public()
   @Get('worker/:id')
-  findReviewsByWorker(@Param('id') id: string, @Query() query: FindReviewsQueryDto) {
+  findReviewsByWorker(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: FindReviewsQueryDto,
+  ) {
     return this.reviewsService.findAllByWorkerId(id, query);
   }
 }

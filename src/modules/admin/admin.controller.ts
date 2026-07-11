@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Post, Param, Patch, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Query,
+} from '@nestjs/common';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { CheckAbility } from '@/common/decorators/check-ability.decorator';
 import { Action } from '@/casl/casl.types';
@@ -38,26 +47,35 @@ export class AdminController {
   }
 
   @Patch('verifications/:id/approve')
-  approveVerification(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
+  approveVerification(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.adminService.approveVerification(id, user);
   }
 
   @Patch('verifications/:id/reject')
   rejectVerification(
     @CurrentUser() user: AuthJwtPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RejectVerificationDto,
   ) {
     return this.adminService.rejectVerification(id, user, dto.reason);
   }
 
   @Patch('users/:id/suspend')
-  setUserSuspension(@Param('id') id: string, @Body() dto: SuspendUserDto) {
+  setUserSuspension(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SuspendUserDto,
+  ) {
     return this.adminService.setUserSuspension(id, dto.suspended);
   }
 
   @Post('strikes')
-  strikeWorker(@CurrentUser() user: AuthJwtPayload, @Body() dto: StrikeWorkerDto) {
+  strikeWorker(
+    @CurrentUser() user: AuthJwtPayload,
+    @Body() dto: StrikeWorkerDto,
+  ) {
     return this.adminService.strikeWorker(user, dto);
   }
 
@@ -69,7 +87,7 @@ export class AdminController {
   @Patch('no-shows/:id/resolve')
   resolveNoShow(
     @CurrentUser() user: AuthJwtPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ResolveNoShowDto,
   ) {
     return this.adminService.resolveNoShow(id, user, dto);

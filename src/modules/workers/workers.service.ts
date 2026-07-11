@@ -6,28 +6,45 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import { BookingStatus, UserStatus, VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
+import {
+  BookingStatus,
+  UserStatus,
+  VerificationStatus,
+  WorkerStatus,
+} from '@/generated/prisma/enums';
 import { CreateWorkerDto } from '@/modules/workers/dto/create-worker.dto';
 import { WorkerCategoryInputDto } from '@/modules/workers/dto/input-worker-category.dto';
 import { UpdateWorkerDto } from '@/modules/workers/dto/update-worker.dto';
 import { SearchWorkersDto } from '@/modules/workers/dto/search-workers.dto';
 import type { UploadedVerificationFiles } from '@/modules/workers/workers.types';
-import { Prisma } from '@/generated/prisma/client';
+import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { FileStorageService } from '@/modules/workers/file-storage.service';
-import { PUBLIC_WORKER_INCLUDE, WORKER_INCLUDE } from '@/common/constants/worker-includes';
-import { assertUserIsActive } from '@/common/utils/assert.util';
+import { WorkersAssertions } from '@/modules/workers/workers.assertions';
+import {
+  PUBLIC_WORKER_INCLUDE,
+  WORKER_INCLUDE,
+} from '@/common/constants/worker-includes';
+import { UsersAssertions } from '../users/users.assertions';
 
 @Injectable()
 export class WorkersService {
   constructor(
-    private prisma: PrismaService,
-    private fileStorage: FileStorageService,
+    private readonly prisma: PrismaService,
+    private readonly fileStorage: FileStorageService,
+    private readonly assertions: WorkersAssertions,
+    private readonly usersAssertions: UsersAssertions,
   ) {}
 
-  // ─── Public ───────────────────────────────────────────────────────────────
+  // ─── Public API ──────────────────────────────────────────────────────────
 
   async search(query: SearchWorkersDto) {
-    const { availableOnly, categoryId, barangayId, page = 1, limit = 20 } = query;
+    const {
+      availableOnly,
+      categoryId,
+      barangayId,
+      page = 1,
+      limit = 20,
+    } = query;
 
     return this.prisma.workerProfile.findMany({
       where: {
@@ -45,7 +62,11 @@ export class WorkersService {
         },
       },
       include: PUBLIC_WORKER_INCLUDE,
-      orderBy: [{ averageRating: 'desc' }, { totalReviews: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [
+        { averageRating: 'desc' },
+        { totalReviews: 'desc' },
+        { createdAt: 'desc' },
+      ],
       skip: (page - 1) * limit,
       take: limit,
     });
@@ -79,11 +100,13 @@ export class WorkersService {
   }
 
   async createProfile(userId: string, dto: CreateWorkerDto) {
-    await assertUserIsActive(this.prisma, userId);
-    await this.assertProfileDoesNotExist(userId);
+    await this.usersAssertions.assertUserIsActive(userId);
+    await this.assertions.assertProfileDoesNotExist(userId);
     await this.validateCategories(dto.categories);
 
-    const barangayIds = [...new Set([dto.homeBarangayId, ...(dto.serviceAreaBarangayIds ?? [])])];
+    const barangayIds = [
+      ...new Set([dto.homeBarangayId, ...(dto.serviceAreaBarangayIds ?? [])]),
+    ];
     await this.validateBarangays(barangayIds);
 
     return this.prisma.workerProfile.create({
@@ -103,7 +126,9 @@ export class WorkersService {
           })),
         },
         serviceAreas: {
-          create: dto.serviceAreaBarangayIds.map((barangayId) => ({ barangayId })),
+          create: dto.serviceAreaBarangayIds.map((barangayId) => ({
+            barangayId,
+          })),
         },
       },
       include: WORKER_INCLUDE,
@@ -115,7 +140,10 @@ export class WorkersService {
 
     if (dto.homeBarangayId || dto.serviceAreaBarangayIds) {
       const barangayIds = [
-        ...new Set([dto.homeBarangayId ?? worker.homeBarangayId, ...(dto.serviceAreaBarangayIds ?? [])]),
+        ...new Set([
+          dto.homeBarangayId ?? worker.homeBarangayId,
+          ...(dto.serviceAreaBarangayIds ?? []),
+        ]),
       ];
       await this.validateBarangays(barangayIds);
     }
@@ -124,7 +152,7 @@ export class WorkersService {
       await this.validateCategories(dto.categories);
     }
 
-    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    return this.prisma.$transaction(async (tx: TransactionClient) => {
       if (dto.categories) {
         await tx.workerCategory.deleteMany({ where: { workerId: worker.id } });
         await tx.workerCategory.createMany({
@@ -137,7 +165,9 @@ export class WorkersService {
       }
 
       if (dto.serviceAreaBarangayIds) {
-        await tx.workerServiceArea.deleteMany({ where: { workerId: worker.id } });
+        await tx.workerServiceArea.deleteMany({
+          where: { workerId: worker.id },
+        });
         await tx.workerServiceArea.createMany({
           data: dto.serviceAreaBarangayIds.map((barangayId) => ({
             workerId: worker.id,
@@ -165,7 +195,9 @@ export class WorkersService {
     const worker = await this.getOwnProfile(userId);
 
     if (isOnline && worker.status !== WorkerStatus.VERIFIED) {
-      throw new ForbiddenException('Worker must be verified before going online');
+      throw new ForbiddenException(
+        'Worker must be verified before going online',
+      );
     }
 
     return this.prisma.workerProfile.update({
@@ -189,37 +221,52 @@ export class WorkersService {
     const idPhoto = files.idPhoto[0];
     const selfie = files.selfie[0];
 
-    const idPhotoPath = this.fileStorage.resolvePath(worker.id, 'id-photo', idPhoto);
-    const selfiePath = this.fileStorage.resolvePath(worker.id, 'selfie', selfie);
+    const idPhotoPath = this.fileStorage.resolvePath(
+      worker.id,
+      'id-photo',
+      idPhoto,
+    );
+    const selfiePath = this.fileStorage.resolvePath(
+      worker.id,
+      'selfie',
+      selfie,
+    );
 
-    const doc = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const pendingDoc = await tx.verificationDoc.findFirst({
-        where: { workerId: worker.id, status: VerificationStatus.PENDING },
-      });
+    const doc = await this.prisma.$transaction(
+      async (tx: TransactionClient) => {
+        const pendingDoc = await tx.verificationDoc.findFirst({
+          where: { workerId: worker.id, status: VerificationStatus.PENDING },
+        });
 
-      if (pendingDoc) throw new ConflictException('A verification submission is already pending');
+        if (pendingDoc)
+          throw new ConflictException(
+            'A verification submission is already pending',
+          );
 
-      const rejectedCount = await tx.verificationDoc.count({
-        where: { workerId: worker.id, status: VerificationStatus.REJECTED },
-      });
+        const rejectedCount = await tx.verificationDoc.count({
+          where: { workerId: worker.id, status: VerificationStatus.REJECTED },
+        });
 
-      if (rejectedCount >= 2) {
-        throw new ForbiddenException('Verification reapplication limit has been reached.');
-      }
+        if (rejectedCount >= 2) {
+          throw new ForbiddenException(
+            'Verification reapplication limit has been reached.',
+          );
+        }
 
-      await tx.workerProfile.update({
-        where: { id: worker.id },
-        data: { status: WorkerStatus.PENDING },
-      });
+        await tx.workerProfile.update({
+          where: { id: worker.id },
+          data: { status: WorkerStatus.PENDING },
+        });
 
-      return tx.verificationDoc.create({
-        data: {
-          workerId: worker.id,
-          idPhotoUrl: idPhotoPath.relative,
-          selfieUrl: selfiePath.relative,
-        },
-      });
-    });
+        return tx.verificationDoc.create({
+          data: {
+            workerId: worker.id,
+            idPhotoUrl: idPhotoPath.relative,
+            selfieUrl: selfiePath.relative,
+          },
+        });
+      },
+    );
 
     await Promise.all([
       this.fileStorage.write(idPhotoPath, idPhoto),
@@ -229,56 +276,53 @@ export class WorkersService {
     return doc;
   }
 
-  // ─── Assertions ───────────────────────────────────────────────────────────
-
-  private async assertProfileDoesNotExist(userId: string): Promise<void> {
-    const existing = await this.prisma.workerProfile.findUnique({ where: { userId } });
-    if (existing) {
-      throw new ConflictException('Worker profile already exists');
-    }
-  }
-
   private async getOwnProfile(userId: string) {
-    const worker = await this.prisma.workerProfile.findUnique({ where: { userId } });
+    const worker = await this.prisma.workerProfile.findUnique({
+      where: { userId },
+    });
     if (!worker) {
       throw new NotFoundException('Worker profile not found');
     }
     return worker;
   }
 
-  // ─── Validators ───────────────────────────────────────────────────────────
+  // ─── Private: business logic ─────────────────────────────────────────────
 
   private async validateActiveEntities(
     ids: string[],
     countFn: (ids: string[]) => Promise<number>,
     label: string,
   ): Promise<void> {
-    this.assertUnique(ids, label);
+    this.assertions.assertUnique(ids, label);
     const count = await countFn(ids);
     if (count !== ids.length) {
-      throw new BadRequestException(`One or more ${label} are invalid or inactive`);
+      throw new BadRequestException(
+        `One or more ${label} are invalid or inactive`,
+      );
     }
   }
 
   private async validateBarangays(barangayIds: string[]): Promise<void> {
     await this.validateActiveEntities(
       barangayIds,
-      (ids) => this.prisma.barangay.count({ where: { id: { in: ids }, isActive: true } }),
+      (ids) =>
+        this.prisma.barangay.count({
+          where: { id: { in: ids }, isActive: true },
+        }),
       'barangays',
     );
   }
 
-  private async validateCategories(categories: WorkerCategoryInputDto[]): Promise<void> {
+  private async validateCategories(
+    categories: WorkerCategoryInputDto[],
+  ): Promise<void> {
     await this.validateActiveEntities(
       categories.map((c) => c.categoryId),
-      (ids) => this.prisma.serviceCategory.count({ where: { id: { in: ids }, isActive: true } }),
+      (ids) =>
+        this.prisma.serviceCategory.count({
+          where: { id: { in: ids }, isActive: true },
+        }),
       'categories',
     );
-  }
-
-  private assertUnique(values: string[], label: string): void {
-    if (new Set(values).size !== values.length) {
-      throw new BadRequestException(`Duplicate ${label} are not allowed`);
-    }
   }
 }

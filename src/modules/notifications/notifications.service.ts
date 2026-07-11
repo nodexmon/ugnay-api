@@ -2,13 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Platform } from '@/generated/prisma/enums';
 import { Logger } from 'nestjs-pino';
+import { PushMessage } from './notifications.interface';
 import Expo, { ExpoPushMessage, ExpoPushTicket } from 'expo-server-sdk';
-
-interface PushMessage {
-  title: string;
-  body: string;
-  data?: Record<string, unknown>;
-}
 
 @Injectable()
 export class NotificationsService {
@@ -30,7 +25,7 @@ export class NotificationsService {
         to: t.token,
         title: message.title,
         body: message.body,
-        data: (message.data ?? {}) as Record<string, unknown>,
+        data: message.data ?? {},
         sound: 'default',
       }));
 
@@ -39,7 +34,8 @@ export class NotificationsService {
     try {
       const chunks = this.expo.chunkPushNotifications(messages);
       for (const chunk of chunks) {
-        const tickets: ExpoPushTicket[] = await this.expo.sendPushNotificationsAsync(chunk);
+        const tickets: ExpoPushTicket[] =
+          await this.expo.sendPushNotificationsAsync(chunk);
         for (const ticket of tickets) {
           if (ticket.status === 'error') {
             this.logger.warn({ ticket }, 'Expo push notification error');
@@ -51,7 +47,11 @@ export class NotificationsService {
     }
   }
 
-  async registerToken(userId: string, token: string, platform: Platform): Promise<void> {
+  async registerToken(
+    userId: string,
+    token: string,
+    platform: Platform,
+  ): Promise<void> {
     await this.prisma.pushToken.upsert({
       where: { token },
       update: { userId, platform },

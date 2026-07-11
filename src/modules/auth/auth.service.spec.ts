@@ -43,7 +43,10 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    jwtService.signTokens.mockReturnValue({ accessToken: 'access', refreshToken: 'refresh' });
+    jwtService.signTokens.mockReturnValue({
+      accessToken: 'access',
+      refreshToken: 'refresh',
+    });
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -78,7 +81,9 @@ describe('AuthService', () => {
       role: Role.WORKER,
     });
 
-    await expect(service.verifyOtp('+639171234567', '123456', Role.WORKER)).resolves.toEqual({
+    await expect(
+      service.verifyOtp('+639171234567', '123456', Role.WORKER),
+    ).resolves.toEqual({
       accessToken: 'access',
       refreshToken: 'refresh',
     });
@@ -100,8 +105,8 @@ describe('AuthService', () => {
       role: Role.CUSTOMER,
     });
 
-    await expect(service.verifyOtp('+639171234567', '123456', Role.WORKER)).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    await expect(
+      service.verifyOtp('+639171234567', '123456', Role.WORKER),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

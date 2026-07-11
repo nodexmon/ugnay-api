@@ -14,7 +14,13 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { CategoriesModule } from '@/modules/categories/categories.module';
 import { AdminModule } from '@/modules/admin/admin.module';
 import { ConfigModule, ConfigType } from '@nestjs/config';
-import { jwtConfig, appConfig, uploadConfig, databaseConfig, textbeeConfig } from '@/config';
+import {
+  jwtConfig,
+  appConfig,
+  uploadConfig,
+  databaseConfig,
+  textbeeConfig,
+} from '@/config';
 import { loggerConfig } from '@/config/logger.config';
 import { LoggerModule } from 'nestjs-pino';
 import { HttpModule } from '@nestjs/axios';
@@ -43,13 +49,18 @@ import { BarangaysModule } from './modules/barangays/barangays.module';
     ConfigModule.forRoot({
       isGlobal: true,
       load: [
-        appConfig, jwtConfig, uploadConfig, databaseConfig, loggerConfig, textbeeConfig
-      ]
+        appConfig,
+        jwtConfig,
+        uploadConfig,
+        databaseConfig,
+        loggerConfig,
+        textbeeConfig,
+      ],
     }),
 
     LoggerModule.forRootAsync({
       inject: [loggerConfig.KEY],
-      useFactory: (config: ConfigType<typeof loggerConfig>) => config
+      useFactory: (config: ConfigType<typeof loggerConfig>) => config,
     }),
 
     ScheduleModule.forRoot(),

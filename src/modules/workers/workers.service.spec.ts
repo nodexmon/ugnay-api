@@ -4,6 +4,8 @@ import { UserStatus, WorkerStatus } from '@/generated/prisma/enums';
 import { PrismaService } from '@/prisma/prisma.service';
 import { WorkersService } from '@/modules/workers/workers.service';
 import { FileStorageService } from '@/modules/workers/file-storage.service';
+import { WorkersAssertions } from '@/modules/workers/workers.assertions';
+import { UsersAssertions } from '@/modules/users/users.assertions';
 
 describe('WorkersService', () => {
   let service: WorkersService;
@@ -34,6 +36,15 @@ describe('WorkersService', () => {
 
   const fileStorage = { resolvePath: jest.fn(), write: jest.fn() };
 
+  const assertions = {
+    assertProfileDoesNotExist: jest.fn(),
+    assertUnique: jest.fn(),
+  };
+
+  const usersAssertions = {
+    assertUserIsActive: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
@@ -41,6 +52,8 @@ describe('WorkersService', () => {
         WorkersService,
         { provide: PrismaService, useValue: prisma },
         { provide: FileStorageService, useValue: fileStorage },
+        { provide: WorkersAssertions, useValue: assertions },
+        { provide: UsersAssertions, useValue: usersAssertions },
       ],
     }).compile();
 
@@ -78,11 +91,13 @@ describe('WorkersService', () => {
   });
 
   it('rejects duplicate worker categories during profile creation', async () => {
-    prisma.user.findUnique.mockResolvedValue({
+    usersAssertions.assertUserIsActive.mockResolvedValueOnce({
       id: 'user-id',
       status: UserStatus.ACTIVE,
     });
-    prisma.workerProfile.findUnique.mockResolvedValue(null);
+    assertions.assertUnique.mockImplementationOnce(() => {
+      throw new BadRequestException('Duplicate categories are not allowed');
+    });
 
     await expect(
       service.createProfile('user-id', {

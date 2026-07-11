@@ -1,0 +1,1 @@
+export const STRIKE_SUSPENSION_THRESHOLD = 3;

@@ -2,8 +2,15 @@ import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CategoriesService } from './categories.service';
+import { CategoriesAssertions } from './categories.assertions';
 
-const category = { id: 'cat-id', name: 'Plumbing', slug: 'plumbing', isActive: true, sortOrder: 0 };
+const category = {
+  id: 'cat-id',
+  name: 'Plumbing',
+  slug: 'plumbing',
+  isActive: true,
+  sortOrder: 0,
+};
 
 describe('CategoriesService', () => {
   let service: CategoriesService;
@@ -17,6 +24,10 @@ describe('CategoriesService', () => {
     },
   };
 
+  const mockAssertions = {
+    assertCategoryExists: jest.fn(),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -24,6 +35,7 @@ describe('CategoriesService', () => {
       providers: [
         CategoriesService,
         { provide: PrismaService, useValue: prisma },
+        { provide: CategoriesAssertions, useValue: mockAssertions },
       ],
     }).compile();
 
@@ -55,34 +67,51 @@ describe('CategoriesService', () => {
 
   describe('update', () => {
     it('throws NotFoundException when the category does not exist', async () => {
-      prisma.serviceCategory.findUnique.mockResolvedValue(null);
-      await expect(service.update('missing-id', { name: 'New' })).rejects.toBeInstanceOf(NotFoundException);
+      mockAssertions.assertCategoryExists.mockRejectedValue(
+        new NotFoundException('Category does not exist.'),
+      );
+      await expect(
+        service.update('missing-id', { name: 'New' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
   describe('deactivate', () => {
     it('sets isActive to false', async () => {
-      prisma.serviceCategory.findUnique.mockResolvedValue(category);
-      prisma.serviceCategory.update.mockResolvedValue({ ...category, isActive: false });
+      mockAssertions.assertCategoryExists.mockResolvedValue(undefined);
+      prisma.serviceCategory.update.mockResolvedValue({
+        ...category,
+        isActive: false,
+      });
 
       const result = await service.deactivate('cat-id');
 
       expect(prisma.serviceCategory.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'cat-id' }, data: { isActive: false } }),
+        expect.objectContaining({
+          where: { id: 'cat-id' },
+          data: { isActive: false },
+        }),
       );
       expect(result.isActive).toBe(false);
     });
 
     it('is idempotent — deactivating an already-inactive category succeeds', async () => {
-      prisma.serviceCategory.findUnique.mockResolvedValue({ ...category, isActive: false });
-      prisma.serviceCategory.update.mockResolvedValue({ ...category, isActive: false });
+      mockAssertions.assertCategoryExists.mockResolvedValue(undefined);
+      prisma.serviceCategory.update.mockResolvedValue({
+        ...category,
+        isActive: false,
+      });
 
       await expect(service.deactivate('cat-id')).resolves.not.toThrow();
     });
 
     it('throws NotFoundException when the category does not exist', async () => {
-      prisma.serviceCategory.findUnique.mockResolvedValue(null);
-      await expect(service.deactivate('missing-id')).rejects.toBeInstanceOf(NotFoundException);
+      mockAssertions.assertCategoryExists.mockRejectedValue(
+        new NotFoundException('Category does not exist.'),
+      );
+      await expect(service.deactivate('missing-id')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 });

@@ -13,13 +13,23 @@ export class NotificationsController {
 
   @CheckAbility(Action.Create, 'PushToken')
   @Post('push-token')
-  registerToken(@CurrentUser() user: AuthJwtPayload, @Body() dto: RegisterPushTokenDto) {
-    return this.notificationsService.registerToken(user.sub, dto.token, dto.platform);
+  registerToken(
+    @CurrentUser() user: AuthJwtPayload,
+    @Body() dto: RegisterPushTokenDto,
+  ) {
+    return this.notificationsService.registerToken(
+      user.sub,
+      dto.token,
+      dto.platform,
+    );
   }
 
   @CheckAbility(Action.Delete, 'PushToken')
   @Delete('push-token')
-  removeToken(@CurrentUser() user: AuthJwtPayload, @Body() dto: RemovePushTokenDto) {
+  removeToken(
+    @CurrentUser() user: AuthJwtPayload,
+    @Body() dto: RemovePushTokenDto,
+  ) {
     return this.notificationsService.removeToken(user.sub, dto.token);
   }
 }

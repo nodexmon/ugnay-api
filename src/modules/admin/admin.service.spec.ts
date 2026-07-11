@@ -1,43 +1,34 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { BookingStatus, Role, StrikeReason, UserStatus, VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
+import {
+  BookingStatus,
+  Role,
+  StrikeReason,
+  UserStatus,
+  VerificationStatus,
+  WorkerStatus,
+} from '@/generated/prisma/enums';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AdminService } from '@/modules/admin/admin.service';
+import { AdminAssertions } from '@/modules/admin/admin.assertions';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 
 const adminUser = { sub: 'admin-id', role: Role.ADMIN, phone: '' };
 
 describe('AdminService', () => {
   let service: AdminService;
+
   const tx = {
-    verificationDoc: {
-      update: jest.fn(),
-      count: jest.fn(),
-    },
-    workerProfile: {
-      update: jest.fn(),
-      updateMany: jest.fn(),
-    },
-    user: {
-      update: jest.fn(),
-    },
-    strike: {
-      create: jest.fn(),
-      findUnique: jest.fn(),
-    },
-    noShowReport: {
-      update: jest.fn(),
-    },
-    booking: {
-      update: jest.fn(),
-    },
+    verificationDoc: { update: jest.fn(), count: jest.fn() },
+    workerProfile: { update: jest.fn(), updateMany: jest.fn() },
+    user: { update: jest.fn() },
+    strike: { create: jest.fn() },
+    noShowReport: { update: jest.fn() },
+    booking: { update: jest.fn() },
   };
+
   const prisma = {
-    verificationDoc: {
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
-      count: jest.fn(),
-    },
+    verificationDoc: { findMany: jest.fn(), findUnique: jest.fn() },
     workerProfile: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -50,14 +41,17 @@ describe('AdminService', () => {
       findUnique: jest.fn(),
       count: jest.fn(),
     },
-    booking: {
-      findMany: jest.fn(),
-      count: jest.fn(),
-    },
-    noShowReport: {
-      findMany: jest.fn(),
-    },
+    booking: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
+    noShowReport: { findMany: jest.fn(), findUnique: jest.fn() },
     $transaction: jest.fn(),
+  };
+
+  const assertions = {
+    assertWorkerIsUnverified: jest.fn(),
+    assertBookingNotAlreadyStruck: jest.fn(),
+    assertUserExists: jest.fn(),
+    assertWorkerProfileExists: jest.fn(),
+    assertBookingExists: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -66,13 +60,18 @@ describe('AdminService', () => {
       (callbackOrArray: ((transaction: typeof tx) => unknown) | unknown[]) =>
         Array.isArray(callbackOrArray)
           ? Promise.all(callbackOrArray)
-          : (callbackOrArray as (transaction: typeof tx) => unknown)(tx),
+          : callbackOrArray(tx),
     );
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminService,
         { provide: PrismaService, useValue: prisma },
-        { provide: NotificationsService, useValue: { sendToUser: jest.fn().mockResolvedValue(undefined) } },
+        {
+          provide: NotificationsService,
+          useValue: { sendToUser: jest.fn().mockResolvedValue(undefined) },
+        },
+        { provide: AdminAssertions, useValue: assertions },
       ],
     }).compile();
 
@@ -87,9 +86,16 @@ describe('AdminService', () => {
       worker: { userId: 'user-id' },
     });
     tx.verificationDoc.count.mockResolvedValue(1);
-    tx.workerProfile.update.mockResolvedValue({ id: 'worker-id', status: WorkerStatus.SUSPENDED });
+    tx.workerProfile.update.mockResolvedValue({
+      id: 'worker-id',
+      status: WorkerStatus.SUSPENDED,
+    });
 
-    await service.rejectVerification('doc-id', adminUser, 'Documents do not match');
+    await service.rejectVerification(
+      'doc-id',
+      adminUser,
+      'Documents do not match',
+    );
 
     expect(tx.workerProfile.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -102,8 +108,14 @@ describe('AdminService', () => {
   });
 
   it('can suspend a user account', async () => {
-    prisma.user.findUnique.mockResolvedValue({ id: 'user-id', status: UserStatus.ACTIVE });
-    tx.user.update.mockResolvedValue({ id: 'user-id', status: UserStatus.SUSPENDED });
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-id',
+      status: UserStatus.ACTIVE,
+    });
+    tx.user.update.mockResolvedValue({
+      id: 'user-id',
+      status: UserStatus.SUSPENDED,
+    });
 
     await expect(service.setUserSuspension('user-id', true)).resolves.toEqual({
       id: 'user-id',
@@ -127,32 +139,24 @@ describe('AdminService', () => {
       },
     };
 
-    beforeEach(() => {
-      prisma.noShowReport = { ...(prisma.noShowReport ?? {}), findUnique: jest.fn() } as typeof prisma.noShowReport;
-      prisma.strike = { findUnique: jest.fn() } as unknown as typeof prisma.strike;
-      (prisma as Record<string, unknown>).noShowReport = {
-        findMany: jest.fn(),
-        findUnique: jest.fn(),
-      };
-      (prisma as Record<string, unknown>).strike = {
-        findUnique: jest.fn(),
-      };
-    });
-
     it('confirms a no-show: strikes by worker profile id, marks booking NO_SHOW', async () => {
-      (prisma as Record<string, unknown & { findUnique: jest.Mock }>).noShowReport.findUnique = jest
-        .fn()
-        .mockResolvedValue(report);
-      (prisma as Record<string, unknown & { findUnique: jest.Mock }>).strike.findUnique = jest
-        .fn()
-        .mockResolvedValue(null);
-      tx.workerProfile.update.mockResolvedValue({ id: 'worker-profile-id', strikeCount: 1 });
+      prisma.noShowReport.findUnique.mockResolvedValue(report);
+      tx.workerProfile.update.mockResolvedValue({
+        id: 'worker-profile-id',
+        strikeCount: 1,
+      });
 
-      await service.resolveNoShow('report-id', adminUser, { confirmed: true, notes: 'clear no-show' });
+      await service.resolveNoShow('report-id', adminUser, {
+        confirmed: true,
+        notes: 'clear no-show',
+      });
 
       expect(tx.strike.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ reason: StrikeReason.NO_SHOW, workerId: 'worker-profile-id' }),
+          data: expect.objectContaining({
+            reason: StrikeReason.NO_SHOW,
+            workerId: 'worker-profile-id',
+          }),
         }),
       );
       expect(tx.workerProfile.update).toHaveBeenCalledWith(
@@ -164,27 +168,25 @@ describe('AdminService', () => {
     });
 
     it('suspends the worker when confirming a no-show pushes strike count to 3', async () => {
-      (prisma as Record<string, unknown & { findUnique: jest.Mock }>).noShowReport.findUnique = jest
-        .fn()
-        .mockResolvedValue(report);
-      (prisma as Record<string, unknown & { findUnique: jest.Mock }>).strike.findUnique = jest
-        .fn()
-        .mockResolvedValue(null);
+      prisma.noShowReport.findUnique.mockResolvedValue(report);
       tx.workerProfile.update
         .mockResolvedValueOnce({ id: 'worker-profile-id', strikeCount: 3 })
-        .mockResolvedValueOnce({ id: 'worker-profile-id', status: WorkerStatus.SUSPENDED });
+        .mockResolvedValueOnce({
+          id: 'worker-profile-id',
+          status: WorkerStatus.SUSPENDED,
+        });
 
       await service.resolveNoShow('report-id', adminUser, { confirmed: true });
 
       expect(tx.workerProfile.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: { status: WorkerStatus.SUSPENDED, isOnline: false } }),
+        expect.objectContaining({
+          data: { status: WorkerStatus.SUSPENDED, isOnline: false },
+        }),
       );
     });
 
     it('dismisses a no-show without issuing a strike or changing booking status', async () => {
-      (prisma as Record<string, unknown & { findUnique: jest.Mock }>).noShowReport.findUnique = jest
-        .fn()
-        .mockResolvedValue(report);
+      prisma.noShowReport.findUnique.mockResolvedValue(report);
 
       await service.resolveNoShow('report-id', adminUser, { confirmed: false });
 
@@ -193,9 +195,10 @@ describe('AdminService', () => {
     });
 
     it('throws ConflictException when the report is already resolved', async () => {
-      (prisma as Record<string, unknown & { findUnique: jest.Mock }>).noShowReport.findUnique = jest
-        .fn()
-        .mockResolvedValue({ ...report, confirmed: false });
+      prisma.noShowReport.findUnique.mockResolvedValue({
+        ...report,
+        confirmed: false,
+      });
 
       await expect(
         service.resolveNoShow('report-id', adminUser, { confirmed: true }),
@@ -203,9 +206,7 @@ describe('AdminService', () => {
     });
 
     it('throws NotFoundException when the report does not exist', async () => {
-      (prisma as Record<string, unknown & { findUnique: jest.Mock }>).noShowReport.findUnique = jest
-        .fn()
-        .mockResolvedValue(null);
+      prisma.noShowReport.findUnique.mockResolvedValue(null);
 
       await expect(
         service.resolveNoShow('report-id', adminUser, { confirmed: true }),
@@ -229,7 +230,11 @@ describe('AdminService', () => {
       prisma.workerProfile.findMany.mockResolvedValue(workers);
       prisma.workerProfile.count.mockResolvedValue(1);
 
-      const result = await service.findWorkers({ skip: 0, take: 10, status: WorkerStatus.VERIFIED });
+      const result = await service.findWorkers({
+        skip: 0,
+        take: 10,
+        status: WorkerStatus.VERIFIED,
+      });
 
       expect(result).toEqual({ items: workers, total: 1, skip: 0, take: 10 });
       expect(prisma.workerProfile.findMany).toHaveBeenCalledWith(
@@ -242,7 +247,11 @@ describe('AdminService', () => {
       prisma.booking.findMany.mockResolvedValue(bookings);
       prisma.booking.count.mockResolvedValue(5);
 
-      const result = await service.findBookings({ skip: 0, take: 10, status: BookingStatus.PENDING });
+      const result = await service.findBookings({
+        skip: 0,
+        take: 10,
+        status: BookingStatus.PENDING,
+      });
 
       expect(result).toEqual({ items: bookings, total: 5, skip: 0, take: 10 });
     });

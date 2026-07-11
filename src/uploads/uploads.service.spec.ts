@@ -24,6 +24,8 @@ describe('UploadsService', () => {
   });
 
   it('throws NotFoundException when file does not exist on disk', () => {
-    expect(() => service.serveFile('nonexistent/file.jpg')).toThrow(NotFoundException);
+    expect(() => service.serveFile('nonexistent/file.jpg')).toThrow(
+      NotFoundException,
+    );
   });
 });

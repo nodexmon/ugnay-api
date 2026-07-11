@@ -94,6 +94,42 @@ The Prisma client is a `pg`-adapter-backed instance injected via `PrismaService`
 
 Jest uses `ts-jest` in ESM mode. The Prisma client is mocked globally via `moduleNameMapper` pointing to `test/prisma-client.mock.ts` — no real DB is needed for unit tests.
 
+### Module conventions
+
+Every module follows this file layout (add only what it needs):
+
+```
+src/modules/[name]/
+  [name].module.ts
+  [name].controller.ts
+  [name].service.ts
+  [name].assertions.ts   ← injectable assertions class (validate + throw, module-specific)
+  [name].constants.ts    ← module-scoped constants (thresholds, enum maps, sort arrays)
+  [name].types.ts        ← only when the module defines its own types/enums
+  dto/
+    *.dto.ts
+```
+
+**Service section dividers** — separate concerns with these comment headers:
+
+```typescript
+// ─── Public API ──────────────────────────────────────────────────────────────
+
+// ─── Private: business logic ─────────────────────────────────────────────────
+```
+
+**Assertions class pattern** — module-specific assertion methods (validate + throw) live in `[name].assertions.ts` as an `@Injectable()` class, registered in the module's `providers` array and injected into the service constructor. Services call `this.assertions.assertX(...)`. In specs, mock the entire class: `{ provide: [Name]Assertions, useValue: { assertX: jest.fn() } }`.
+
+**Shared assertion utilities** — cross-module helpers (`assertBookingExists`, `assertWorkerProfileExists`, `assertUserIsActive`) live in `src/common/utils/assert.util.ts` as standalone functions (not injectable — avoids circular DI risk).
+
+**Notification fire-and-forget** — always use:
+
+```typescript
+void this.notifications.sendToUser(userId, msg).catch(() => {});
+```
+
+When the userId requires a DB fetch, extract a named private async method and call it with `.catch(() => {})`. Never use the void async IIFE pattern (`void (async () => { ... })()`).
+
 ## Skills
 
 Always invoke the project skills defined in `.claude/commands/` for the relevant task:

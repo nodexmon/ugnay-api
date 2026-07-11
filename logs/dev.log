@@ -51,3 +51,147 @@ July 10, 2026
   optional status/role filters; returns { items, total, skip, take }
 - Added DELETE /categories/:id (admin-only) for soft-deactivation (isActive=false)
 
+---
+
+July 10, 2026 (continued — module standardization)
+
+- Extended assert.util.ts with two cross-module helpers: assertBookingExists,
+  assertWorkerProfileExists; eliminated 4+ duplicate private copies across services
+- Extracted per-module constants: bookings.constants.ts (ROLE_REQUIREMENTS,
+  CONTACT_REVEAL_STATUSES), admin.constants.ts (STRIKE_SUSPENSION_THRESHOLD),
+  categories.constants.ts (CATEGORY_ORDER)
+- Refactored bookings.service.ts: imports constants from bookings.constants.ts,
+  uses assertBookingExists from shared util, replaced void async IIFE notify() with
+  void this.resolveAndNotify().catch(() => {}), added section dividers
+- Refactored admin.service.ts: imports STRIKE_SUSPENSION_THRESHOLD from
+  admin.constants.ts, uses assertWorkerProfileExists for strikeWorker, added dividers
+- Refactored categories.service.ts: imports CATEGORY_ORDER from categories.constants.ts
+- Refactored reviews.service.ts: uses assertBookingExists and assertWorkerProfileExists
+  from shared util; removed duplicate private assertion methods
+- Refactored workers.service.ts: replaced Prisma.TransactionClient with TransactionClient
+  from internal prismaNamespace (consistent with other services), aligned section dividers
+- Documented module conventions in CLAUDE.md and .claude/commands/implement.md:
+  file layout, section dividers, shared utilities, notification fire-and-forget rule
+- Applied ESLint auto-format across codebase
+
+---
+
+July 10, 2026 (continued — codebase standardization refactor)
+
+- Standardized assertion class naming: all classes now follow [Name]Assertions pattern
+  (dropped "Service" suffix from BookingsAssertionsService, UsersAssertionsService,
+  CategoriesAssertionsService); renamed files to plural form (users.assertions.ts,
+  categories.assertions.ts)
+- Changed assertXExists methods to return the entity instead of void — eliminates
+  redundant DB fetches at call sites and removes silent runtime bugs
+- Fixed critical DI bug: UsersModule was exporting UsersAssertions without providing it
+- Fixed admin.assertions.ts wrong import (prisma/browser → prisma/client); added
+  assertWorkerProfileExists replacing standalone function in deleted assert.util.ts
+- Wired UsersModule into BookingsModule and WorkersModule imports so DI resolves correctly
+- Extracted ReviewsAssertions from inline validation in ReviewsService (assertBookingExistsAndCompleted, assertCustomerOwnsBooking)
+- Added private readonly to all service constructor params
+- Added section headers to ReviewsService; removed empty assert.util.ts
+- Updated all spec files to mock new assertion class names and patterns
+
+---
+
+July 10, 2026 (continued — per-module assertions classes)
+
+- Created BookingsAssertions, AdminAssertions, WorkersAssertions as @Injectable() classes
+  in [name].assertions.ts; each holds all module-specific assertion methods (validate + throw)
+- Updated bookings.module.ts, admin.module.ts, workers.module.ts to register assertions
+  classes in providers
+- Refactored bookings.service.ts, admin.service.ts, workers.service.ts: inject assertions
+  class via constructor; replace this.assertX() with this.assertions.assertX(); remove
+  private assertion methods and Private: assertions divider (now only two dividers per service)
+- Updated all spec files to mock assertions class entirely, eliminating deep prisma mock
+  chains for assertion-path tests; fixed bookings.controller.spec.ts to also provide
+  BookingsAssertions mock
+- Updated CLAUDE.md module conventions and .claude/commands/implement.md with assertions
+  class pattern and two-divider service structure rule
+
+---
+
+July 10, 2026 (continued — code review fixes)
+
+- Added assertUserIsActive to UsersAssertions; swapped assertUserExists -> assertUserIsActive
+  at all call sites where suspended users must be blocked (bookings create/cancel/prepareBookingAction,
+  workers createProfile); assertUserExists kept for admin lookups that need suspended users
+- Guarded cancel() against non-CUSTOMER/WORKER callers: previously both role branches were
+  silently skipped for any other role, letting bookings be unconditionally cancelled
+- Fixed customers.service.createProfile 404 bug: replaced this.getProfile() (which throws
+  NotFoundException when no profile exists) with a direct findUnique so first-time creation works
+- Added isOnline: false to workerProfile suspension in handleWorkerCancellationPenalty, matching
+  admin.incrementStrikeAndSuspendIfNeeded; suspended workers now correctly go offline
+
+---
+
+July 10, 2026 (continued — test coverage expansion)
+
+- Added specs for all 6 assertions classes (users, bookings, workers, reviews, categories, admin);
+  each method has happy-path and all error-path branches covered (57 new tests total)
+- Added AdminController spec: all 10 endpoints verified to delegate correctly to AdminService
+- Added CategoriesController spec: all 5 endpoints (findActive, findAllForAdmin, create, update, deactivate)
+- Added BarangaysController spec and BarangaysService spec
+- Test count: 104 → 160 (pre-existing 3 CASL failures unchanged)
+
+---
+
+July 11, 2026 — production-grade hardening audit
+
+Security (Phase 1):
+- Added HttpExceptionFilter and AllExceptionsFilter; registered globally in main.ts;
+  normalises all error shapes to {statusCode, message, timestamp}, suppresses stack traces
+- Enabled explicit CORS via CORS_ORIGIN env var (disabled by default for mobile clients)
+- SmsService now wraps raw Axios errors in InternalServerErrorException (was leaking
+  internal API URLs and keys in stack traces)
+- Completed .env.example with all 9 required vars (was missing NODE_ENV, TEXTBEE_API_URL,
+  SMS_API_KEY, DEVICE_ID, JWT_ACCESS_EXPIRES_IN, JWT_REFRESH_EXPIRES_IN, CORS_ORIGIN)
+- Deleted auth/constants.ts: dead file exporting hardcoded JWT secret fallback (manually
+  delete: Remove-Item src/modules/auth/constants.ts)
+
+Schema (Phase 2, requires migration):
+- Added explicit onDelete: Restrict to Booking → customer/worker/category/barangay
+- Added onDelete: Cascade to Review → booking and NoShowReport → booking
+- Added onDelete: Restrict to Review → worker/customer
+- Added @@index([workerId]) to WorkerCategory and WorkerServiceArea
+- Run: pnpm prisma migrate dev --name fix-referential-actions-and-indexes
+
+Architecture + consistency (Phases 2-4):
+- BookingsModule and AdminModule now explicitly import NotificationsModule
+- Added BOOKING_PENDING_EXPIRY_MS, BOOKING_MAX_ADVANCE_MS to bookings.constants.ts
+- Added OTP_EXPIRY_MS to auth/otp/otp.constants.ts; replaced inline expressions
+- Created src/common/utils/assert.util.ts with assertUserExists, assertBookingExists;
+  AdminAssertions now delegates to shared util instead of duplicating Prisma queries
+- Merged double-query in BookingsService.findOne() into single findFirst with ownership
+  where-clause; contact reveal via destructure-spread at application layer
+- Inlined BookingsNotificationService as private notifyBookingParty() on BookingsService;
+  removed the extra class per CLAUDE.md fire-and-forget convention
+- Added ParseUUIDPipe to all @Param('id') in 5 controllers (bookings, admin, categories,
+  workers, reviews) — returns clean 400 before hitting the DB
+- Standardised pagination max to 50 (SearchWorkersDto was 100)
+- Added @IsNotEmpty() to RefreshTokenDto
+- Restricted avatarUrl @IsUrl() to https protocol only
+
+---
+
+July 11, 2026 (code review fixes — second pass)
+
+- Fixed TOCTOU race in admin.service resolveNoShow: assertBookingNotAlreadyStruck was called
+  inside the $transaction callback using the non-transactional prisma client; concurrent admin
+  requests could both pass the check and insert duplicate strikes. Moved assertion before tx.
+- Fixed 404→403 regression in UsersAssertions.assertUserIsActive: missing users now throw
+  ForbiddenException (matching old assert.util.ts behaviour), preventing account-existence
+  leakage via HTTP status code difference
+- Fixed misleading ForbiddenException in ReviewsService.create: null customerProfile was
+  coerced to '' and passed to assertCustomerOwnsBooking; added explicit NotFoundException guard
+- Fixed hardcoded literal 3 in bookings.service handleWorkerCancellationPenalty: now imports
+  and uses STRIKE_SUSPENSION_THRESHOLD so threshold changes apply to both strike paths
+- Fixed strikePayload spread order in admin.service strikeWorker: changed
+  { issuedBy: user.sub, ...dto } to { ...dto, issuedBy: user.sub } so admin sub always wins
+- Fixed assertWorkerIsUnverified double DB fetch in admin.assertions: now composes with
+  assertWorkerProfileExists instead of issuing its own findUnique
+- Standardised assertBookingExists error message in admin.assertions to 'Booking not found.'
+  matching BookingsAssertions; added NotFoundException test for null-profile path in reviews spec
+- Test count: 160 → 161
+

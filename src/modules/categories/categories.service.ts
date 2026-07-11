@@ -2,12 +2,15 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CreateCategoryDto } from '@/modules/categories/dto/create-category.dto';
 import { UpdateCategoryDto } from '@/modules/categories/dto/update-category.dto';
-
-const CATEGORY_ORDER = [{ sortOrder: 'asc' as const }, { name: 'asc' as const }];
+import { CATEGORY_ORDER } from './categories.constants';
+import { CategoriesAssertions } from './categories.assertions';
 
 @Injectable()
 export class CategoriesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly assertions: CategoriesAssertions,
+  ) {}
 
   async findActive() {
     return this.prisma.serviceCategory.findMany({
@@ -35,19 +38,17 @@ export class CategoriesService {
   }
 
   async update(categoryId: string, dto: UpdateCategoryDto) {
-    const category = await this.prisma.serviceCategory.findUnique({ where: { id: categoryId } })
-
-    if (!category) throw new NotFoundException('Category not found.')
+    await this.assertions.assertCategoryExists(categoryId);
 
     return this.prisma.serviceCategory.update({
-      where: { id: category.id },
+      where: { id: categoryId },
       data: dto,
     });
   }
 
   async deactivate(categoryId: string) {
-    const category = await this.prisma.serviceCategory.findUnique({ where: { id: categoryId } });
-    if (!category) throw new NotFoundException('Category not found.');
+    await this.assertions.assertCategoryExists(categoryId);
+
     return this.prisma.serviceCategory.update({
       where: { id: categoryId },
       data: { isActive: false },

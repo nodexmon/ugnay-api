@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ReviewsController } from './reviews.controller';
 import { ReviewsService } from './reviews.service';
 import { PrismaService } from '@/prisma/prisma.service';
+import { ReviewsAssertions } from './reviews.assertions';
 
 describe('ReviewsController', () => {
   let controller: ReviewsController;
@@ -12,6 +13,13 @@ describe('ReviewsController', () => {
       providers: [
         ReviewsService,
         { provide: PrismaService, useValue: {} },
+        {
+          provide: ReviewsAssertions,
+          useValue: {
+            assertBookingExistsAndCompleted: jest.fn(),
+            assertCustomerOwnsBooking: jest.fn(),
+          },
+        },
       ],
     }).compile();
 

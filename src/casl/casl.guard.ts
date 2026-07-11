@@ -1,9 +1,17 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '@/common/decorators/public-endpoint.decorator';
 import { AuthJwtPayload } from '@/modules/auth/auth.types';
 import { CaslAbilityFactory } from './casl-ability.factory';
-import { CHECK_ABILITY_KEY, RequiredAbility } from '@/common/decorators/check-ability.decorator';
+import {
+  CHECK_ABILITY_KEY,
+  RequiredAbility,
+} from '@/common/decorators/check-ability.decorator';
 
 @Injectable()
 export class CaslGuard implements CanActivate {
@@ -19,13 +27,14 @@ export class CaslGuard implements CanActivate {
     ]);
     if (isPublic) return true;
 
-    const required = this.reflector.getAllAndOverride<RequiredAbility | undefined>(
-      CHECK_ABILITY_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const required = this.reflector.getAllAndOverride<
+      RequiredAbility | undefined
+    >(CHECK_ABILITY_KEY, [context.getHandler(), context.getClass()]);
     if (!required) return true;
 
-    const request = context.switchToHttp().getRequest<{ user?: AuthJwtPayload }>();
+    const request = context
+      .switchToHttp()
+      .getRequest<{ user?: AuthJwtPayload }>();
     const user = request.user;
     if (!user) return false;
 

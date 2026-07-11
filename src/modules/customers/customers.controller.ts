@@ -19,13 +19,19 @@ export class CustomersController {
 
   @CheckAbility(Action.Create, 'CustomerProfile')
   @Post('profile')
-  createProfile(@CurrentUser() user: AuthJwtPayload, @Body() dto: CreateCustomerDto) {
+  createProfile(
+    @CurrentUser() user: AuthJwtPayload,
+    @Body() dto: CreateCustomerDto,
+  ) {
     return this.customersService.createProfile(user.sub, dto);
   }
 
   @CheckAbility(Action.Update, 'CustomerProfile')
   @Patch('profile')
-  updateProfile(@CurrentUser() user: AuthJwtPayload, @Body() dto: UpdateCustomerDto) {
+  updateProfile(
+    @CurrentUser() user: AuthJwtPayload,
+    @Body() dto: UpdateCustomerDto,
+  ) {
     return this.customersService.updateProfile(user.sub, dto);
   }
 }

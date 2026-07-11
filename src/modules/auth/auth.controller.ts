@@ -38,19 +38,22 @@ export class AuthController {
   }
 
   @Delete('sessions/:tokenId')
-  async revokeSession(@CurrentUser() user: AuthJwtPayload, @Param('tokenId') tokenId: string) {
-    await this.authService.revokeSession(user.sub, tokenId)
+  async revokeSession(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('tokenId') tokenId: string,
+  ) {
+    await this.authService.revokeSession(user.sub, tokenId);
     return {
-      message: 'Session revoked.'
-    }
+      message: 'Session revoked.',
+    };
   }
 
   @Delete('sessions')
   async revokeAllSessions(@CurrentUser() user: AuthJwtPayload) {
-    await this.authService.revokeAllSessions(user.sub)
+    await this.authService.revokeAllSessions(user.sub);
     return {
-      message: "All sessions revoked."
-    }
+      message: 'All sessions revoked.',
+    };
   }
 
   @Get('sessions')
