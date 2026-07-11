@@ -5,6 +5,7 @@ import {
   Get,
   Query,
   Param,
+  ParseUUIDPipe,
   Patch,
 } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
@@ -39,7 +40,10 @@ export class BookingsController {
 
   @CheckAbility(Action.Read, 'Booking')
   @Get(':id')
-  findOne(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
+  findOne(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.bookingsService.findOne(id, user);
   }
 
@@ -47,7 +51,7 @@ export class BookingsController {
   @Patch(':id/update')
   update(
     @CurrentUser() user: AuthJwtPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateBookingDto,
   ) {
     return this.bookingsService.update(id, user, dto);
@@ -55,25 +59,37 @@ export class BookingsController {
 
   @CheckAbility(Action.Accept, 'Booking')
   @Patch(':id/accept')
-  accept(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
+  accept(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.bookingsService.accept(id, user);
   }
 
   @CheckAbility(Action.Reject, 'Booking')
   @Patch(':id/reject')
-  reject(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
+  reject(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.bookingsService.reject(id, user);
   }
 
   @CheckAbility(Action.Start, 'Booking')
   @Patch(':id/start')
-  start(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
+  start(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.bookingsService.start(id, user);
   }
 
   @CheckAbility(Action.Complete, 'Booking')
   @Patch(':id/complete')
-  complete(@CurrentUser() user: AuthJwtPayload, @Param('id') id: string) {
+  complete(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.bookingsService.complete(id, user);
   }
 
@@ -81,7 +97,7 @@ export class BookingsController {
   @Patch(':id/cancel')
   cancel(
     @CurrentUser() user: AuthJwtPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CancelBookingDto,
   ) {
     return this.bookingsService.cancel(id, user, dto);
@@ -91,7 +107,7 @@ export class BookingsController {
   @Patch(':id/report-no-show')
   reportNoShow(
     @CurrentUser() user: AuthJwtPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReportNoShowDto,
   ) {
     return this.bookingsService.reportNoShow(id, user, dto.description);

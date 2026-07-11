@@ -1,11 +1,8 @@
-import {
-  Injectable,
-  NotFoundException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { randomInt } from 'crypto';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
+import { OTP_EXPIRY_MS } from './otp.constants';
 
 @Injectable()
 export class OtpService {
@@ -13,7 +10,7 @@ export class OtpService {
 
   async createOtp(phone: string) {
     const code = this.generateOtp();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
 
     await this.prisma.$transaction(async (tx: TransactionClient) => {
       // Invalid previous OTPs for this phone

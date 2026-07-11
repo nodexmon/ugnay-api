@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BookingsController } from './bookings.controller';
 import { BookingsService } from './bookings.service';
 import { BookingsAssertions } from './bookings.assertions';
-import { BookingsNotificationService } from './bookings.notification';
+import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { UsersAssertions } from '@/modules/users/users.assertions';
 
@@ -30,8 +30,8 @@ describe('BookingsController', () => {
           useValue: { assertUserExists: jest.fn() },
         },
         {
-          provide: BookingsNotificationService,
-          useValue: { notify: jest.fn() },
+          provide: NotificationsService,
+          useValue: { sendToUser: jest.fn() },
         },
       ],
     }).compile();

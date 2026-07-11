@@ -18,6 +18,6 @@ export class CreateCustomerDto {
   lastName: string;
 
   @IsOptional()
-  @IsUrl()
+  @IsUrl({ protocols: ['https'], require_protocol: true })
   avatarUrl?: string | null;
 }

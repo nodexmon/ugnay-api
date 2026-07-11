@@ -1,7 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   BookingStatus,
@@ -14,7 +11,7 @@ import {
 import { PrismaService } from '@/prisma/prisma.service';
 import { BookingsService } from './bookings.service';
 import { BookingsAssertions } from './bookings.assertions';
-import { BookingsNotificationService } from './bookings.notification';
+import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { UsersAssertions } from '@/modules/users/users.assertions';
 
 const customerUser = { id: 'user-id', status: UserStatus.ACTIVE };
@@ -77,7 +74,10 @@ describe('BookingsService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: BookingsAssertions, useValue: assertions },
         { provide: UsersAssertions, useValue: usersAssertions },
-        { provide: BookingsNotificationService, useValue: { notify: jest.fn() } },
+        {
+          provide: NotificationsService,
+          useValue: { sendToUser: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -366,7 +366,11 @@ describe('BookingsService', () => {
 
     it('throws ForbiddenException when caller is not CUSTOMER or WORKER', async () => {
       await expect(
-        service.cancel('booking-id', { ...customerJwt, role: Role.ADMIN }, cancelDto),
+        service.cancel(
+          'booking-id',
+          { ...customerJwt, role: Role.ADMIN },
+          cancelDto,
+        ),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 

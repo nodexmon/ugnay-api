@@ -4,6 +4,7 @@ import {
   Get,
   Post,
   Param,
+  ParseUUIDPipe,
   Patch,
   Query,
 } from '@nestjs/common';
@@ -48,7 +49,7 @@ export class AdminController {
   @Patch('verifications/:id/approve')
   approveVerification(
     @CurrentUser() user: AuthJwtPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.adminService.approveVerification(id, user);
   }
@@ -56,14 +57,17 @@ export class AdminController {
   @Patch('verifications/:id/reject')
   rejectVerification(
     @CurrentUser() user: AuthJwtPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RejectVerificationDto,
   ) {
     return this.adminService.rejectVerification(id, user, dto.reason);
   }
 
   @Patch('users/:id/suspend')
-  setUserSuspension(@Param('id') id: string, @Body() dto: SuspendUserDto) {
+  setUserSuspension(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SuspendUserDto,
+  ) {
     return this.adminService.setUserSuspension(id, dto.suspended);
   }
 
@@ -83,7 +87,7 @@ export class AdminController {
   @Patch('no-shows/:id/resolve')
   resolveNoShow(
     @CurrentUser() user: AuthJwtPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ResolveNoShowDto,
   ) {
     return this.adminService.resolveNoShow(id, user, dto);

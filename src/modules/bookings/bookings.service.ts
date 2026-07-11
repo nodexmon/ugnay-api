@@ -19,10 +19,14 @@ import { Booking, User } from '@/generated/prisma/client';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { FindBookingsQueryDto } from './dto/find-bookings-query.dto';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
-import { CONTACT_REVEAL_STATUSES } from './bookings.constants';
+import {
+  BOOKING_MAX_ADVANCE_MS,
+  BOOKING_PENDING_EXPIRY_MS,
+  CONTACT_REVEAL_STATUSES,
+} from './bookings.constants';
 import { STRIKE_SUSPENSION_THRESHOLD } from '@/modules/admin/admin.constants';
 import { BookingsAssertions } from './bookings.assertions';
-import { BookingsNotificationService } from './bookings.notification';
+import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { UsersAssertions } from '../users/users.assertions';
 
 @Injectable()
@@ -31,27 +35,19 @@ export class BookingsService {
     private readonly prisma: PrismaService,
     private readonly assertions: BookingsAssertions,
     private readonly usersAssertions: UsersAssertions,
-    private readonly notifications: BookingsNotificationService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ─── Public API ──────────────────────────────────────────────────────────────
 
   async findOne(bookingId: string, user: AuthJwtPayload) {
+    const ownershipWhere =
+      user.role === Role.CUSTOMER
+        ? { customer: { userId: user.sub } }
+        : { worker: { userId: user.sub } };
+
     const booking = await this.prisma.booking.findFirst({
-      where: {
-        id: bookingId,
-        ...(user.role === Role.CUSTOMER
-          ? { customer: { userId: user.sub } }
-          : { worker: { userId: user.sub } }),
-      },
-    });
-
-    if (!booking) throw new NotFoundException('Booking not found.');
-
-    const revealContact = CONTACT_REVEAL_STATUSES.has(booking.status);
-
-    return this.prisma.booking.findUnique({
-      where: { id: booking.id },
+      where: { id: bookingId, ...ownershipWhere },
       include: {
         worker: {
           select: {
@@ -60,7 +56,7 @@ export class BookingsService {
             avatarUrl: true,
             averageRating: true,
             baseRate: true,
-            user: revealContact ? { select: { phone: true } } : false,
+            user: { select: { phone: true } },
           },
         },
         customer: {
@@ -68,7 +64,7 @@ export class BookingsService {
             firstName: true,
             lastName: true,
             avatarUrl: true,
-            user: revealContact ? { select: { phone: true } } : false,
+            user: { select: { phone: true } },
           },
         },
         category: { select: { name: true, iconUrl: true } },
@@ -76,6 +72,19 @@ export class BookingsService {
         review: true,
       },
     });
+
+    if (!booking) throw new NotFoundException('Booking not found.');
+
+    const revealContact = CONTACT_REVEAL_STATUSES.has(booking.status);
+    const { worker, customer, ...rest } = booking;
+    return {
+      ...rest,
+      worker: { ...worker, user: revealContact ? worker.user : undefined },
+      customer: {
+        ...customer,
+        user: revealContact ? customer.user : undefined,
+      },
+    };
   }
 
   async findMany(user: AuthJwtPayload, query: FindBookingsQueryDto) {
@@ -139,7 +148,7 @@ export class BookingsService {
 
     await this.assertions.assertWorkerIsAvailable(dto.workerId);
 
-    const maxScheduledDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const maxScheduledDate = new Date(Date.now() + BOOKING_MAX_ADVANCE_MS);
     if (dto.scheduledDate > maxScheduledDate) {
       throw new BadRequestException('Scheduled booking must be within 7 days.');
     }
@@ -148,15 +157,15 @@ export class BookingsService {
       data: {
         customerId: customer.id,
         status: BookingStatus.PENDING,
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+        expiresAt: new Date(Date.now() + BOOKING_PENDING_EXPIRY_MS),
         ...dto,
       },
     });
 
-    this.notifications.notify(booking.id, 'worker', {
+    void this.notifyBookingParty(booking.id, 'worker', {
       title: 'New booking request',
       body: 'A customer has requested your service.',
-    });
+    }).catch(() => {});
 
     return booking;
   }
@@ -184,10 +193,10 @@ export class BookingsService {
       where: { id: bookingId },
       data: { status: BookingStatus.ACCEPTED, acceptedAt: new Date() },
     });
-    this.notifications.notify(bookingId, 'customer', {
+    void this.notifyBookingParty(bookingId, 'customer', {
       title: 'Booking accepted',
       body: 'Your booking has been accepted.',
-    });
+    }).catch(() => {});
   }
 
   async reject(bookingId: string, user: AuthJwtPayload) {
@@ -202,10 +211,10 @@ export class BookingsService {
       where: { id: bookingId },
       data: { status: BookingStatus.REJECTED, rejectedAt: new Date() },
     });
-    this.notifications.notify(bookingId, 'customer', {
+    void this.notifyBookingParty(bookingId, 'customer', {
       title: 'Booking declined',
       body: 'The worker has declined your booking request.',
-    });
+    }).catch(() => {});
   }
 
   async start(bookingId: string, user: AuthJwtPayload) {
@@ -234,10 +243,10 @@ export class BookingsService {
       where: { id: bookingId },
       data: { status: BookingStatus.COMPLETED, completedAt: new Date() },
     });
-    this.notifications.notify(bookingId, 'customer', {
+    void this.notifyBookingParty(bookingId, 'customer', {
       title: 'Job complete',
       body: 'The job is done. Leave a review for your worker!',
-    });
+    }).catch(() => {});
   }
 
   async cancel(bookingId: string, user: AuthJwtPayload, dto: CancelBookingDto) {
@@ -251,7 +260,10 @@ export class BookingsService {
 
     if (user.role === Role.CUSTOMER) {
       this.assertions.assertOwnership(booking.customerId, profileId);
-      this.assertions.assertBookingInStatus(booking.status, BookingStatus.PENDING);
+      this.assertions.assertBookingInStatus(
+        booking.status,
+        BookingStatus.PENDING,
+      );
     }
 
     if (user.role === Role.WORKER) {
@@ -283,15 +295,15 @@ export class BookingsService {
     });
 
     if (user.role === Role.WORKER) {
-      this.notifications.notify(bookingId, 'customer', {
+      void this.notifyBookingParty(bookingId, 'customer', {
         title: 'Booking cancelled',
         body: 'The worker has cancelled the booking.',
-      });
+      }).catch(() => {});
     } else {
-      this.notifications.notify(bookingId, 'worker', {
+      void this.notifyBookingParty(bookingId, 'worker', {
         title: 'Booking cancelled',
         body: 'The customer has cancelled the booking.',
-      });
+      }).catch(() => {});
     }
   }
 
@@ -373,5 +385,23 @@ export class BookingsService {
         data: { status: WorkerStatus.SUSPENDED, isOnline: false },
       });
     }
+  }
+
+  private async notifyBookingParty(
+    bookingId: string,
+    party: 'worker' | 'customer',
+    message: { title: string; body: string },
+  ): Promise<void> {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        worker: { select: { userId: true } },
+        customer: { select: { userId: true } },
+      },
+    });
+    if (!booking) return;
+    const userId =
+      party === 'worker' ? booking.worker.userId : booking.customer.userId;
+    await this.notifications.sendToUser(userId, message);
   }
 }
