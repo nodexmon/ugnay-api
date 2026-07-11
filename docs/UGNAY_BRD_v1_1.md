@@ -8,7 +8,7 @@
 | Field | Value |
 |---|---|
 | **Version** | 1.1 — MVP (Rebrand: UGNAY) |
-| **Status** | Draft |
+| **Status** | Current (Updated 2026-07-11 against implementation) |
 | **Date** | June 2026 |
 | **Scope** | Single municipality — Phase 1 validation |
 | **Stack** | NestJS · PostgreSQL · Prisma · React Native · Expo · Docker |
@@ -141,7 +141,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 |---|---|---|
 | AUTH-01 | Phone OTP login | All users authenticate via mobile number. OTP delivered by SMS. Session managed with JWT. |
 | AUTH-02 | Role assignment | Users are assigned one role at registration: CUSTOMER, WORKER, or ADMIN. |
-| AUTH-03 | Token refresh | Access token valid 15 minutes. Refresh token valid 30 days. |
+| AUTH-03 | Token refresh | Access token valid 15 minutes. Refresh token valid 7 days (configurable via `JWT_REFRESH_EXPIRES_IN`). |
 | AUTH-04 | Worker gating | Worker app features locked until account status is VERIFIED. |
 
 ### 4.2 Worker Onboarding & Verification
@@ -152,7 +152,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | WRK-02 | ID upload | Worker uploads a photo of a government-issued ID (UMID, PhilHealth, Driver's License, Passport). |
 | WRK-03 | Selfie upload | Worker uploads a selfie for facial comparison against the ID photo. |
 | WRK-04 | Admin review | Admin manually reviews ID + selfie. Approves or rejects with a reason. Target SLA: 24 hours. |
-| WRK-05 | Status flow | Worker status transitions: PENDING → VERIFIED (or REJECTED). Rejected workers may reapply once. |
+| WRK-05 | Status flow | Worker status transitions: PENDING → VERIFIED (or REJECTED). Rejected workers may reapply once with corrected documents. A second rejection results in a permanent ban (account suspended, cannot reapply). Enforced server-side. |
 | WRK-06 | Service radius | Worker selects barangays they are willing to serve. Minimum 1, maximum 5. |
 
 ### 4.3 Booking Lifecycle
@@ -176,7 +176,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | REV-01 | Review eligibility | Only customers with a COMPLETED booking for that worker may leave a review. |
 | REV-02 | Rating scale | 1–5 star rating (integer) plus optional written review up to 500 characters. |
 | REV-03 | One review per booking | A customer may submit exactly one review per completed booking. Reviews cannot be edited. |
-| REV-04 | Worker rating display | Worker profile shows average rating and total review count. Minimum 3 reviews before average is displayed publicly. |
+| REV-04 | Worker rating display | Worker profile shows average rating and total review count. Minimum 3 reviews before average is displayed publicly. The API always returns the `averageRating` field; the 3-review threshold is enforced at the UI layer. |
 
 ---
 
@@ -231,7 +231,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | Push Notifications | Expo Push Notifications | Single API for APNs and FCM; free tier sufficient |
 | File Storage | Local VPS disk (MVP) | ID photos and selfies. Migrate to S3-compatible later. |
 | Maps | React Native Maps | Location pin selection for service address |
-| Auth | JWT + OTP via SMS | Stateless, mobile-friendly; OTP via Semaphore/Vonage |
+| Auth | JWT + OTP via SMS | Stateless, mobile-friendly; OTP via TextBee SMS |
 | Infrastructure | Docker + single VPS | docker-compose: API, PostgreSQL, Nginx, Certbot |
 
 ### 7.3 NestJS Module Breakdown
@@ -240,11 +240,11 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 |---|---|
 | AuthModule | OTP send/verify, JWT issue/refresh, phone validation |
 | UsersModule | User entity, profile reads, role management |
-| WorkersModule | Worker profile CRUD, availability toggle, service radius, ID upload |
-| CustomersModule | Customer profile, booking history |
+| WorkersModule | Worker profile CRUD, availability toggle, service radius, ID upload, worker search (by category/barangay/availability) |
+| CustomersModule | Customer profile CRUD |
 | CategoriesModule | Service category management (admin-controlled) |
-| SearchModule | Worker search by category/barangay, availability filter, distance approximation |
-| BookingsModule | Booking lifecycle, state transitions, expiry timer, no-show reports |
+| BarangaysModule | Barangay lookup (seeded; read-only at runtime) |
+| BookingsModule | Booking lifecycle, state transitions, expiry cron, no-show reports |
 | ReviewsModule | Rating submission, review display, average calculation |
 | NotificationsModule | Expo push token storage, send booking event pushes |
 | AdminModule | Worker verification queue, strike system, user suspension, complaint management |
@@ -258,7 +258,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 
 | Entity | Key Fields | Notes |
 |---|---|---|
-| users | id, phone, role, status | Base entity. Roles: CUSTOMER, WORKER, ADMIN. Status: ACTIVE, SUSPENDED. |
+| users | id, phone, role, status | Base entity. Roles: CUSTOMER, WORKER, ADMIN. Status: ACTIVE, SUSPENDED, DELETED. |
 | worker_profiles | user_id, bio, base_rate, barangay_id, verification_status | 1:1 with users. Status: PENDING, VERIFIED, REJECTED, SUSPENDED. |
 | worker_categories | worker_id, category_id, rate_override | Many-to-many. Up to 3 categories. Rate override per category optional. |
 | worker_service_areas | worker_id, barangay_id | Up to 5 barangays a worker is willing to serve. |
@@ -293,14 +293,18 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | **POST** | /auth/request-otp | Send OTP to phone number |
 | **POST** | /auth/verify-otp | Verify OTP, return JWT access + refresh tokens |
 | **POST** | /auth/refresh | Exchange refresh token for new access token |
+| **GET** | /auth/sessions | List all active sessions for the authenticated user |
+| **DELETE** | /auth/sessions/:tokenId | Revoke a specific session by token ID |
+| **DELETE** | /auth/sessions | Revoke all active sessions |
 
 ### 9.2 Worker Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
-| **GET** | /workers/search | Search workers by category, barangay, availability |
-| **GET** | /workers/:id | Get worker public profile |
-| **POST** | /workers/profile | Create worker profile (authenticated) |
+| **GET** | /workers/search | Search workers by category, barangay, availability (public) |
+| **GET** | /workers/profile | Get authenticated worker's own profile |
+| **GET** | /workers/:id | Get worker public profile (public) |
+| **POST** | /workers/profile | Create worker profile |
 | **PATCH** | /workers/profile | Update worker profile fields |
 | **PATCH** | /workers/availability | Toggle online/offline status |
 | **POST** | /workers/verification | Submit ID + selfie for verification |
@@ -317,19 +321,58 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | **PATCH** | /bookings/:id/start | Worker marks job as IN_PROGRESS |
 | **PATCH** | /bookings/:id/complete | Worker marks job as COMPLETED |
 | **PATCH** | /bookings/:id/cancel | Cancel booking (rules enforced server-side) |
-| **POST** | /bookings/:id/no-show | Customer reports worker no-show |
+| **PATCH** | /bookings/:id/update | Update a PENDING booking (description, date, time window) |
+| **PATCH** | /bookings/:id/report-no-show | Customer reports worker no-show |
 
-### 9.4 Review & Admin Endpoints
+### 9.4 Review Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
-| **POST** | /reviews | Submit rating + review for completed booking |
-| **GET** | /reviews/worker/:id | Get paginated reviews for a worker |
+| **POST** | /reviews | Submit rating + review for a completed booking |
+| **GET** | /reviews/my | List reviews submitted by the authenticated customer (paginated) |
+| **GET** | /reviews/worker/:id | Get paginated reviews for a worker (public) |
+
+### 9.5 User & Customer Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| **GET** | /users/me | Get the authenticated user's own record |
+| **GET** | /customers/profile | Get the authenticated customer's profile |
+| **POST** | /customers/profile | Create customer profile |
+| **PATCH** | /customers/profile | Update customer profile |
+
+### 9.6 Category & Barangay Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| **GET** | /categories | List active service categories (public) |
+| **GET** | /categories/admin | List all categories including inactive (admin only) |
+| **POST** | /categories | Create a service category (admin only) |
+| **PATCH** | /categories/:id | Update a service category (admin only) |
+| **DELETE** | /categories/:id | Deactivate a service category (admin only) |
+| **GET** | /barangays | List all barangays in the municipality (public) |
+
+### 9.7 Admin Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| **GET** | /admin/users | List users (paginated, filterable by role/status) |
+| **GET** | /admin/workers | List worker profiles (paginated, filterable by status) |
+| **GET** | /admin/bookings | List bookings (paginated, filterable by status) |
 | **GET** | /admin/verifications | List pending worker verification applications |
 | **PATCH** | /admin/verifications/:id/approve | Approve worker; set status to VERIFIED |
 | **PATCH** | /admin/verifications/:id/reject | Reject worker with reason |
 | **POST** | /admin/strikes | Issue manual strike to a worker |
-| **PATCH** | /admin/users/:id/suspend | Suspend a user account |
+| **PATCH** | /admin/users/:id/suspend | Suspend or reinstate a user account |
+| **GET** | /admin/no-shows | List pending no-show reports awaiting resolution |
+| **PATCH** | /admin/no-shows/:id/resolve | Resolve a no-show report (confirm or dismiss) |
+
+### 9.8 Notification Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| **POST** | /notifications/push-token | Register an Expo push token for the authenticated user |
+| **DELETE** | /notifications/push-token | Remove an Expo push token |
 
 ---
 
