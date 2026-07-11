@@ -137,6 +137,44 @@ July 10, 2026 (continued — test coverage expansion)
 
 ---
 
+July 11, 2026 — production-grade hardening audit
+
+Security (Phase 1):
+- Added HttpExceptionFilter and AllExceptionsFilter; registered globally in main.ts;
+  normalises all error shapes to {statusCode, message, timestamp}, suppresses stack traces
+- Enabled explicit CORS via CORS_ORIGIN env var (disabled by default for mobile clients)
+- SmsService now wraps raw Axios errors in InternalServerErrorException (was leaking
+  internal API URLs and keys in stack traces)
+- Completed .env.example with all 9 required vars (was missing NODE_ENV, TEXTBEE_API_URL,
+  SMS_API_KEY, DEVICE_ID, JWT_ACCESS_EXPIRES_IN, JWT_REFRESH_EXPIRES_IN, CORS_ORIGIN)
+- Deleted auth/constants.ts: dead file exporting hardcoded JWT secret fallback (manually
+  delete: Remove-Item src/modules/auth/constants.ts)
+
+Schema (Phase 2, requires migration):
+- Added explicit onDelete: Restrict to Booking → customer/worker/category/barangay
+- Added onDelete: Cascade to Review → booking and NoShowReport → booking
+- Added onDelete: Restrict to Review → worker/customer
+- Added @@index([workerId]) to WorkerCategory and WorkerServiceArea
+- Run: pnpm prisma migrate dev --name fix-referential-actions-and-indexes
+
+Architecture + consistency (Phases 2-4):
+- BookingsModule and AdminModule now explicitly import NotificationsModule
+- Added BOOKING_PENDING_EXPIRY_MS, BOOKING_MAX_ADVANCE_MS to bookings.constants.ts
+- Added OTP_EXPIRY_MS to auth/otp/otp.constants.ts; replaced inline expressions
+- Created src/common/utils/assert.util.ts with assertUserExists, assertBookingExists;
+  AdminAssertions now delegates to shared util instead of duplicating Prisma queries
+- Merged double-query in BookingsService.findOne() into single findFirst with ownership
+  where-clause; contact reveal via destructure-spread at application layer
+- Inlined BookingsNotificationService as private notifyBookingParty() on BookingsService;
+  removed the extra class per CLAUDE.md fire-and-forget convention
+- Added ParseUUIDPipe to all @Param('id') in 5 controllers (bookings, admin, categories,
+  workers, reviews) — returns clean 400 before hitting the DB
+- Standardised pagination max to 50 (SearchWorkersDto was 100)
+- Added @IsNotEmpty() to RefreshTokenDto
+- Restricted avatarUrl @IsUrl() to https protocol only
+
+---
+
 July 11, 2026 (code review fixes — second pass)
 
 - Fixed TOCTOU race in admin.service resolveNoShow: assertBookingNotAlreadyStruck was called
