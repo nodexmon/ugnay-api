@@ -45,10 +45,10 @@ describe('UsersAssertions', () => {
       expect(result).toEqual(activeUser);
     });
 
-    it('throws NotFoundException when user does not exist', async () => {
+    it('throws ForbiddenException when user does not exist', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
       await expect(assertions.assertUserIsActive('missing')).rejects.toBeInstanceOf(
-        NotFoundException,
+        ForbiddenException,
       );
     });
 

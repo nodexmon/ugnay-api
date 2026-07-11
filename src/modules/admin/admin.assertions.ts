@@ -16,11 +16,7 @@ export class AdminAssertions {
   }
 
   async assertWorkerIsUnverified(workerId: string): Promise<void> {
-    const worker = await this.prisma.workerProfile.findUnique({
-      where: { id: workerId },
-    });
-    if (!worker) throw new NotFoundException('Worker profile does not exist.');
-
+    const worker = await this.assertWorkerProfileExists(workerId);
     if (worker.status === WorkerStatus.VERIFIED) {
       throw new ConflictException('Worker is already verified.');
     }
@@ -41,7 +37,7 @@ export class AdminAssertions {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
     });
-    if (!booking) throw new NotFoundException('Booking does not exist.');
+    if (!booking) throw new NotFoundException('Booking not found.');
     return booking;
   }
 

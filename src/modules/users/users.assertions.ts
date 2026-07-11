@@ -15,8 +15,7 @@ export class UsersAssertions {
 
   async assertUserIsActive(userId: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException('User does not exist.');
-    if (user.status !== UserStatus.ACTIVE)
+    if (!user || user.status !== UserStatus.ACTIVE)
       throw new ForbiddenException('User account is not active.');
     return user;
   }

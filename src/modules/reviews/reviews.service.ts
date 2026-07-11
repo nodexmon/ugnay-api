@@ -23,9 +23,11 @@ export class ReviewsService {
       select: { id: true },
     });
 
+    if (!customerProfile) throw new NotFoundException('Customer profile not found.');
+
     this.assertions.assertCustomerOwnsBooking(
       booking.customerId,
-      customerProfile?.id ?? '',
+      customerProfile.id,
     );
 
     return this.prisma.$transaction(async (tx: TransactionClient) => {

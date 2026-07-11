@@ -20,6 +20,7 @@ import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { FindBookingsQueryDto } from './dto/find-bookings-query.dto';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { CONTACT_REVEAL_STATUSES } from './bookings.constants';
+import { STRIKE_SUSPENSION_THRESHOLD } from '@/modules/admin/admin.constants';
 import { BookingsAssertions } from './bookings.assertions';
 import { BookingsNotificationService } from './bookings.notification';
 import { UsersAssertions } from '../users/users.assertions';
@@ -366,7 +367,7 @@ export class BookingsService {
       },
     });
 
-    if (workerProfile.strikeCount >= 3) {
+    if (workerProfile.strikeCount >= STRIKE_SUSPENSION_THRESHOLD) {
       await tx.workerProfile.update({
         where: { id: workerProfile.id },
         data: { status: WorkerStatus.SUSPENDED, isOnline: false },

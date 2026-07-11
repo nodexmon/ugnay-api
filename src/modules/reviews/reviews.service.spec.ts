@@ -54,6 +54,15 @@ describe('ReviewsService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('throws NotFoundException when caller has no customer profile', async () => {
+    mockAssertions.assertBookingExistsAndCompleted.mockResolvedValue(completedBooking);
+    prisma.customerProfile.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.create({ bookingId: 'booking-id', rating: 5 }, user),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
   it('throws ForbiddenException when caller is not the booking customer', async () => {
     mockAssertions.assertBookingExistsAndCompleted.mockResolvedValue(completedBooking);
     prisma.customerProfile.findUnique.mockResolvedValue({ id: 'my-profile-id' });
