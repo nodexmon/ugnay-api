@@ -41,7 +41,7 @@ export class SmsService {
       return response.data;
     } catch (err) {
       this.logger.error({ phone, err }, 'Failed to send SMS');
-      throw err;
+      throw new InternalServerErrorException('Failed to send SMS.');
     }
   }
 }
