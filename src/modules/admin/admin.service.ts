@@ -133,7 +133,7 @@ export class AdminService {
 
   async setUserSuspension(workerId: string, suspended: boolean) {
     await this.assertions.assertUserExists(workerId);
-    
+
     return this.prisma.$transaction(async (tx: TransactionClient) => {
       const updatedUser = await tx.user.update({
         where: { id: workerId },
@@ -152,7 +152,9 @@ export class AdminService {
   }
 
   async strikeWorker(user: AuthJwtPayload, dto: StrikeWorkerDto) {
-    const worker = await this.assertions.assertWorkerProfileExists(dto.workerId);
+    const worker = await this.assertions.assertWorkerProfileExists(
+      dto.workerId,
+    );
 
     if (dto.bookingId) {
       await this.assertions.assertBookingExists(dto.bookingId);

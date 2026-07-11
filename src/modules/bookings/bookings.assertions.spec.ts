@@ -46,9 +46,9 @@ describe('BookingsAssertions', () => {
 
     it('throws NotFoundException when booking does not exist', async () => {
       prisma.booking.findUnique.mockResolvedValue(null);
-      await expect(assertions.assertBookingExists('missing')).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        assertions.assertBookingExists('missing'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
@@ -89,7 +89,9 @@ describe('BookingsAssertions', () => {
   describe('assertNoReportExists', () => {
     it('does not throw when no report exists', async () => {
       prisma.noShowReport.findUnique.mockResolvedValue(null);
-      await expect(assertions.assertNoReportExists('booking-id')).resolves.not.toThrow();
+      await expect(
+        assertions.assertNoReportExists('booking-id'),
+      ).resolves.not.toThrow();
     });
 
     it('throws ForbiddenException when a report already exists', async () => {

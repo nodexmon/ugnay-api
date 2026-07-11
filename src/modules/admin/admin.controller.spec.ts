@@ -36,21 +36,21 @@ describe('AdminController', () => {
   it('listUsers calls service.findUsers with the query', async () => {
     const query = { skip: 0, take: 10 };
     mockService.findUsers.mockResolvedValue({ items: [], total: 0 });
-    await controller.listUsers(query as never);
+    await controller.listUsers(query);
     expect(service.findUsers).toHaveBeenCalledWith(query);
   });
 
   it('listWorkers calls service.findWorkers with the query', async () => {
     const query = { skip: 0, take: 10 };
     mockService.findWorkers.mockResolvedValue({ items: [], total: 0 });
-    await controller.listWorkers(query as never);
+    await controller.listWorkers(query);
     expect(service.findWorkers).toHaveBeenCalledWith(query);
   });
 
   it('listBookings calls service.findBookings with the query', async () => {
     const query = { skip: 0, take: 10 };
     mockService.findBookings.mockResolvedValue({ items: [], total: 0 });
-    await controller.listBookings(query as never);
+    await controller.listBookings(query);
     expect(service.findBookings).toHaveBeenCalledWith(query);
   });
 
@@ -63,13 +63,22 @@ describe('AdminController', () => {
   it('approveVerification calls service.approveVerification with id and user', async () => {
     mockService.approveVerification.mockResolvedValue({});
     await controller.approveVerification(adminJwt, 'doc-id');
-    expect(service.approveVerification).toHaveBeenCalledWith('doc-id', adminJwt);
+    expect(service.approveVerification).toHaveBeenCalledWith(
+      'doc-id',
+      adminJwt,
+    );
   });
 
   it('rejectVerification calls service.rejectVerification with id, user, and reason', async () => {
     mockService.rejectVerification.mockResolvedValue({});
-    await controller.rejectVerification(adminJwt, 'doc-id', { reason: 'Bad photo' });
-    expect(service.rejectVerification).toHaveBeenCalledWith('doc-id', adminJwt, 'Bad photo');
+    await controller.rejectVerification(adminJwt, 'doc-id', {
+      reason: 'Bad photo',
+    });
+    expect(service.rejectVerification).toHaveBeenCalledWith(
+      'doc-id',
+      adminJwt,
+      'Bad photo',
+    );
   });
 
   it('setUserSuspension calls service.setUserSuspension with id and suspended flag', async () => {
@@ -94,7 +103,11 @@ describe('AdminController', () => {
   it('resolveNoShow calls service.resolveNoShow with id, user, and dto', async () => {
     const dto = { confirmed: true };
     mockService.resolveNoShow.mockResolvedValue({ resolved: true });
-    await controller.resolveNoShow(adminJwt, 'report-id', dto as never);
-    expect(service.resolveNoShow).toHaveBeenCalledWith('report-id', adminJwt, dto);
+    await controller.resolveNoShow(adminJwt, 'report-id', dto);
+    expect(service.resolveNoShow).toHaveBeenCalledWith(
+      'report-id',
+      adminJwt,
+      dto,
+    );
   });
 });

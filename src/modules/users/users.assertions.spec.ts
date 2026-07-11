@@ -32,9 +32,9 @@ describe('UsersAssertions', () => {
 
     it('throws NotFoundException when user does not exist', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
-      await expect(assertions.assertUserExists('missing')).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        assertions.assertUserExists('missing'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
@@ -47,16 +47,16 @@ describe('UsersAssertions', () => {
 
     it('throws ForbiddenException when user does not exist', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
-      await expect(assertions.assertUserIsActive('missing')).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
+      await expect(
+        assertions.assertUserIsActive('missing'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
     it('throws ForbiddenException when user is not ACTIVE', async () => {
       prisma.user.findUnique.mockResolvedValue(suspendedUser);
-      await expect(assertions.assertUserIsActive('user-id')).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
+      await expect(
+        assertions.assertUserIsActive('user-id'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 });

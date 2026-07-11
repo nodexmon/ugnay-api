@@ -23,7 +23,8 @@ export class CustomersService {
     const existing = await this.prisma.customerProfile.findUnique({
       where: { userId },
     });
-    if (existing) throw new ConflictException('Customer profile already exists.');
+    if (existing)
+      throw new ConflictException('Customer profile already exists.');
 
     return this.prisma.customerProfile.create({
       data: {

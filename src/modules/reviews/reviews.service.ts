@@ -16,14 +16,17 @@ export class ReviewsService {
   // ─── Public API ──────────────────────────────────────────────────────────────
 
   async create(dto: CreateReviewDto, user: AuthJwtPayload) {
-    const booking = await this.assertions.assertBookingExistsAndCompleted(dto.bookingId);
+    const booking = await this.assertions.assertBookingExistsAndCompleted(
+      dto.bookingId,
+    );
 
     const customerProfile = await this.prisma.customerProfile.findUnique({
       where: { userId: user.sub },
       select: { id: true },
     });
 
-    if (!customerProfile) throw new NotFoundException('Customer profile not found.');
+    if (!customerProfile)
+      throw new NotFoundException('Customer profile not found.');
 
     this.assertions.assertCustomerOwnsBooking(
       booking.customerId,

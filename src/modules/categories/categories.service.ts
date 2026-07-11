@@ -48,7 +48,7 @@ export class CategoriesService {
 
   async deactivate(categoryId: string) {
     await this.assertions.assertCategoryExists(categoryId);
-    
+
     return this.prisma.serviceCategory.update({
       where: { id: categoryId },
       data: { isActive: false },

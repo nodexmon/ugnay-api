@@ -30,8 +30,12 @@ describe('ReviewsAssertions', () => {
   describe('assertBookingExistsAndCompleted', () => {
     it('returns the booking when it exists and is COMPLETED', async () => {
       prisma.booking.findUnique.mockResolvedValue(completedBooking);
-      const result = await assertions.assertBookingExistsAndCompleted('booking-id');
-      expect(result).toMatchObject({ id: 'booking-id', status: BookingStatus.COMPLETED });
+      const result =
+        await assertions.assertBookingExistsAndCompleted('booking-id');
+      expect(result).toMatchObject({
+        id: 'booking-id',
+        status: BookingStatus.COMPLETED,
+      });
     });
 
     it('throws NotFoundException when booking does not exist', async () => {

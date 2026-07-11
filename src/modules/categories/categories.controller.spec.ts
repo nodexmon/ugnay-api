@@ -18,7 +18,14 @@ describe('CategoriesController', () => {
         CategoriesService,
         {
           provide: PrismaService,
-          useValue: { serviceCategory: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() } },
+          useValue: {
+            serviceCategory: {
+              findMany: jest.fn(),
+              findUnique: jest.fn(),
+              create: jest.fn(),
+              update: jest.fn(),
+            },
+          },
         },
         {
           provide: CategoriesAssertions,
@@ -39,7 +46,9 @@ describe('CategoriesController', () => {
   });
 
   it('findAllForAdmin calls service.findAllForAdmin', async () => {
-    jest.spyOn(service, 'findAllForAdmin').mockResolvedValue([category] as never);
+    jest
+      .spyOn(service, 'findAllForAdmin')
+      .mockResolvedValue([category] as never);
     const result = await controller.findAllForAdmin();
     expect(service.findAllForAdmin).toHaveBeenCalled();
     expect(result).toEqual([category]);
@@ -48,7 +57,7 @@ describe('CategoriesController', () => {
   it('create calls service.create with the dto', async () => {
     const dto = { name: 'Electrical', slug: 'electrical' };
     jest.spyOn(service, 'create').mockResolvedValue(category as never);
-    const result = await controller.create(dto as never);
+    const result = await controller.create(dto);
     expect(service.create).toHaveBeenCalledWith(dto);
     expect(result).toEqual(category);
   });
@@ -56,13 +65,15 @@ describe('CategoriesController', () => {
   it('update calls service.update with id and dto', async () => {
     const dto = { name: 'Updated' };
     jest.spyOn(service, 'update').mockResolvedValue(category as never);
-    const result = await controller.update('cat-id', dto as never);
+    const result = await controller.update('cat-id', dto);
     expect(service.update).toHaveBeenCalledWith('cat-id', dto);
     expect(result).toEqual(category);
   });
 
   it('deactivate calls service.deactivate with id', async () => {
-    jest.spyOn(service, 'deactivate').mockResolvedValue({ ...category, isActive: false } as never);
+    jest
+      .spyOn(service, 'deactivate')
+      .mockResolvedValue({ ...category, isActive: false } as never);
     const result = await controller.deactivate('cat-id');
     expect(service.deactivate).toHaveBeenCalledWith('cat-id');
     expect(result).toMatchObject({ isActive: false });

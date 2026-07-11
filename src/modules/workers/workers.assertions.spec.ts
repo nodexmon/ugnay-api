@@ -37,7 +37,9 @@ describe('WorkersAssertions', () => {
 
   describe('assertUnique', () => {
     it('does not throw when all values are unique', () => {
-      expect(() => assertions.assertUnique(['a', 'b', 'c'], 'items')).not.toThrow();
+      expect(() =>
+        assertions.assertUnique(['a', 'b', 'c'], 'items'),
+      ).not.toThrow();
     });
 
     it('throws BadRequestException when duplicate values are present', () => {

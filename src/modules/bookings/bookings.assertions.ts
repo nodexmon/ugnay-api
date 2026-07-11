@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Booking } from '@/generated/prisma/client';
 import { BookingStatus } from '@/generated/prisma/enums';
@@ -14,12 +18,17 @@ export class BookingsAssertions {
   }
 
   async assertBookingExists(bookingId: string): Promise<Booking> {
-    const booking = await this.prisma.booking.findUnique({ where: { id: bookingId } });
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
     if (!booking) throw new NotFoundException('Booking not found.');
     return booking;
   }
 
-  assertBookingInStatus(status: BookingStatus, ...allowed: BookingStatus[]): void {
+  assertBookingInStatus(
+    status: BookingStatus,
+    ...allowed: BookingStatus[]
+  ): void {
     if (!allowed.includes(status)) {
       throw new ForbiddenException(
         `Booking must be in status: ${allowed.join(', ')}`,

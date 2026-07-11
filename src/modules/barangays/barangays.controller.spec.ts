@@ -15,7 +15,10 @@ describe('BarangaysController', () => {
       controllers: [BarangaysController],
       providers: [
         BarangaysService,
-        { provide: PrismaService, useValue: { barangay: { findMany: jest.fn() } } },
+        {
+          provide: PrismaService,
+          useValue: { barangay: { findMany: jest.fn() } },
+        },
       ],
     }).compile();
 

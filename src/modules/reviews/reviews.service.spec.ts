@@ -47,7 +47,9 @@ describe('ReviewsService', () => {
 
   it('throws ForbiddenException when booking is not COMPLETED', async () => {
     mockAssertions.assertBookingExistsAndCompleted.mockRejectedValue(
-      new ForbiddenException('Reviews can only be submitted for completed bookings.'),
+      new ForbiddenException(
+        'Reviews can only be submitted for completed bookings.',
+      ),
     );
     await expect(
       service.create({ bookingId: 'booking-id', rating: 5 }, user),
@@ -55,7 +57,9 @@ describe('ReviewsService', () => {
   });
 
   it('throws NotFoundException when caller has no customer profile', async () => {
-    mockAssertions.assertBookingExistsAndCompleted.mockResolvedValue(completedBooking);
+    mockAssertions.assertBookingExistsAndCompleted.mockResolvedValue(
+      completedBooking,
+    );
     prisma.customerProfile.findUnique.mockResolvedValue(null);
 
     await expect(
@@ -64,10 +68,16 @@ describe('ReviewsService', () => {
   });
 
   it('throws ForbiddenException when caller is not the booking customer', async () => {
-    mockAssertions.assertBookingExistsAndCompleted.mockResolvedValue(completedBooking);
-    prisma.customerProfile.findUnique.mockResolvedValue({ id: 'my-profile-id' });
+    mockAssertions.assertBookingExistsAndCompleted.mockResolvedValue(
+      completedBooking,
+    );
+    prisma.customerProfile.findUnique.mockResolvedValue({
+      id: 'my-profile-id',
+    });
     mockAssertions.assertCustomerOwnsBooking.mockImplementation(() => {
-      throw new ForbiddenException('Only the customer of this booking may submit a review.');
+      throw new ForbiddenException(
+        'Only the customer of this booking may submit a review.',
+      );
     });
 
     await expect(

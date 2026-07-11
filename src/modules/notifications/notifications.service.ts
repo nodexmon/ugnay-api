@@ -5,7 +5,6 @@ import { Logger } from 'nestjs-pino';
 import { PushMessage } from './notifications.interface';
 import Expo, { ExpoPushMessage, ExpoPushTicket } from 'expo-server-sdk';
 
-
 @Injectable()
 export class NotificationsService {
   private expo = new Expo();

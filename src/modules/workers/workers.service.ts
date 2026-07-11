@@ -325,5 +325,4 @@ export class WorkersService {
       'categories',
     );
   }
-
 }

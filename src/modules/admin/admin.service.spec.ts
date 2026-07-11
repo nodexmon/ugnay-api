@@ -29,8 +29,18 @@ describe('AdminService', () => {
 
   const prisma = {
     verificationDoc: { findMany: jest.fn(), findUnique: jest.fn() },
-    workerProfile: { findMany: jest.fn(), findUnique: jest.fn(), updateMany: jest.fn(), count: jest.fn() },
-    user: { findMany: jest.fn(), update: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
+    workerProfile: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      updateMany: jest.fn(),
+      count: jest.fn(),
+    },
+    user: {
+      findMany: jest.fn(),
+      update: jest.fn(),
+      findUnique: jest.fn(),
+      count: jest.fn(),
+    },
     booking: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
     noShowReport: { findMany: jest.fn(), findUnique: jest.fn() },
     $transaction: jest.fn(),
