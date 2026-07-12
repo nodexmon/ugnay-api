@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WorkersController } from '@/modules/workers/workers.controller';
 import { WorkersService } from '@/modules/workers/workers.service';
-import { Role } from '@/generated/prisma/enums';
+import { CredentialType, Role, VerificationStatus } from '@/generated/prisma/enums';
 import { AuthJwtPayload } from '@/modules/auth/auth.types';
 
 describe('WorkersController', () => {
@@ -13,6 +13,7 @@ describe('WorkersController', () => {
     updateProfile: jest.Mock;
     setAvailability: jest.Mock;
     submitVerification: jest.Mock;
+    uploadCredential: jest.Mock;
   };
 
   const user: AuthJwtPayload = {
@@ -29,6 +30,7 @@ describe('WorkersController', () => {
       updateProfile: jest.fn(),
       setAvailability: jest.fn(),
       submitVerification: jest.fn(),
+      uploadCredential: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -110,5 +112,15 @@ describe('WorkersController', () => {
       user.sub,
       files,
     );
+  });
+
+  it('uploads a credential file for the authenticated worker', () => {
+    const file = { originalname: 'cert.pdf', mimetype: 'application/pdf', size: 1000, buffer: Buffer.from('') };
+    const dto = { type: CredentialType.CERTIFICATION };
+    const expected = { id: 'cred-id', type: CredentialType.CERTIFICATION, status: VerificationStatus.PENDING };
+    workersService.uploadCredential.mockResolvedValue(expected);
+
+    expect(controller.uploadCredential(user, file as never, dto)).resolves.toBe(expected);
+    expect(workersService.uploadCredential).toHaveBeenCalledWith(user.sub, dto.type, file);
   });
 });

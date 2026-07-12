@@ -1,6 +1,6 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { UserStatus, WorkerStatus } from '@/generated/prisma/enums';
+import { CredentialType, UserStatus, VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
 import { PrismaService } from '@/prisma/prisma.service';
 import { WorkersService } from '@/modules/workers/workers.service';
 import { FileStorageService } from '@/modules/workers/file-storage.service';
@@ -9,6 +9,13 @@ import { UsersAssertions } from '@/modules/users/users.assertions';
 
 describe('WorkersService', () => {
   let service: WorkersService;
+
+  const tx = {
+    workerProfile: { update: jest.fn() },
+    verificationDoc: { findFirst: jest.fn(), count: jest.fn(), create: jest.fn() },
+    workerCredential: { count: jest.fn(), create: jest.fn() },
+  };
+
   const prisma = {
     user: {
       findUnique: jest.fn(),
@@ -31,6 +38,10 @@ describe('WorkersService', () => {
       count: jest.fn(),
       create: jest.fn(),
     },
+    workerCredential: {
+      count: jest.fn(),
+      create: jest.fn(),
+    },
     $transaction: jest.fn(),
   };
 
@@ -47,6 +58,10 @@ describe('WorkersService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    prisma.$transaction.mockImplementation(
+      (cb: (transaction: typeof tx) => unknown) => cb(tx),
+    );
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WorkersService,
@@ -123,5 +138,70 @@ describe('WorkersService', () => {
     await expect(
       service.setAvailability('user-id', true),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  describe('uploadCredential', () => {
+    const file = {
+      originalname: 'license.pdf',
+      mimetype: 'application/pdf',
+      size: 100000,
+      buffer: Buffer.from(''),
+    };
+    const credentialPath = {
+      relative: 'uploads/credentials/worker-id/license-uuid.pdf',
+      absolute: '/abs/uploads/credentials/worker-id/license-uuid.pdf',
+      dir: '/abs/uploads/credentials/worker-id',
+    };
+
+    beforeEach(() => {
+      prisma.workerProfile.findUnique.mockResolvedValue({ id: 'worker-id', status: WorkerStatus.VERIFIED });
+      fileStorage.resolvePath.mockReturnValue(credentialPath);
+      fileStorage.write.mockResolvedValue(undefined);
+    });
+
+    it('creates a credential record and writes the file', async () => {
+      const created = { id: 'cred-id', type: CredentialType.LICENSE, status: VerificationStatus.PENDING };
+      tx.workerCredential.count.mockResolvedValue(0);
+      tx.workerCredential.create.mockResolvedValue(created);
+
+      const result = await service.uploadCredential('user-id', CredentialType.LICENSE, file);
+
+      expect(result).toBe(created);
+      expect(tx.workerCredential.create).toHaveBeenCalledWith({
+        data: { workerId: 'worker-id', type: CredentialType.LICENSE, fileUrl: credentialPath.relative },
+      });
+      expect(fileStorage.write).toHaveBeenCalledWith(credentialPath, file);
+    });
+
+    it('resolves the file path in the credentials subdirectory', async () => {
+      tx.workerCredential.count.mockResolvedValue(0);
+      tx.workerCredential.create.mockResolvedValue({});
+
+      await service.uploadCredential('user-id', CredentialType.CERTIFICATION, file);
+
+      expect(fileStorage.resolvePath).toHaveBeenCalledWith(
+        'worker-id',
+        'certification',
+        file,
+        'credentials',
+      );
+    });
+
+    it('throws BadRequestException when the worker already has 5 active credentials', async () => {
+      tx.workerCredential.count.mockResolvedValue(5);
+
+      await expect(
+        service.uploadCredential('user-id', CredentialType.LICENSE, file),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(tx.workerCredential.create).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when the worker has no profile', async () => {
+      prisma.workerProfile.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.uploadCredential('user-id', CredentialType.LICENSE, file),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
   });
 });

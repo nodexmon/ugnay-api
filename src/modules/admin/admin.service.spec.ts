@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   BookingStatus,
+  CredentialType,
   Role,
   StrikeReason,
   UserStatus,
@@ -20,6 +21,7 @@ describe('AdminService', () => {
 
   const tx = {
     verificationDoc: { update: jest.fn(), count: jest.fn() },
+    workerCredential: { update: jest.fn() },
     workerProfile: { update: jest.fn(), updateMany: jest.fn() },
     user: { update: jest.fn() },
     strike: { create: jest.fn() },
@@ -29,6 +31,7 @@ describe('AdminService', () => {
 
   const prisma = {
     verificationDoc: { findMany: jest.fn(), findUnique: jest.fn() },
+    workerCredential: { findMany: jest.fn(), findUnique: jest.fn() },
     workerProfile: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -211,6 +214,82 @@ describe('AdminService', () => {
       await expect(
         service.resolveNoShow('report-id', adminUser, { confirmed: true }),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('credential review', () => {
+    const pendingCredential = {
+      id: 'cred-id',
+      workerId: 'worker-id',
+      type: CredentialType.LICENSE,
+      status: VerificationStatus.PENDING,
+      worker: { userId: 'user-id' },
+    };
+
+    it('returns all pending credentials with worker details', async () => {
+      prisma.workerCredential.findMany.mockResolvedValue([pendingCredential]);
+
+      const result = await service.findPendingCredentials();
+
+      expect(result).toEqual([pendingCredential]);
+      expect(prisma.workerCredential.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { status: VerificationStatus.PENDING } }),
+      );
+    });
+
+    it('approves a credential and updates its status to APPROVED', async () => {
+      prisma.workerCredential.findUnique.mockResolvedValue(pendingCredential);
+      const approved = { ...pendingCredential, status: VerificationStatus.APPROVED };
+      tx.workerCredential.update.mockResolvedValue(approved);
+
+      const result = await service.approveCredential('cred-id', adminUser);
+
+      expect(result).toEqual(approved);
+      expect(tx.workerCredential.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'cred-id' },
+          data: expect.objectContaining({
+            status: VerificationStatus.APPROVED,
+            reviewedBy: adminUser.sub,
+          }),
+        }),
+      );
+    });
+
+    it('rejects a credential and stores the rejection reason', async () => {
+      prisma.workerCredential.findUnique.mockResolvedValue(pendingCredential);
+      const rejected = { ...pendingCredential, status: VerificationStatus.REJECTED };
+      tx.workerCredential.update.mockResolvedValue(rejected);
+
+      await service.rejectCredential('cred-id', adminUser, 'Certificate expired');
+
+      expect(tx.workerCredential.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: VerificationStatus.REJECTED,
+            rejectionReason: 'Certificate expired',
+          }),
+        }),
+      );
+    });
+
+    it('throws NotFoundException when the credential does not exist', async () => {
+      prisma.workerCredential.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.approveCredential('cred-id', adminUser),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('throws ConflictException when the credential was already reviewed', async () => {
+      prisma.workerCredential.findUnique.mockResolvedValue({
+        ...pendingCredential,
+        status: VerificationStatus.APPROVED,
+      });
+
+      await expect(
+        service.approveCredential('cred-id', adminUser),
+      ).rejects.toBeInstanceOf(ConflictException);
     });
   });
 
