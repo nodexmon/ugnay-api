@@ -18,7 +18,10 @@ export class SmsService {
     private readonly http: HttpService,
   ) {}
 
-  async sendSms(phone: string, message: string) {
+  async sendSms(
+    phone: string,
+    message: string,
+  ): Promise<{ status: string; messageId: string }> {
     const { TEXTBEE_API_URL, SMS_API_KEY, DEVICE_ID } = this.textbee;
 
     try {
@@ -36,8 +39,8 @@ export class SmsService {
       );
 
       this.logger.debug({ phone }, 'SMS sent successfully');
-      return response.data;
-    } catch (err) {
+      return response.data as { status: string; messageId: string };
+    } catch (err: unknown) {
       this.logger.error({ phone, err }, 'Failed to send SMS');
       throw new InternalServerErrorException('Failed to send SMS.');
     }

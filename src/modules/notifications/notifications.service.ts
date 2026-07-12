@@ -42,7 +42,7 @@ export class NotificationsService {
           }
         }
       }
-    } catch (err) {
+    } catch (err: unknown) {
       this.logger.error({ err, userId }, 'Failed to send push notification');
     }
   }
