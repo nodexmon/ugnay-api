@@ -23,7 +23,6 @@ import {
 } from '@/config';
 import { loggerConfig } from '@/config/logger.config';
 import { LoggerModule } from 'nestjs-pino';
-import { HttpModule } from '@nestjs/axios';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ReviewsModule } from './modules/reviews/reviews.module';

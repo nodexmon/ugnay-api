@@ -1,9 +1,4 @@
-import {
-  ArgumentMetadata,
-  BadRequestException,
-  Injectable,
-  PipeTransform,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, PipeTransform } from '@nestjs/common';
 import { UploadedVerificationFiles } from '@/modules/workers/workers.types';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
