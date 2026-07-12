@@ -93,6 +93,11 @@ export class AdminController {
     return this.adminService.setUserSuspension(id, dto.suspended);
   }
 
+  @Post('barangays/sync')
+  syncBarangays() {
+    return this.adminService.syncBarangays();
+  }
+
   @Post('strikes')
   strikeWorker(
     @CurrentUser() user: AuthJwtPayload,

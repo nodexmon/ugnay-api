@@ -22,6 +22,7 @@ import { NotificationsService } from '@/modules/notifications/notifications.serv
 import { WORKER_INCLUDE } from '@/common/constants/worker-includes';
 import { STRIKE_SUSPENSION_THRESHOLD } from './admin.constants';
 import { AdminAssertions } from './admin.assertions';
+import { BarangaySyncService } from '@/modules/barangays/barangay-sync.service';
 
 @Injectable()
 export class AdminService {
@@ -29,9 +30,14 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly assertions: AdminAssertions,
+    private readonly barangaySync: BarangaySyncService,
   ) {}
 
   // ─── Public API ──────────────────────────────────────────────────────────
+
+  syncBarangays() {
+    return this.barangaySync.syncBarangays();
+  }
 
   async findPendingVerifications() {
     return this.prisma.verificationDoc.findMany({

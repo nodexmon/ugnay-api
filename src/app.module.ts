@@ -22,6 +22,7 @@ import {
   textbeeConfig,
 } from '@/config';
 import { loggerConfig } from '@/config/logger.config';
+import { psgcConfig } from '@/config/psgc.config';
 import { LoggerModule } from 'nestjs-pino';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -54,6 +55,7 @@ import { BarangaysModule } from './modules/barangays/barangays.module';
         databaseConfig,
         loggerConfig,
         textbeeConfig,
+        psgcConfig,
       ],
     }),
 
