@@ -281,11 +281,12 @@ model WorkerCredential {
 // =============================================================================
 
 model Barangay {
-  id          String  @id @default(uuid()) @db.Uuid
-  name        String  @unique
-  centroidLat Decimal @db.Decimal(10, 7)
-  centroidLng Decimal @db.Decimal(10, 7)
-  isActive    Boolean @default(true)
+  id          String   @id @default(uuid()) @db.Uuid
+  psgcCode    String?  @unique
+  name        String   @unique
+  centroidLat Decimal? @db.Decimal(10, 7)
+  centroidLng Decimal? @db.Decimal(10, 7)
+  isActive    Boolean  @default(true)
 
   workerHomes WorkerProfile[]     @relation("HomeBarangay")
   workerAreas WorkerServiceArea[]
