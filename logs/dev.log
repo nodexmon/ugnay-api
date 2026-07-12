@@ -227,3 +227,15 @@ July 12, 2026
   worker service area names, booking barangay names, and location address strings
 - Pushed branch feat/barangay-psgc-sync; opened PR #11
 
+---
+
+July 12, 2026 (docs update)
+
+- Updated docs/UGNAY_BRD_v1_1.md to v1.2: added POST /workers/credentials endpoint,
+  added credential admin endpoints (GET/PATCH /admin/credentials), added POST
+  /admin/barangays/sync, added worker_credentials to schema entity table, updated
+  module descriptions for AdminModule, WorkersModule, NotificationsModule, BarangaysModule
+- Created docs/UGNAY_API_HANDOUT.md: full mobile API handout for frontend team covering
+  all endpoints with request/response shapes, enum values, booking state machine diagram,
+  typical flows for customer and worker, and mobile-specific integration notes
+

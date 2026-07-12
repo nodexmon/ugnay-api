@@ -7,9 +7,9 @@
 
 | Field | Value |
 |---|---|
-| **Version** | 1.1 — MVP (Rebrand: UGNAY) |
-| **Status** | Current (Updated 2026-07-11 against implementation) |
-| **Date** | June 2026 |
+| **Version** | 1.2 — MVP (Updated against implementation) |
+| **Status** | Current (Updated 2026-07-12 against implementation) |
+| **Date** | July 2026 |
 | **Scope** | Single municipality — Phase 1 validation |
 | **Stack** | NestJS · PostgreSQL · Prisma · React Native · Expo · Docker |
 
@@ -238,17 +238,17 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 
 | Module | Responsibilities |
 |---|---|
-| AuthModule | OTP send/verify, JWT issue/refresh, phone validation |
+| AuthModule | OTP send/verify, JWT issue/refresh, session management, phone validation |
 | UsersModule | User entity, profile reads, role management |
-| WorkersModule | Worker profile CRUD, availability toggle, service radius, ID upload, worker search (by category/barangay/availability) |
+| WorkersModule | Worker profile CRUD, availability toggle, service radius, ID upload, professional credentials upload, worker search (by category/barangay/availability) |
 | CustomersModule | Customer profile CRUD |
 | CategoriesModule | Service category management (admin-controlled) |
-| BarangaysModule | Barangay lookup (seeded; read-only at runtime) |
+| BarangaysModule | Barangay lookup (seeded from PSGC; read-only at runtime) |
 | BookingsModule | Booking lifecycle, state transitions, expiry cron, no-show reports |
 | ReviewsModule | Rating submission, review display, average calculation |
-| NotificationsModule | Expo push token storage, send booking event pushes |
-| AdminModule | Worker verification queue, strike system, user suspension, complaint management |
-| UploadsModule | File upload handling for ID photos and selfies, storage abstraction |
+| NotificationsModule | Expo push token registration/removal, send booking event pushes |
+| AdminModule | Worker verification queue, credential review queue, strike system, user suspension, PSGC barangay sync, no-show management |
+| UploadsModule | File upload handling for ID photos, selfies, and credentials; storage abstraction |
 
 ---
 
@@ -268,6 +268,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | reviews | id, booking_id, customer_id, worker_id, rating, comment | 1:1 with bookings. Unique constraint on booking_id. |
 | strikes | id, worker_id, reason, booking_id, issued_by | Append-only. Aggregated count triggers suspension at 3. |
 | verification_docs | id, worker_id, id_photo_url, selfie_url, reviewed_by, reviewed_at | Admin review record. Stores rejection reason. |
+| worker_credentials | id, worker_id, type, file_url, status, rejection_reason | Professional credentials (LICENSE, CERTIFICATION, TRAINING). Reviewed by admin. |
 | push_tokens | id, user_id, token, platform | Expo push tokens. One per device. Updated on login. |
 
 ### 8.2 Booking Status Enum
@@ -307,7 +308,8 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | **POST** | /workers/profile | Create worker profile |
 | **PATCH** | /workers/profile | Update worker profile fields |
 | **PATCH** | /workers/availability | Toggle online/offline status |
-| **POST** | /workers/verification | Submit ID + selfie for verification |
+| **POST** | /workers/verification | Submit ID + selfie for verification (multipart/form-data) |
+| **POST** | /workers/credentials | Upload a professional credential file (LICENSE, CERTIFICATION, TRAINING) |
 
 ### 9.3 Booking Endpoints
 
@@ -362,10 +364,14 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | **GET** | /admin/verifications | List pending worker verification applications |
 | **PATCH** | /admin/verifications/:id/approve | Approve worker; set status to VERIFIED |
 | **PATCH** | /admin/verifications/:id/reject | Reject worker with reason |
+| **GET** | /admin/credentials | List pending worker credential submissions |
+| **PATCH** | /admin/credentials/:id/approve | Approve a credential submission |
+| **PATCH** | /admin/credentials/:id/reject | Reject a credential submission with reason |
 | **POST** | /admin/strikes | Issue manual strike to a worker |
 | **PATCH** | /admin/users/:id/suspend | Suspend or reinstate a user account |
 | **GET** | /admin/no-shows | List pending no-show reports awaiting resolution |
 | **PATCH** | /admin/no-shows/:id/resolve | Resolve a no-show report (confirm or dismiss) |
+| **POST** | /admin/barangays/sync | Sync barangay list from PSGC data source |
 
 ### 9.8 Notification Endpoints
 
