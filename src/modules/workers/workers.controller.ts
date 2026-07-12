@@ -7,10 +7,12 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
+import { multerConfig } from '@/config/multer.config';
 import { WorkersService } from '@/modules/workers/workers.service';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { CheckAbility } from '@/common/decorators/check-ability.decorator';
@@ -23,6 +25,9 @@ import { SearchWorkersDto } from '@/modules/workers/dto/search-workers.dto';
 import { type AuthJwtPayload } from '@/modules/auth/auth.types';
 import { type UploadedVerificationFiles } from '@/modules/workers/workers.types';
 import { VerificationFilesPipe } from '@/common/pipes/verification-files.pipe';
+import { CredentialFilePipe } from '@/modules/workers/pipes/credential-file.pipe';
+import { UploadCredentialDto } from '@/modules/workers/dto/upload-credential.dto';
+import type { AvatarFile } from '@/uploads/uploads.types';
 
 @Controller('workers')
 export class WorkersController {
@@ -86,5 +91,16 @@ export class WorkersController {
     @UploadedFiles(VerificationFilesPipe) files: UploadedVerificationFiles,
   ) {
     return this.workersService.submitVerification(user.sub, files);
+  }
+
+  @CheckAbility(Action.Create, 'WorkerCredential')
+  @Post('credentials')
+  @UseInterceptors(FileInterceptor('file', multerConfig))
+  uploadCredential(
+    @CurrentUser() user: AuthJwtPayload,
+    @UploadedFile(CredentialFilePipe) file: AvatarFile,
+    @Body() dto: UploadCredentialDto,
+  ) {
+    return this.workersService.uploadCredential(user.sub, dto.type, file);
   }
 }

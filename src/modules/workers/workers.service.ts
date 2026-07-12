@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '@/prisma/prisma.service';
 import {
   BookingStatus,
+  CredentialType,
   UserStatus,
   VerificationStatus,
   WorkerStatus,
@@ -17,6 +18,7 @@ import { WorkerCategoryInputDto } from '@/modules/workers/dto/input-worker-categ
 import { UpdateWorkerDto } from '@/modules/workers/dto/update-worker.dto';
 import { SearchWorkersDto } from '@/modules/workers/dto/search-workers.dto';
 import type { UploadedVerificationFiles } from '@/modules/workers/workers.types';
+import type { AvatarFile } from '@/uploads/uploads.types';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { FileStorageService } from '@/modules/workers/file-storage.service';
 import { WorkersAssertions } from '@/modules/workers/workers.assertions';
@@ -274,6 +276,39 @@ export class WorkersService {
     ]);
 
     return doc;
+  }
+
+  async uploadCredential(userId: string, type: CredentialType, file: AvatarFile) {
+    const worker = await this.getOwnProfile(userId);
+
+    const credentialPath = this.fileStorage.resolvePath(
+      worker.id,
+      type.toLowerCase(),
+      file,
+      'credentials',
+    );
+
+    const credential = await this.prisma.$transaction(
+      async (tx: TransactionClient) => {
+        const activeCount = await tx.workerCredential.count({
+          where: {
+            workerId: worker.id,
+            status: { in: [VerificationStatus.PENDING, VerificationStatus.APPROVED] },
+          },
+        });
+
+        if (activeCount >= 5) {
+          throw new BadRequestException('Maximum of 5 active credentials allowed');
+        }
+
+        return tx.workerCredential.create({
+          data: { workerId: worker.id, type, fileUrl: credentialPath.relative },
+        });
+      },
+    );
+
+    await this.fileStorage.write(credentialPath, file);
+    return credential;
   }
 
   private async getOwnProfile(userId: string) {

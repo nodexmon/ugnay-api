@@ -23,6 +23,9 @@ export class CaslAbilityFactory {
         // Verification Doc
         can(Action.Create, 'VerificationDoc');
 
+        // Worker Credential
+        can(Action.Create, 'WorkerCredential');
+
         // Booking
         can(Action.Read, 'Booking');
         can(Action.Accept, 'Booking');

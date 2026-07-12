@@ -63,6 +63,28 @@ export class AdminController {
     return this.adminService.rejectVerification(id, user, dto.reason);
   }
 
+  @Get('credentials')
+  listPendingCredentials() {
+    return this.adminService.findPendingCredentials();
+  }
+
+  @Patch('credentials/:id/approve')
+  approveCredential(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.adminService.approveCredential(id, user);
+  }
+
+  @Patch('credentials/:id/reject')
+  rejectCredential(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RejectVerificationDto,
+  ) {
+    return this.adminService.rejectCredential(id, user, dto.reason);
+  }
+
   @Patch('users/:id/suspend')
   setUserSuspension(
     @Param('id', ParseUUIDPipe) id: string,
