@@ -13,6 +13,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { AdminService } from '@/modules/admin/admin.service';
 import { AdminAssertions } from '@/modules/admin/admin.assertions';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
+import { BarangaySyncService } from '@/modules/barangays/barangay-sync.service';
 
 const adminUser = { sub: 'admin-id', role: Role.ADMIN, phone: '' };
 
@@ -75,6 +76,10 @@ describe('AdminService', () => {
           useValue: { sendToUser: jest.fn().mockResolvedValue(undefined) },
         },
         { provide: AdminAssertions, useValue: assertions },
+        {
+          provide: BarangaySyncService,
+          useValue: { syncBarangays: jest.fn() },
+        },
       ],
     }).compile();
 
