@@ -69,6 +69,12 @@ enum VerificationStatus {
   REJECTED
 }
 
+enum CredentialType {
+  LICENSE
+  CERTIFICATION
+  TRAINING
+}
+
 enum Platform {
   IOS
   ANDROID
@@ -186,6 +192,7 @@ model WorkerProfile {
   categories       WorkerCategory[]
   serviceAreas     WorkerServiceArea[]
   verificationDocs VerificationDoc[]
+  credentials      WorkerCredential[]
   bookings         Booking[]
   reviews          Review[]
   strikes          Strike[]
@@ -248,6 +255,25 @@ model VerificationDoc {
   @@index([status])
   @@index([workerId])
   @@map("verification_docs")
+}
+
+model WorkerCredential {
+  id              String             @id @default(uuid()) @db.Uuid
+  workerId        String             @db.Uuid
+  type            CredentialType
+  fileUrl         String
+  status          VerificationStatus @default(PENDING)
+  rejectionReason String?
+  reviewedBy      String?            @db.Uuid // Admin user ID
+  reviewedAt      DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  worker WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([workerId])
+  @@map("worker_credentials")
 }
 
 // =============================================================================
