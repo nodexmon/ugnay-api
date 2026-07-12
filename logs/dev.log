@@ -225,4 +225,5 @@ July 12, 2026
 - Replaced 8 placeholder barangay names in seed.ts with real Calapan City barangays
   (Canubing I/II, Lalud, Lumangbayan, Batino, Masipit, Silonay, Villaflor); updated all
   worker service area names, booking barangay names, and location address strings
+- Pushed branch feat/barangay-psgc-sync; opened PR #11
 
