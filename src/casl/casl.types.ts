@@ -23,6 +23,7 @@ export type Subject =
   | 'Review'
   | 'NoShowReport'
   | 'VerificationDoc'
+  | 'WorkerCredential'
   | 'ServiceCategory'
   | 'Barangay'
   | 'User'

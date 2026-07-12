@@ -16,6 +16,9 @@ describe('AdminController', () => {
     findPendingVerifications: jest.fn(),
     approveVerification: jest.fn(),
     rejectVerification: jest.fn(),
+    findPendingCredentials: jest.fn(),
+    approveCredential: jest.fn(),
+    rejectCredential: jest.fn(),
     setUserSuspension: jest.fn(),
     strikeWorker: jest.fn(),
     findPendingNoShows: jest.fn(),
@@ -79,6 +82,24 @@ describe('AdminController', () => {
       adminJwt,
       'Bad photo',
     );
+  });
+
+  it('listPendingCredentials calls service.findPendingCredentials', async () => {
+    mockService.findPendingCredentials.mockResolvedValue([]);
+    await controller.listPendingCredentials();
+    expect(service.findPendingCredentials).toHaveBeenCalled();
+  });
+
+  it('approveCredential calls service.approveCredential with id and user', async () => {
+    mockService.approveCredential.mockResolvedValue({});
+    await controller.approveCredential(adminJwt, 'cred-id');
+    expect(service.approveCredential).toHaveBeenCalledWith('cred-id', adminJwt);
+  });
+
+  it('rejectCredential calls service.rejectCredential with id, user, and reason', async () => {
+    mockService.rejectCredential.mockResolvedValue({});
+    await controller.rejectCredential(adminJwt, 'cred-id', { reason: 'Certificate expired' });
+    expect(service.rejectCredential).toHaveBeenCalledWith('cred-id', adminJwt, 'Certificate expired');
   });
 
   it('setUserSuspension calls service.setUserSuspension with id and suspended flag', async () => {

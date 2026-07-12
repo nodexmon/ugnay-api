@@ -348,7 +348,94 @@ export class AdminService {
     return { items, total, skip: query.skip, take: query.take };
   }
 
+  async findPendingCredentials() {
+    return this.prisma.workerCredential.findMany({
+      where: { status: VerificationStatus.PENDING },
+      include: {
+        worker: {
+          include: {
+            user: true,
+            homeBarangay: true,
+            categories: { include: { category: true } },
+            serviceAreas: { include: { barangay: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async approveCredential(credentialId: string, user: AuthJwtPayload) {
+    const credential = await this.getPendingCredential(credentialId);
+
+    return this.prisma
+      .$transaction(async (tx: TransactionClient) => {
+        return tx.workerCredential.update({
+          where: { id: credentialId },
+          data: {
+            status: VerificationStatus.APPROVED,
+            reviewedBy: user.sub,
+            reviewedAt: new Date(),
+          },
+        });
+      })
+      .then((result) => {
+        void this.notifications
+          .sendToUser(credential.worker.userId, {
+            title: 'Credential approved',
+            body: `Your ${credential.type.toLowerCase()} credential has been verified.`,
+          })
+          .catch(() => {});
+        return result;
+      });
+  }
+
+  async rejectCredential(
+    credentialId: string,
+    user: AuthJwtPayload,
+    reason: string,
+  ) {
+    const credential = await this.getPendingCredential(credentialId);
+
+    return this.prisma
+      .$transaction(async (tx: TransactionClient) => {
+        return tx.workerCredential.update({
+          where: { id: credentialId },
+          data: {
+            status: VerificationStatus.REJECTED,
+            rejectionReason: reason,
+            reviewedBy: user.sub,
+            reviewedAt: new Date(),
+          },
+        });
+      })
+      .then((result) => {
+        void this.notifications
+          .sendToUser(credential.worker.userId, {
+            title: 'Credential rejected',
+            body: reason,
+          })
+          .catch(() => {});
+        return result;
+      });
+  }
+
   // ─── Private: business logic ─────────────────────────────────────────────
+
+  private async getPendingCredential(id: string) {
+    const credential = await this.prisma.workerCredential.findUnique({
+      where: { id },
+      include: { worker: { select: { userId: true } } },
+    });
+
+    if (!credential) throw new NotFoundException('Credential not found.');
+
+    if (credential.status !== VerificationStatus.PENDING) {
+      throw new ConflictException('Credential has already been reviewed.');
+    }
+
+    return credential;
+  }
 
   private async getPendingVerification(id: string) {
     const doc = await this.prisma.verificationDoc.findUnique({
