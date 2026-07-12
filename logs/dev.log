@@ -211,3 +211,18 @@ July 11, 2026 (BRD sync)
     no-show resolution, push token management); fixed /bookings/:id/no-show →
     PATCH /bookings/:id/report-no-show
 
+---
+
+July 12, 2026
+
+- Added psgcCode field (nullable, unique) to Barangay model; made centroidLat/centroidLng
+  nullable — PSGC API does not supply coordinates
+- Added psgc.config.ts: PSGC_API_URL and PSGC_CALAPAN_CODE env vars with defaults
+- Added BarangaySyncService: fetches Calapan City barangays from PSGC public API
+  (psgc.gitlab.io), upserts each by name or psgcCode, soft-deletes removed barangays
+- Added POST /admin/barangays/sync (admin-only): triggers the PSGC sync and returns
+  { created, updated, deactivated, total }
+- Replaced 8 placeholder barangay names in seed.ts with real Calapan City barangays
+  (Canubing I/II, Lalud, Lumangbayan, Batino, Masipit, Silonay, Villaflor); updated all
+  worker service area names, booking barangay names, and location address strings
+
