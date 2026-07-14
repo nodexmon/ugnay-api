@@ -17,3 +17,14 @@ export type SignedTokens = {
 export type RefreshTokenPayload = AuthJwtPayload & {
   tokenId: string;
 };
+
+export interface RegistrationTokenPayload {
+  sub: string;
+  purpose: 'registration';
+  iat?: number;
+  exp?: number;
+}
+
+export type VerifyOtpResult =
+  | { type: 'login'; accessToken: string; refreshToken: string }
+  | { type: 'registration'; registrationToken: string };

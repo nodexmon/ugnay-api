@@ -4,6 +4,7 @@ import { AuthService } from '@/modules/auth/auth.service';
 import { SendOtpDto } from '@/modules/auth/dto/send-otp.dto';
 import { VerifyOtpDto } from '@/modules/auth/dto/verify-otp.dto';
 import { RefreshTokenDto } from '@/modules/auth/dto/refresh-token.dto';
+import { RegisterDto } from '@/modules/auth/dto/register.dto';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Public } from '@/common/decorators/public-endpoint.decorator';
 import { type AuthJwtPayload } from '@/modules/auth/auth.types';
@@ -27,7 +28,14 @@ export class AuthController {
   @Throttle({ default: OTP_VERIFY_THROTTLE })
   @Post('verify-otp')
   verifyOtp(@Body() dto: VerifyOtpDto) {
-    return this.authService.verifyOtp(dto.phone, dto.code, dto.role);
+    return this.authService.verifyOtp(dto.phone, dto.code);
+  }
+
+  @Public()
+  @Throttle({ default: OTP_VERIFY_THROTTLE })
+  @Post('register')
+  register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto.registrationToken, dto.role);
   }
 
   @Public()

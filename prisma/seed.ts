@@ -501,8 +501,8 @@ async function seedCatalog() {
 
   for (const barangay of barangays) {
     await prisma.barangay.upsert({
-      where: { name: barangay.name },
-      update: { isActive: true },
+      where: { id: barangay.id },
+      update: { name: barangay.name, isActive: true },
       create: { ...barangay, isActive: true },
     });
   }

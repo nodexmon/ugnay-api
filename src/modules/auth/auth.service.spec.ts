@@ -1,6 +1,6 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Role } from '@/generated/prisma/enums';
+import { Role, UserStatus } from '@/generated/prisma/enums';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AuthJwtService } from '@/modules/auth/jwt/jwt.service';
 import { OtpService } from '@/modules/auth/otp/otp.service';
@@ -12,6 +12,14 @@ const mockJwtConfig = {
   JWT_SECRET: 'test-secret-at-least-32-chars-long',
   JWT_ACCESS_EXPIRES_IN: '15m',
   JWT_REFRESH_EXPIRES_IN: '7d',
+  JWT_REGISTRATION_EXPIRES_IN: '15m',
+};
+
+const activeUser = {
+  id: 'user-id',
+  phone: '+639171234567',
+  role: Role.WORKER,
+  status: UserStatus.ACTIVE,
 };
 
 describe('AuthService', () => {
@@ -20,7 +28,6 @@ describe('AuthService', () => {
     user: {
       findUnique: jest.fn(),
       create: jest.fn(),
-      upsert: jest.fn(),
     },
     refreshToken: {
       create: jest.fn(),
@@ -39,6 +46,8 @@ describe('AuthService', () => {
   const jwtService = {
     signTokens: jest.fn(),
     verifyRefreshToken: jest.fn(),
+    signRegistrationToken: jest.fn(),
+    verifyRegistrationToken: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -47,6 +56,7 @@ describe('AuthService', () => {
       accessToken: 'access',
       refreshToken: 'refresh',
     });
+    jwtService.signRegistrationToken.mockReturnValue('reg-token');
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -72,41 +82,89 @@ describe('AuthService', () => {
     );
   });
 
-  it('creates a user and issues tokens after OTP verification', async () => {
-    otpService.verifyOtp.mockResolvedValue(true);
-    prisma.user.findUnique.mockResolvedValue(null);
-    prisma.user.upsert.mockResolvedValue({
-      id: 'user-id',
-      phone: '+639171234567',
-      role: Role.WORKER,
+  describe('verifyOtp', () => {
+    it('returns login result for existing active user', async () => {
+      otpService.verifyOtp.mockResolvedValue(true);
+      prisma.user.findUnique.mockResolvedValue(activeUser);
+      prisma.refreshToken.create.mockResolvedValue({});
+
+      const result = await service.verifyOtp('+639171234567', '123456');
+
+      expect(result).toEqual({
+        type: 'login',
+        accessToken: 'access',
+        refreshToken: 'refresh',
+      });
+      expect(jwtService.signTokens).toHaveBeenCalledWith(
+        'user-id',
+        '+639171234567',
+        Role.WORKER,
+        expect.any(String),
+      );
     });
 
-    await expect(
-      service.verifyOtp('+639171234567', '123456', Role.WORKER),
-    ).resolves.toEqual({
-      accessToken: 'access',
-      refreshToken: 'refresh',
+    it('returns registration token for new user', async () => {
+      otpService.verifyOtp.mockResolvedValue(true);
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      const result = await service.verifyOtp('+639171234567', '123456');
+
+      expect(result).toEqual({ type: 'registration', registrationToken: 'reg-token' });
+      expect(jwtService.signRegistrationToken).toHaveBeenCalledWith('+639171234567');
+      expect(jwtService.signTokens).not.toHaveBeenCalled();
     });
 
-    expect(jwtService.signTokens).toHaveBeenCalledWith(
-      'user-id',
-      '+639171234567',
-      Role.WORKER,
-      expect.any(String),
-    );
-    expect(prisma.refreshToken.create).toHaveBeenCalled();
+    it('throws UnauthorizedException for inactive user', async () => {
+      otpService.verifyOtp.mockResolvedValue(true);
+      prisma.user.findUnique.mockResolvedValue({
+        ...activeUser,
+        status: UserStatus.SUSPENDED,
+      });
+
+      await expect(service.verifyOtp('+639171234567', '123456')).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    });
   });
 
-  it('prevents role changes for an existing phone number', async () => {
-    otpService.verifyOtp.mockResolvedValue(true);
-    prisma.user.findUnique.mockResolvedValue({
-      id: 'user-id',
-      phone: '+639171234567',
-      role: Role.CUSTOMER,
+  describe('register', () => {
+    it('creates user and issues auth tokens', async () => {
+      jwtService.verifyRegistrationToken.mockResolvedValue({
+        sub: '+639171234567',
+        purpose: 'registration',
+      });
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue(activeUser);
+      prisma.refreshToken.create.mockResolvedValue({});
+
+      const result = await service.register('reg-token', Role.WORKER);
+
+      expect(prisma.user.create).toHaveBeenCalledWith({
+        data: { phone: '+639171234567', role: Role.WORKER },
+      });
+      expect(result).toEqual({ accessToken: 'access', refreshToken: 'refresh' });
     });
 
-    await expect(
-      service.verifyOtp('+639171234567', '123456', Role.WORKER),
-    ).rejects.toBeInstanceOf(ConflictException);
+    it('throws ConflictException if phone already registered', async () => {
+      jwtService.verifyRegistrationToken.mockResolvedValue({
+        sub: '+639171234567',
+        purpose: 'registration',
+      });
+      prisma.user.findUnique.mockResolvedValue(activeUser);
+
+      await expect(service.register('reg-token', Role.WORKER)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+    });
+
+    it('throws UnauthorizedException for invalid registration token', async () => {
+      jwtService.verifyRegistrationToken.mockRejectedValue(
+        new UnauthorizedException('Invalid registration token'),
+      );
+
+      await expect(service.register('bad-token', Role.WORKER)).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    });
   });
 });

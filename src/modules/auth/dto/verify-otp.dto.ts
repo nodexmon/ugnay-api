@@ -1,11 +1,4 @@
-import {
-  IsEnum,
-  IsNotEmpty,
-  IsPhoneNumber,
-  IsString,
-  Length,
-} from 'class-validator';
-import { Role } from '@/generated/prisma/enums';
+import { IsNotEmpty, IsPhoneNumber, IsString, Length } from 'class-validator';
 
 export class VerifyOtpDto {
   @IsNotEmpty()
@@ -16,8 +9,4 @@ export class VerifyOtpDto {
   @IsString()
   @Length(6, 6)
   code: string;
-
-  @IsNotEmpty()
-  @IsEnum(Role)
-  role: Role;
 }
