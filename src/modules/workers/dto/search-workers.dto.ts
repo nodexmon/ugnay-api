@@ -1,4 +1,4 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsInt,
@@ -22,11 +22,13 @@ export class SearchWorkersDto {
   @IsBoolean()
   availableOnly?: boolean;
 
+  @Type(() => Number)
   @IsOptional()
   @IsInt()
   @Min(1)
   page?: number;
 
+  @Type(() => Number)
   @IsOptional()
   @IsInt()
   @Min(1)
