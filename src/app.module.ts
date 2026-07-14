@@ -81,10 +81,9 @@ import { BarangaysModule } from './modules/barangays/barangays.module';
       provide: APP_GUARD,
       useClass: CaslGuard,
     },
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
+    ...(process.env['NODE_ENV'] !== 'development'
+      ? [{ provide: APP_GUARD, useClass: ThrottlerGuard }]
+      : []),
   ],
 })
 export class AppModule {}
