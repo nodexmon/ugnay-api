@@ -92,16 +92,19 @@ ACTIVE | SUSPENDED | DELETED
 
 ### WorkerStatus
 ```
-PENDING | VERIFIED | REJECTED | SUSPENDED
+PENDING    — submitted application, awaiting admin review
+VERIFIED   — admin approved; can receive bookings
+REJECTED   — admin rejected; may reapply once
+SUSPENDED  — suspended due to strikes or complaints
 ```
 
 ### BookingStatus
 ```
 PENDING     — awaiting worker response (30-min window)
-ACCEPTED    — worker accepted; customer sees worker phone
+ACCEPTED    — worker accepted; contact details revealed
 REJECTED    — worker rejected; customer may rebook
-IN_PROGRESS — worker marked arrival
-COMPLETED   — job done; review prompt sent
+IN_PROGRESS — worker marked arrival on-site
+COMPLETED   — job done; review prompt sent to customer
 CANCELLED   — cancelled by customer (pre-accept) or worker (post-accept = strike)
 EXPIRED     — worker did not respond within 30 minutes
 NO_SHOW     — admin-confirmed no-show; strike issued
@@ -125,6 +128,11 @@ EVENING    — 18:00–21:00
 POST_ACCEPT_CANCELLATION | NO_SHOW | CUSTOMER_COMPLAINT
 ```
 
+### VerificationStatus
+```
+PENDING | APPROVED | REJECTED
+```
+
 ### CredentialType
 ```
 LICENSE | CERTIFICATION | TRAINING
@@ -133,6 +141,11 @@ LICENSE | CERTIFICATION | TRAINING
 ### Platform
 ```
 IOS | ANDROID
+```
+
+### CancellationActor
+```
+CUSTOMER | WORKER | SYSTEM
 ```
 
 ---
@@ -154,14 +167,16 @@ Send a one-time password to a Philippine phone number.
 **Response `200`:**
 ```json
 {
-  "message": "OTP sent."
+  "message": "OTP has been sent to +639171234567"
 }
 ```
+
+> The message includes the phone number to confirm delivery target.
 
 ---
 
 ### POST `/auth/verify-otp` — `PUBLIC`
-Verify the OTP and receive JWT tokens. Creates the user account on first login.
+Verify the OTP. Returns different shapes depending on whether the phone is already registered.
 
 **Rate limit:** 5 requests per 15 minutes per IP.
 
@@ -169,65 +184,102 @@ Verify the OTP and receive JWT tokens. Creates the user account on first login.
 ```json
 {
   "phone": "+639171234567",
-  "code": "123456",
+  "code": "123456"
+}
+```
+
+**Response `200` — existing user (returning login):**
+```json
+{
+  "type": "login",
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+**Response `200` — new phone (first-time registration):**
+```json
+{
+  "type": "registration",
+  "registrationToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+> Check `type` to know what to render next:
+> - `"login"` → store tokens and proceed to home. Call `GET /users/me` to check if a profile still needs to be created.
+> - `"registration"` → show the role picker, then call `POST /auth/register`.
+> The `registrationToken` expires in **15 minutes**. Do not store it beyond the registration screen.
+
+---
+
+### POST `/auth/register` — `PUBLIC`
+Complete registration for a new user. Requires the `registrationToken` returned from `verify-otp`.
+
+**Rate limit:** 5 requests per 15 minutes per IP.
+
+**Request body:**
+```json
+{
+  "registrationToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "role": "CUSTOMER"
 }
 ```
 
 > `role` must be `CUSTOMER` or `WORKER`. Admin accounts are created out-of-band.
-> On re-login, the `role` field must match the account's existing role.
+> Returns `401` if the registration token is expired, tampered, or already used.
+> Returns `409` if the phone was registered by another request in the meantime (race condition guard).
 
 **Response `200`:**
 ```json
 {
-  "accessToken": "<jwt>",
-  "refreshToken": "<token>",
-  "user": {
-    "id": "uuid",
-    "phone": "+639171234567",
-    "role": "CUSTOMER",
-    "status": "ACTIVE"
-  }
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
+
+> No `user` object in this response. Call `GET /users/me` after registration to check whether a profile needs to be created.
 
 ---
 
 ### POST `/auth/refresh` — `PUBLIC`
-Exchange a refresh token for a new access token.
+Exchange a refresh token for a new token pair. The old refresh token is immediately revoked on use.
 
 **Rate limit:** 10 requests per hour per IP.
 
 **Request body:**
 ```json
 {
-  "refreshToken": "<token>"
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
 **Response `200`:**
 ```json
 {
-  "accessToken": "<new-jwt>",
-  "refreshToken": "<new-token>"
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
+
+> Both tokens rotate on every refresh. Always store the new `refreshToken` — the old one is dead.
 
 ---
 
 ### GET `/auth/sessions` — `PROTECTED`
-List all active sessions for the current user.
+List all active (non-revoked, non-expired) sessions for the current user.
 
 **Response `200`:**
 ```json
 [
   {
-    "id": "uuid",
-    "createdAt": "2026-07-12T08:00:00.000Z",
-    "expiresAt": "2026-07-19T08:00:00.000Z"
+    "id": "82000000-0000-4000-8000-000000000001",
+    "createdAt": "2026-07-01T08:00:00.000Z",
+    "updatedAt": "2026-07-05T10:30:00.000Z"
   }
 ]
 ```
+
+> `id` is the session token ID — use it to target a specific session for revocation.
 
 ---
 
@@ -236,7 +288,9 @@ Revoke a specific session (logout from one device).
 
 **Response `200`:**
 ```json
-{ "message": "Session revoked." }
+{
+  "message": "Session revoked."
+}
 ```
 
 ---
@@ -246,7 +300,9 @@ Revoke all sessions (logout from all devices).
 
 **Response `200`:**
 ```json
-{ "message": "All sessions revoked." }
+{
+  "message": "All sessions revoked."
+}
 ```
 
 ---
@@ -254,198 +310,453 @@ Revoke all sessions (logout from all devices).
 ## 5. User Endpoints
 
 ### GET `/users/me` — `PROTECTED`
-Get the authenticated user's own record.
+Get the authenticated user's account record, including their profile if it exists. Use this immediately after login to determine app routing (profile setup vs. home screen).
 
 **Response `200`:**
 ```json
 {
-  "id": "uuid",
-  "phone": "+639171234567",
+  "id": "30000000-0000-4000-8000-000000000002",
+  "phone": "+639170000002",
   "role": "CUSTOMER",
   "status": "ACTIVE",
-  "createdAt": "2026-07-01T00:00:00.000Z"
+  "createdAt": "2026-07-01T00:00:00.000Z",
+  "updatedAt": "2026-07-01T00:00:00.000Z",
+  "workerProfile": null,
+  "customerProfile": {
+    "id": "40000000-0000-4000-8000-000000000001",
+    "userId": "30000000-0000-4000-8000-000000000002",
+    "firstName": "Mika",
+    "lastName": "Santos",
+    "avatarUrl": "https://example.com/avatars/customer-mika.jpg",
+    "createdAt": "2026-07-01T00:00:00.000Z",
+    "updatedAt": "2026-07-01T00:00:00.000Z"
+  }
 }
 ```
+
+For a `WORKER` account, `workerProfile` is populated and `customerProfile` is `null`:
+```json
+{
+  "id": "30000000-0000-4000-8000-000000000005",
+  "phone": "+639170000005",
+  "role": "WORKER",
+  "status": "ACTIVE",
+  "createdAt": "2026-07-01T00:00:00.000Z",
+  "updatedAt": "2026-07-01T00:00:00.000Z",
+  "customerProfile": null,
+  "workerProfile": {
+    "id": "50000000-0000-4000-8000-000000000001",
+    "userId": "30000000-0000-4000-8000-000000000005",
+    "firstName": "Jun",
+    "lastName": "Garcia",
+    "bio": "Licensed electrician for residential repairs.",
+    "avatarUrl": "https://example.com/avatars/worker-jun.jpg",
+    "baseRate": "650.00",
+    "status": "VERIFIED",
+    "isOnline": true,
+    "homeBarangayId": "20000000-0000-4000-8000-000000000001",
+    "strikeCount": 0,
+    "totalJobsCompleted": 24,
+    "averageRating": "4.82",
+    "totalReviews": 17,
+    "createdAt": "2026-07-01T00:00:00.000Z",
+    "updatedAt": "2026-07-01T00:00:00.000Z",
+    "homeBarangay": {
+      "id": "20000000-0000-4000-8000-000000000001",
+      "psgcCode": null,
+      "name": "Canubing I",
+      "centroidLat": null,
+      "centroidLng": null,
+      "isActive": true
+    },
+    "categories": [
+      {
+        "id": "uuid",
+        "workerId": "50000000-0000-4000-8000-000000000001",
+        "categoryId": "10000000-0000-4000-8000-000000000001",
+        "rateOverride": null,
+        "createdAt": "2026-07-01T00:00:00.000Z",
+        "category": {
+          "id": "10000000-0000-4000-8000-000000000001",
+          "name": "Electrician",
+          "slug": "electrician",
+          "iconUrl": "https://example.com/icons/electrician.svg",
+          "isActive": true,
+          "sortOrder": 1,
+          "createdAt": "2026-07-01T00:00:00.000Z",
+          "updatedAt": "2026-07-01T00:00:00.000Z"
+        }
+      }
+    ],
+    "serviceAreas": [
+      {
+        "id": "uuid",
+        "workerId": "50000000-0000-4000-8000-000000000001",
+        "barangayId": "20000000-0000-4000-8000-000000000001",
+        "createdAt": "2026-07-01T00:00:00.000Z",
+        "barangay": {
+          "id": "20000000-0000-4000-8000-000000000001",
+          "psgcCode": null,
+          "name": "Canubing I",
+          "centroidLat": null,
+          "centroidLng": null,
+          "isActive": true
+        }
+      }
+    ]
+  }
+}
+```
+
+> **Routing rule:** If `role === "CUSTOMER"` and `customerProfile === null` → navigate to customer profile setup. If `role === "WORKER"` and `workerProfile === null` → navigate to worker profile setup. If profile exists, check `workerProfile.status` — only `VERIFIED` workers can go online.
 
 ---
 
 ## 6. Customer Endpoints
 
-All customer endpoints require the `CUSTOMER` role.
+All customer endpoints require `CUSTOMER` role.
 
-### GET `/customers/profile` — `PROTECTED`
+### GET `/customers/profile` — `PROTECTED (CUSTOMER)`
 Get the authenticated customer's profile.
 
 **Response `200`:**
 ```json
 {
-  "id": "uuid",
-  "userId": "uuid",
-  "firstName": "Maria",
+  "id": "40000000-0000-4000-8000-000000000001",
+  "userId": "30000000-0000-4000-8000-000000000002",
+  "firstName": "Mika",
   "lastName": "Santos",
-  "avatarUrl": "https://...",
-  "createdAt": "2026-07-01T00:00:00.000Z"
+  "avatarUrl": "https://example.com/avatars/customer-mika.jpg",
+  "createdAt": "2026-07-01T00:00:00.000Z",
+  "updatedAt": "2026-07-01T00:00:00.000Z"
 }
 ```
 
 ---
 
-### POST `/customers/profile` — `PROTECTED`
-Create a customer profile (required after first login as CUSTOMER).
+### POST `/customers/profile` — `PROTECTED (CUSTOMER)`
+Create the customer profile. Required after first login as CUSTOMER before any booking.
 
 **Request body:**
 ```json
 {
-  "firstName": "Maria",
+  "firstName": "Mika",
   "lastName": "Santos",
-  "avatarUrl": "https://..."
+  "avatarUrl": "https://example.com/avatars/customer-mika.jpg"
 }
 ```
 
-> `avatarUrl` is optional. Must be `https://` URL if provided.
+> `avatarUrl` is optional. Omit or pass `null` to leave it blank.
+> `firstName`/`lastName`: required, max 100 chars each.
 
-**Response `201`:**
-```json
-{
-  "id": "uuid",
-  "userId": "uuid",
-  "firstName": "Maria",
-  "lastName": "Santos",
-  "avatarUrl": null,
-  "createdAt": "2026-07-12T00:00:00.000Z"
-}
-```
+**Response `201`:** Same shape as `GET /customers/profile`.
 
 ---
 
-### PATCH `/customers/profile` — `PROTECTED`
-Update customer profile. All fields optional.
+### PATCH `/customers/profile` — `PROTECTED (CUSTOMER)`
+Update the customer profile. All fields are optional.
 
-**Request body:** (same fields as `POST`, all optional)
+**Request body:**
+```json
+{
+  "firstName": "Michaela",
+  "lastName": "Santos",
+  "avatarUrl": null
+}
+```
+
+**Response `200`:** Same shape as `GET /customers/profile`.
 
 ---
 
 ## 7. Worker Endpoints
 
 ### GET `/workers/search` — `PUBLIC`
-Search available workers. All query params are optional.
+Search VERIFIED, active workers. Returns a plain array ordered by `averageRating DESC`, `totalReviews DESC`, `createdAt DESC`.
+
+> Workers with an active `ACCEPTED` or `IN_PROGRESS` booking are excluded from results — they are already busy.
 
 **Query params:**
 ```
-categoryId    UUID      Filter by service category
-barangayId    UUID      Filter by service area barangay
-availableOnly boolean   true = only show online workers
+categoryId    UUID      Filter by service category ID
+barangayId    UUID      Filter by service area — only workers who serve this barangay
+availableOnly boolean   true = only online workers (isOnline: true)
 page          integer   Default 1
 limit         integer   Default 20, max 50
 ```
 
-**Example:** `GET /workers/search?categoryId=<uuid>&availableOnly=true&page=1&limit=20`
+**Example:** `GET /workers/search?categoryId=<uuid>&barangayId=<uuid>&availableOnly=true&page=1&limit=20`
 
-**Response `200`:**
+**Response `200`:** Plain array (no pagination wrapper):
 ```json
-{
-  "data": [
-    {
-      "id": "uuid",
-      "firstName": "Rodel",
-      "lastName": "Cruz",
-      "bio": "15 years experience",
-      "avatarUrl": null,
-      "baseRate": "500.00",
-      "isOnline": true,
-      "averageRating": "4.50",
-      "totalReviews": 12,
-      "homeBarangay": { "id": "uuid", "name": "Camilmil" },
-      "categories": [
-        { "categoryId": "uuid", "name": "Electrical", "rateOverride": null }
-      ]
-    }
-  ],
-  "meta": { "page": 1, "limit": 20, "total": 5 }
-}
+[
+  {
+    "id": "50000000-0000-4000-8000-000000000001",
+    "userId": "30000000-0000-4000-8000-000000000005",
+    "firstName": "Jun",
+    "lastName": "Garcia",
+    "bio": "Licensed electrician for residential repairs, rewiring, and fixture installation.",
+    "avatarUrl": "https://example.com/avatars/worker-jun.jpg",
+    "baseRate": "650.00",
+    "status": "VERIFIED",
+    "isOnline": true,
+    "homeBarangayId": "20000000-0000-4000-8000-000000000001",
+    "strikeCount": 0,
+    "totalJobsCompleted": 24,
+    "averageRating": "4.82",
+    "totalReviews": 17,
+    "createdAt": "2026-07-01T00:00:00.000Z",
+    "updatedAt": "2026-07-01T00:00:00.000Z",
+    "homeBarangay": {
+      "id": "20000000-0000-4000-8000-000000000001",
+      "psgcCode": null,
+      "name": "Canubing I",
+      "centroidLat": null,
+      "centroidLng": null,
+      "isActive": true
+    },
+    "categories": [
+      {
+        "id": "uuid",
+        "workerId": "50000000-0000-4000-8000-000000000001",
+        "categoryId": "10000000-0000-4000-8000-000000000001",
+        "rateOverride": null,
+        "createdAt": "2026-07-01T00:00:00.000Z",
+        "category": {
+          "id": "10000000-0000-4000-8000-000000000001",
+          "name": "Electrician",
+          "slug": "electrician",
+          "iconUrl": "https://example.com/icons/electrician.svg",
+          "isActive": true,
+          "sortOrder": 1,
+          "createdAt": "2026-07-01T00:00:00.000Z",
+          "updatedAt": "2026-07-01T00:00:00.000Z"
+        }
+      }
+    ],
+    "serviceAreas": [
+      {
+        "id": "uuid",
+        "workerId": "50000000-0000-4000-8000-000000000001",
+        "barangayId": "20000000-0000-4000-8000-000000000001",
+        "createdAt": "2026-07-01T00:00:00.000Z",
+        "barangay": {
+          "id": "20000000-0000-4000-8000-000000000001",
+          "psgcCode": null,
+          "name": "Canubing I",
+          "centroidLat": null,
+          "centroidLng": null,
+          "isActive": true
+        }
+      }
+    ],
+    "credentials": [
+      { "type": "LICENSE" }
+    ]
+  }
+]
 ```
 
+> `credentials` — only `APPROVED` credentials are returned from search, and only the `type` field. No file URLs.
+> `baseRate`, `rateOverride`, `averageRating` are **Decimal strings** — parse before arithmetic.
 > Worker phone numbers are **never** returned from search. Only revealed on booking acceptance.
+> There is **no total count** in this response. Use `page`/`limit` to paginate client-side.
 
 ---
 
 ### GET `/workers/:id` — `PUBLIC`
-Get a worker's full public profile.
+Get a single worker's full public profile.
 
 **Response `200`:**
 ```json
 {
-  "id": "uuid",
-  "firstName": "Rodel",
-  "lastName": "Cruz",
-  "bio": "...",
-  "avatarUrl": null,
-  "baseRate": "500.00",
-  "isOnline": true,
+  "id": "50000000-0000-4000-8000-000000000001",
+  "userId": "30000000-0000-4000-8000-000000000005",
+  "firstName": "Jun",
+  "lastName": "Garcia",
+  "bio": "Licensed electrician for residential repairs, rewiring, and fixture installation.",
+  "avatarUrl": "https://example.com/avatars/worker-jun.jpg",
+  "baseRate": "650.00",
   "status": "VERIFIED",
-  "averageRating": "4.50",
-  "totalReviews": 12,
-  "totalJobsCompleted": 8,
-  "homeBarangay": { "id": "uuid", "name": "Camilmil" },
+  "isOnline": true,
+  "homeBarangayId": "20000000-0000-4000-8000-000000000001",
+  "strikeCount": 0,
+  "totalJobsCompleted": 24,
+  "averageRating": "4.82",
+  "totalReviews": 17,
+  "createdAt": "2026-07-01T00:00:00.000Z",
+  "updatedAt": "2026-07-01T00:00:00.000Z",
+  "homeBarangay": {
+    "id": "20000000-0000-4000-8000-000000000001",
+    "psgcCode": null,
+    "name": "Canubing I",
+    "centroidLat": null,
+    "centroidLng": null,
+    "isActive": true
+  },
   "categories": [
-    { "categoryId": "uuid", "name": "Electrical", "rateOverride": "600.00" }
+    {
+      "id": "uuid",
+      "workerId": "50000000-0000-4000-8000-000000000001",
+      "categoryId": "10000000-0000-4000-8000-000000000001",
+      "rateOverride": null,
+      "createdAt": "2026-07-01T00:00:00.000Z",
+      "category": {
+        "id": "10000000-0000-4000-8000-000000000001",
+        "name": "Electrician",
+        "slug": "electrician",
+        "iconUrl": "https://example.com/icons/electrician.svg",
+        "isActive": true,
+        "sortOrder": 1,
+        "createdAt": "2026-07-01T00:00:00.000Z",
+        "updatedAt": "2026-07-01T00:00:00.000Z"
+      }
+    }
   ],
   "serviceAreas": [
-    { "barangayId": "uuid", "name": "Camilmil" },
-    { "barangayId": "uuid", "name": "Ibaba" }
+    {
+      "id": "uuid",
+      "workerId": "50000000-0000-4000-8000-000000000001",
+      "barangayId": "20000000-0000-4000-8000-000000000001",
+      "createdAt": "2026-07-01T00:00:00.000Z",
+      "barangay": {
+        "id": "20000000-0000-4000-8000-000000000001",
+        "psgcCode": null,
+        "name": "Canubing I",
+        "centroidLat": null,
+        "centroidLng": null,
+        "isActive": true
+      }
+    }
+  ],
+  "credentials": [
+    { "type": "LICENSE" }
   ]
 }
 ```
 
+> **`averageRating` is `null`** when `totalReviews < 3`. This is enforced server-side — do not compute client-side.
+> Only `VERIFIED` workers with `ACTIVE` user accounts are accessible from this endpoint. Others return `404`.
+> `credentials` — only `APPROVED` credentials with just the `type` field (same as search).
+
 ---
 
 ### GET `/workers/profile` — `PROTECTED (WORKER)`
-Get the authenticated worker's own profile (includes verification status).
+Get the authenticated worker's **own** full profile, including all verification docs and credentials (with full details and file URLs).
+
+**Response `200`:** Same base shape as the public profile but with additional fields:
+```json
+{
+  "id": "50000000-0000-4000-8000-000000000001",
+  "userId": "30000000-0000-4000-8000-000000000005",
+  "firstName": "Jun",
+  "lastName": "Garcia",
+  "bio": "Licensed electrician for residential repairs.",
+  "avatarUrl": "https://example.com/avatars/worker-jun.jpg",
+  "baseRate": "650.00",
+  "status": "VERIFIED",
+  "isOnline": true,
+  "homeBarangayId": "20000000-0000-4000-8000-000000000001",
+  "strikeCount": 0,
+  "totalJobsCompleted": 24,
+  "averageRating": "4.82",
+  "totalReviews": 17,
+  "createdAt": "2026-07-01T00:00:00.000Z",
+  "updatedAt": "2026-07-01T00:00:00.000Z",
+  "homeBarangay": { "...same as public..." },
+  "categories": [ "...same as public..." ],
+  "serviceAreas": [ "...same as public..." ],
+  "verificationDocs": [
+    {
+      "id": "70000000-0000-4000-8000-000000000001",
+      "workerId": "50000000-0000-4000-8000-000000000001",
+      "idPhotoUrl": "/seed/verification/50000000.../id-photo.jpg",
+      "selfieUrl": "/seed/verification/50000000.../selfie.jpg",
+      "status": "APPROVED",
+      "rejectionReason": null,
+      "reviewedBy": "30000000-0000-4000-8000-000000000001",
+      "reviewedAt": "2026-06-22T10:00:00.000Z",
+      "createdAt": "2026-06-22T09:00:00.000Z",
+      "updatedAt": "2026-06-22T10:00:00.000Z"
+    }
+  ],
+  "credentials": [
+    {
+      "id": "uuid",
+      "workerId": "50000000-0000-4000-8000-000000000001",
+      "type": "LICENSE",
+      "fileUrl": "/uploads/workers/50000000.../credentials/license-abc123.jpg",
+      "status": "PENDING",
+      "rejectionReason": null,
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "createdAt": "2026-07-01T00:00:00.000Z",
+      "updatedAt": "2026-07-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+> Unlike the public endpoint, `averageRating` is **never nulled** on own-profile — always returns the raw value.
+> `verificationDocs` and `credentials` are ordered by `createdAt DESC` — newest first.
+> `credentials` returns **all** credentials (not just APPROVED), with full fields including file URLs.
 
 ---
 
 ### POST `/workers/profile` — `PROTECTED (WORKER)`
-Create worker profile. Required after first login as WORKER.
+Create the worker profile. Required after first login as WORKER.
 
 **Request body:**
 ```json
 {
-  "firstName": "Rodel",
-  "lastName": "Cruz",
-  "bio": "15 years experience in electrical work.",
-  "baseRate": 500,
-  "homeBarangayId": "uuid",
+  "firstName": "Jun",
+  "lastName": "Garcia",
+  "bio": "Licensed electrician for residential repairs.",
+  "baseRate": 650,
+  "homeBarangayId": "20000000-0000-4000-8000-000000000001",
   "categories": [
-    { "categoryId": "uuid", "rateOverride": 600 },
-    { "categoryId": "uuid" }
+    { "categoryId": "10000000-0000-4000-8000-000000000001", "rateOverride": 800 },
+    { "categoryId": "10000000-0000-4000-8000-000000000007" }
   ],
-  "serviceAreaBarangayIds": ["uuid", "uuid"]
+  "serviceAreaBarangayIds": [
+    "20000000-0000-4000-8000-000000000001",
+    "20000000-0000-4000-8000-000000000002"
+  ]
 }
 ```
 
-> `categories`: 1–3 items. `rateOverride` is optional per category.
-> `serviceAreaBarangayIds`: 1–5 barangay UUIDs.
+> `categories`: 1–3 items. `rateOverride` is optional — omit to use `baseRate` for that category.
+> `serviceAreaBarangayIds`: 1–5 barangay UUIDs. Must include `homeBarangayId` or the home barangay must be in the list — duplicates are de-duped server-side.
 > `bio` and `avatarUrl` are optional.
+> New worker profile always starts with `status: "PENDING"`.
+
+**Response `201`:** Same shape as `GET /workers/profile` (full profile with all includes).
 
 ---
 
 ### PATCH `/workers/profile` — `PROTECTED (WORKER)`
-Update worker profile. All fields optional (same structure as POST).
+Update the worker profile. All fields are optional.
+
+**Request body:** Same fields as `POST /workers/profile`, all optional.
+
+> When `categories` is provided, it **replaces** all existing categories.
+> When `serviceAreaBarangayIds` is provided, it **replaces** all existing service areas.
+
+**Response `200`:** Same shape as `GET /workers/profile`.
 
 ---
 
 ### PATCH `/workers/availability` — `PROTECTED (WORKER)`
-Toggle online/offline status. Worker must be VERIFIED to go online.
+Toggle online/offline status.
 
 **Request body:**
 ```json
 { "isOnline": true }
 ```
 
-**Response `200`:**
-```json
-{ "isOnline": true }
-```
+> Going online (`isOnline: true`) requires `status === "VERIFIED"`. Returns `403` otherwise.
+
+**Response `200`:** Full worker profile with all includes — same shape as `GET /workers/profile`.
 
 ---
 
@@ -454,21 +765,58 @@ Submit government ID photo and selfie for admin review. Uses `multipart/form-dat
 
 **Form fields:**
 ```
-idPhoto   File   Government-issued ID photo (JPEG/PNG, max 5MB)
-selfie    File   Selfie photo (JPEG/PNG, max 5MB)
+idPhoto   File   Government-issued ID photo (JPEG/PNG, max 5 MB)
+selfie    File   Selfie photo (JPEG/PNG, max 5 MB)
 ```
 
-> Worker status transitions to `PENDING` after submission. Admin reviews within 24 hours.
+> Worker `status` transitions to `PENDING` after submission.
+> Returns `409` if a PENDING submission already exists.
+> Returns `403` if verification has already been rejected twice (reapplication limit).
+> Returns `409` if worker is already `VERIFIED`.
+
+**Response `201`:**
+```json
+{
+  "id": "70000000-0000-4000-8000-000000000001",
+  "workerId": "50000000-0000-4000-8000-000000000001",
+  "idPhotoUrl": "/uploads/workers/50000000.../id-photo-abc123.jpg",
+  "selfieUrl": "/uploads/workers/50000000.../selfie-def456.jpg",
+  "status": "PENDING",
+  "rejectionReason": null,
+  "reviewedBy": null,
+  "reviewedAt": null,
+  "createdAt": "2026-07-12T08:00:00.000Z",
+  "updatedAt": "2026-07-12T08:00:00.000Z"
+}
+```
 
 ---
 
 ### POST `/workers/credentials` — `PROTECTED (WORKER)`
-Upload a professional credential (license, certification, training). Uses `multipart/form-data`.
+Upload a professional credential. Uses `multipart/form-data`.
 
 **Form fields:**
 ```
-file   File     Credential document (JPEG/PNG/PDF, max 5MB)
+file   File     Credential document (JPEG/PNG/PDF, max 5 MB)
 type   string   One of: LICENSE | CERTIFICATION | TRAINING
+```
+
+> Maximum 5 active (PENDING or APPROVED) credentials at a time.
+
+**Response `201`:**
+```json
+{
+  "id": "uuid",
+  "workerId": "50000000-0000-4000-8000-000000000001",
+  "type": "LICENSE",
+  "fileUrl": "/uploads/workers/50000000.../credentials/license-abc123.pdf",
+  "status": "PENDING",
+  "rejectionReason": null,
+  "reviewedBy": null,
+  "reviewedAt": null,
+  "createdAt": "2026-07-12T08:00:00.000Z",
+  "updatedAt": "2026-07-12T08:00:00.000Z"
+}
 ```
 
 ---
@@ -476,124 +824,243 @@ type   string   One of: LICENSE | CERTIFICATION | TRAINING
 ## 8. Booking Endpoints
 
 ### POST `/bookings` — `PROTECTED (CUSTOMER)`
-Create a new booking request.
+Create a new booking request. The worker has 30 minutes to respond.
 
 **Request body:**
 ```json
 {
-  "workerId": "uuid",
-  "categoryId": "uuid",
-  "barangayId": "uuid",
+  "workerId": "50000000-0000-4000-8000-000000000001",
+  "categoryId": "10000000-0000-4000-8000-000000000001",
+  "barangayId": "20000000-0000-4000-8000-000000000001",
   "bookingType": "IMMEDIATE",
   "scheduledDate": "2026-07-12T09:00:00.000Z",
   "timeWindow": "MORNING",
-  "locationLat": 13.4125,
-  "locationLng": 121.1796,
-  "locationAddress": "123 Rizal St, Calapan",
-  "notes": "Please bring your own tools.",
-  "agreedRate": 600
+  "locationLat": 14.6001,
+  "locationLng": 120.9845,
+  "locationAddress": "12 Mabini Street, Canubing I",
+  "notes": "Outlet sparks when the rice cooker is plugged in.",
+  "agreedRate": 700
 }
 ```
 
-> `bookingType`: `IMMEDIATE` for same-day; `SCHEDULED` for up to 7 days ahead.
+> `bookingType`: `IMMEDIATE` (same-day) or `SCHEDULED` (up to 7 days ahead).
+> `scheduledDate`: must be in the future; max 7 days from now.
 > `locationAddress`: optional, max 300 chars.
 > `notes`: optional, max 500 chars.
-> `agreedRate`: optional negotiated rate; leave out to use worker's base rate.
-> Worker has **30 minutes** to accept before the booking auto-expires.
+> `agreedRate`: optional pre-negotiated rate. Omit to use the worker's `baseRate`.
+> Returns `403` if the customer has no profile yet.
+> Returns `400` if the targeted worker is currently busy (ACCEPTED or IN_PROGRESS booking).
 
 **Response `201`:**
 ```json
 {
-  "id": "uuid",
+  "id": "60000000-0000-4000-8000-000000000001",
+  "customerId": "40000000-0000-4000-8000-000000000001",
+  "workerId": "50000000-0000-4000-8000-000000000001",
+  "categoryId": "10000000-0000-4000-8000-000000000001",
+  "barangayId": "20000000-0000-4000-8000-000000000001",
   "status": "PENDING",
+  "bookingType": "IMMEDIATE",
+  "scheduledDate": "2026-07-12T09:00:00.000Z",
+  "timeWindow": "MORNING",
+  "locationLat": "14.6001000",
+  "locationLng": "120.9845000",
+  "locationAddress": "12 Mabini Street, Canubing I",
+  "notes": "Outlet sparks when the rice cooker is plugged in.",
+  "agreedRate": "700.00",
+  "acceptedAt": null,
+  "rejectedAt": null,
+  "startedAt": null,
+  "completedAt": null,
+  "cancelledAt": null,
   "expiresAt": "2026-07-12T09:30:00.000Z",
-  ...
+  "cancellationActor": null,
+  "cancellationReason": null,
+  "createdAt": "2026-07-12T09:00:00.000Z",
+  "updatedAt": "2026-07-12T09:00:00.000Z"
 }
 ```
+
+> `locationLat`, `locationLng`, `agreedRate` are **Decimal strings**.
+> No nested joins — use `GET /bookings/:id` for the full enriched view.
 
 ---
 
 ### GET `/bookings` — `PROTECTED`
-List bookings for the authenticated user (customer sees their own; worker sees theirs).
+List bookings for the authenticated user. Customers see their own bookings; workers see bookings assigned to them. Returned as a **plain array** ordered by `createdAt DESC`.
 
 **Query params:**
 ```
-status   "active" | "history"   Filter by group
-page     integer
-limit    integer
+status   "active" | "history"   Filter by group (see below)
+skip     integer                 Records to skip (default 0)
+take     integer                 Records to return (default 10, max 50)
 ```
 
-**Response `200`:**
+> `active` includes: `PENDING`, `ACCEPTED`, `IN_PROGRESS`
+> `history` includes: `COMPLETED`, `CANCELLED`, `REJECTED`, `EXPIRED`, `NO_SHOW`
+> Omit `status` to return all bookings.
+
+**Response `200` (customer view):** Plain array where each item includes a `worker` snippet:
 ```json
-{
-  "data": [ { ...booking } ],
-  "meta": { "page": 1, "limit": 20, "total": 3 }
-}
+[
+  {
+    "id": "60000000-0000-4000-8000-000000000001",
+    "customerId": "40000000-0000-4000-8000-000000000001",
+    "workerId": "50000000-0000-4000-8000-000000000001",
+    "categoryId": "10000000-0000-4000-8000-000000000001",
+    "barangayId": "20000000-0000-4000-8000-000000000001",
+    "status": "PENDING",
+    "bookingType": "IMMEDIATE",
+    "scheduledDate": "2026-07-12T09:00:00.000Z",
+    "timeWindow": "MORNING",
+    "locationLat": "14.6001000",
+    "locationLng": "120.9845000",
+    "locationAddress": "12 Mabini Street, Canubing I",
+    "notes": "Outlet sparks when the rice cooker is plugged in.",
+    "agreedRate": null,
+    "acceptedAt": null,
+    "rejectedAt": null,
+    "startedAt": null,
+    "completedAt": null,
+    "cancelledAt": null,
+    "expiresAt": "2026-07-12T09:30:00.000Z",
+    "cancellationActor": null,
+    "cancellationReason": null,
+    "createdAt": "2026-07-12T09:00:00.000Z",
+    "updatedAt": "2026-07-12T09:00:00.000Z",
+    "worker": {
+      "firstName": "Jun",
+      "lastName": "Garcia",
+      "avatarUrl": "https://example.com/avatars/worker-jun.jpg",
+      "averageRating": "4.82"
+    },
+    "category": {
+      "name": "Electrician",
+      "iconUrl": "https://example.com/icons/electrician.svg"
+    },
+    "barangay": {
+      "name": "Canubing I"
+    }
+  }
+]
 ```
+
+**Response `200` (worker view):** Same base fields, but `customer` is returned instead of `worker`:
+```json
+[
+  {
+    "...base booking fields...",
+    "customer": {
+      "firstName": "Mika",
+      "lastName": "Santos",
+      "avatarUrl": "https://example.com/avatars/customer-mika.jpg"
+    },
+    "category": { "name": "Electrician", "iconUrl": "..." },
+    "barangay": { "name": "Canubing I" }
+  }
+]
+```
+
+> No pagination metadata is returned. Use `skip`/`take` to paginate.
 
 ---
 
 ### GET `/bookings/:id` — `PROTECTED`
-Get a single booking's full details. Only visible to the customer or worker involved.
+Get a single booking's full details. Only accessible to the customer or worker involved.
 
-**Response `200` (after acceptance — includes worker phone):**
+**Response `200`:**
 ```json
 {
-  "id": "uuid",
+  "id": "60000000-0000-4000-8000-000000000002",
+  "customerId": "40000000-0000-4000-8000-000000000002",
+  "workerId": "50000000-0000-4000-8000-000000000006",
+  "categoryId": "10000000-0000-4000-8000-000000000007",
+  "barangayId": "20000000-0000-4000-8000-000000000006",
   "status": "ACCEPTED",
-  "bookingType": "IMMEDIATE",
-  "scheduledDate": "2026-07-12T09:00:00.000Z",
-  "timeWindow": "MORNING",
-  "locationLat": 13.4125,
-  "locationLng": 121.1796,
-  "locationAddress": "123 Rizal St",
-  "notes": "...",
-  "agreedRate": "600.00",
-  "expiresAt": "...",
-  "acceptedAt": "...",
+  "bookingType": "SCHEDULED",
+  "scheduledDate": "2026-07-13T14:00:00.000Z",
+  "timeWindow": "AFTERNOON",
+  "locationLat": "14.6147000",
+  "locationLng": "120.9825000",
+  "locationAddress": "88 Rizal Avenue, Masipit",
+  "notes": "Front-load washing machine stops mid-cycle.",
+  "agreedRate": "750.00",
+  "acceptedAt": "2026-07-12T08:45:00.000Z",
+  "rejectedAt": null,
+  "startedAt": null,
+  "completedAt": null,
+  "cancelledAt": null,
+  "expiresAt": "2026-07-12T09:00:00.000Z",
+  "cancellationActor": null,
+  "cancellationReason": null,
+  "createdAt": "2026-07-12T08:30:00.000Z",
+  "updatedAt": "2026-07-12T08:45:00.000Z",
   "worker": {
-    "id": "uuid",
-    "firstName": "Rodel",
-    "lastName": "Cruz",
-    "phone": "+639171234567"
+    "firstName": "Bea",
+    "lastName": "Mendoza",
+    "avatarUrl": "https://example.com/avatars/worker-bea.jpg",
+    "averageRating": "4.74",
+    "baseRate": "600.00",
+    "user": {
+      "phone": "+639170000010"
+    }
   },
-  "customer": { "id": "uuid", "firstName": "Maria", "lastName": "Santos" },
-  "category": { "id": "uuid", "name": "Electrical" }
+  "customer": {
+    "firstName": "Rafael",
+    "lastName": "Dela Cruz",
+    "avatarUrl": "https://example.com/avatars/customer-rafael.jpg",
+    "user": {
+      "phone": "+639170000003"
+    }
+  },
+  "category": {
+    "name": "Appliance Repair",
+    "iconUrl": "https://example.com/icons/appliance-repair.svg"
+  },
+  "barangay": {
+    "name": "Masipit"
+  },
+  "review": null
 }
 ```
 
-> `worker.phone` is **only** present when `status === "ACCEPTED"` or later active states.
+> **Contact reveal:** `worker.user.phone` and `customer.user.phone` are only present when `status` is `ACCEPTED`, `IN_PROGRESS`, or `COMPLETED`. For all other statuses, `worker.user` and `customer.user` are `undefined` (absent from JSON).
+> `review` — the full `Review` object is included once the booking is `COMPLETED` and a review has been submitted; `null` until then.
+> `averageRating` and `baseRate` on the `worker` snippet are Decimal strings.
 
 ---
 
 ### PATCH `/bookings/:id/update` — `PROTECTED (CUSTOMER)`
-Update a `PENDING` booking (before the worker responds).
+Update a `PENDING` booking before the worker responds.
 
-**Request body:** (all fields optional, same shape as create)
+**Request body:** (all fields optional, same types as create)
 ```json
 {
-  "notes": "Updated notes",
-  "timeWindow": "AFTERNOON"
+  "notes": "Updated notes — please bring a multimeter.",
+  "timeWindow": "AFTERNOON",
+  "locationAddress": "New address"
 }
 ```
+
+**Response `200`:** Empty body (`null`).
 
 ---
 
 ### PATCH `/bookings/:id/accept` — `PROTECTED (WORKER)`
-Accept a `PENDING` booking request.
+Accept a `PENDING` booking. Worker must own the booking.
 
 **No request body.**
 
-**Response `200`:** Returns updated booking with `status: "ACCEPTED"`.
+**Response `200`:** Empty body. Poll `GET /bookings/:id` or listen for push notifications for the updated state.
 
 ---
 
 ### PATCH `/bookings/:id/reject` — `PROTECTED (WORKER)`
-Reject a `PENDING` booking request.
+Reject a `PENDING` booking. Worker must own the booking. No penalty.
 
 **No request body.**
 
-**Response `200`:** Returns updated booking with `status: "REJECTED"`.
+**Response `200`:** Empty body.
 
 ---
 
@@ -602,19 +1069,23 @@ Mark an `ACCEPTED` booking as `IN_PROGRESS` (worker arrived on-site).
 
 **No request body.**
 
+**Response `200`:** Empty body.
+
 ---
 
 ### PATCH `/bookings/:id/complete` — `PROTECTED (WORKER)`
-Mark an `IN_PROGRESS` booking as `COMPLETED`. Triggers a review prompt push to the customer.
+Mark an `IN_PROGRESS` booking as `COMPLETED`. Triggers a review-prompt push notification to the customer.
 
 **No request body.**
+
+**Response `200`:** Empty body.
 
 ---
 
 ### PATCH `/bookings/:id/cancel` — `PROTECTED`
-Cancel a booking. Rules enforced server-side:
-- Customer can cancel a `PENDING` booking freely.
-- Worker cancellation after `ACCEPTED` issues an automatic strike.
+Cancel a booking. Server enforces the following rules:
+- **Customer** can cancel a `PENDING` booking freely (no penalty).
+- **Worker** can cancel an `ACCEPTED` or `IN_PROGRESS` booking — an automatic strike is issued and the count is incremented. If `strikeCount` reaches 3, the worker is suspended.
 
 **Request body:**
 ```json
@@ -625,99 +1096,155 @@ Cancel a booking. Rules enforced server-side:
 
 > `cancellationReason` is optional, max 300 chars.
 
+**Response `200`:** Empty body.
+
 ---
 
 ### PATCH `/bookings/:id/report-no-show` — `PROTECTED (CUSTOMER)`
-Report a worker no-show. Can only be filed within 2 hours of the booking time window.
+Report a worker no-show. Can only be filed when the booking is in `ACCEPTED` or `IN_PROGRESS` status. Admin will review and confirm or dismiss.
 
 **Request body:**
 ```json
 {
-  "description": "Worker did not arrive and did not call."
+  "description": "Worker did not arrive and did not answer calls."
 }
 ```
 
-> `description` is optional, max 500 chars. Admin will review and confirm or dismiss.
+> `description` is optional, max 500 chars.
+
+**Response `201`:**
+```json
+{
+  "id": "91000000-0000-4000-8000-000000000001",
+  "bookingId": "60000000-0000-4000-8000-000000000008",
+  "reportedBy": "30000000-0000-4000-8000-000000000003",
+  "description": "Worker did not arrive and did not answer calls.",
+  "resolvedBy": null,
+  "resolvedAt": null,
+  "confirmed": null,
+  "createdAt": "2026-07-12T09:00:00.000Z",
+  "updatedAt": "2026-07-12T09:00:00.000Z"
+}
+```
+
+> `confirmed: null` = pending admin review. `true` = strike issued. `false` = dismissed.
 
 ---
 
 ## 9. Reviews Endpoints
 
 ### POST `/reviews` — `PROTECTED (CUSTOMER)`
-Submit a rating and review for a completed booking. One per booking, cannot be edited.
+Submit a review for a `COMPLETED` booking. One review per booking; cannot be edited.
 
 **Request body:**
 ```json
 {
-  "bookingId": "uuid",
+  "bookingId": "60000000-0000-4000-8000-000000000004",
   "rating": 5,
-  "comment": "Excellent work, very professional."
+  "comment": "Arrived on time and explained the wiring issue clearly."
 }
 ```
 
 > `rating`: integer 1–5.
 > `comment`: optional, max 500 chars.
+> Returns `403` if the customer did not own the booking.
+> Returns `409` if a review for this booking already exists.
 
 **Response `201`:**
 ```json
 {
-  "id": "uuid",
-  "bookingId": "uuid",
+  "id": "90000000-0000-4000-8000-000000000001",
+  "bookingId": "60000000-0000-4000-8000-000000000004",
+  "workerId": "50000000-0000-4000-8000-000000000001",
+  "customerId": "40000000-0000-4000-8000-000000000002",
   "rating": 5,
-  "comment": "Excellent work, very professional.",
-  "createdAt": "..."
+  "comment": "Arrived on time and explained the wiring issue clearly.",
+  "createdAt": "2026-07-09T18:00:00.000Z"
 }
 ```
+
+> The worker's `averageRating` and `totalReviews` are updated atomically on the server.
 
 ---
 
 ### GET `/reviews/my` — `PROTECTED (CUSTOMER)`
-List reviews the authenticated customer has submitted.
+List all reviews submitted by the authenticated customer. Returns a **plain array** ordered by `createdAt DESC`.
 
-**Query params:** `page`, `limit`
+**Query params:**
+```
+skip   integer   Records to skip (default 0)
+take   integer   Records to return (default 10, max 50)
+```
+
+**Response `200`:** Plain array of review objects:
+```json
+[
+  {
+    "id": "90000000-0000-4000-8000-000000000001",
+    "bookingId": "60000000-0000-4000-8000-000000000004",
+    "workerId": "50000000-0000-4000-8000-000000000001",
+    "customerId": "40000000-0000-4000-8000-000000000002",
+    "rating": 5,
+    "comment": "Arrived on time and explained the wiring issue clearly.",
+    "createdAt": "2026-07-09T18:00:00.000Z"
+  }
+]
+```
 
 ---
 
 ### GET `/reviews/worker/:id` — `PUBLIC`
-Get paginated reviews for a specific worker. Used on the worker profile screen.
+Get paginated reviews for a specific worker. Worker `:id` is the `WorkerProfile.id` (not `userId`).
 
-**Query params:** `page`, `limit`
+**Query params:** `skip`, `take` (same as above)
 
-**Response `200`:**
+**Response `200`:** Plain array of review objects:
 ```json
-{
-  "data": [
-    {
-      "id": "uuid",
-      "rating": 5,
-      "comment": "Great work!",
-      "createdAt": "...",
-      "customer": { "firstName": "Maria", "lastName": "S." }
-    }
-  ],
-  "meta": { "page": 1, "limit": 20, "total": 12 }
-}
+[
+  {
+    "id": "90000000-0000-4000-8000-000000000001",
+    "bookingId": "60000000-0000-4000-8000-000000000004",
+    "workerId": "50000000-0000-4000-8000-000000000001",
+    "customerId": "40000000-0000-4000-8000-000000000002",
+    "rating": 5,
+    "comment": "Arrived on time and explained the wiring issue clearly.",
+    "createdAt": "2026-07-09T18:00:00.000Z"
+  }
+]
 ```
 
-> Display the worker's `averageRating` from the worker profile, not computed client-side.
-> Show the average only if `totalReviews >= 3` (UI rule per BRD REV-04).
+> Display the worker's pre-computed `averageRating` from the worker profile object — do not compute it client-side from this list.
+> Show the average rating only if `worker.totalReviews >= 3` (UI rule per BRD REV-04; the public profile endpoint enforces this server-side by returning `null`).
 
 ---
 
 ## 10. Categories & Barangays
 
 ### GET `/categories` — `PUBLIC`
-List active service categories for the category grid on the home screen.
+List all active service categories, ordered by `sortOrder ASC`.
 
 **Response `200`:**
 ```json
 [
   {
-    "id": "uuid",
-    "name": "Electrical",
-    "slug": "electrical",
-    "iconUrl": "https://...",
-    "sortOrder": 1
+    "id": "10000000-0000-4000-8000-000000000001",
+    "name": "Electrician",
+    "slug": "electrician",
+    "iconUrl": "https://example.com/icons/electrician.svg",
+    "isActive": true,
+    "sortOrder": 1,
+    "createdAt": "2026-07-01T00:00:00.000Z",
+    "updatedAt": "2026-07-01T00:00:00.000Z"
+  },
+  {
+    "id": "10000000-0000-4000-8000-000000000002",
+    "name": "Plumber",
+    "slug": "plumber",
+    "iconUrl": "https://example.com/icons/plumber.svg",
+    "isActive": true,
+    "sortOrder": 2,
+    "createdAt": "2026-07-01T00:00:00.000Z",
+    "updatedAt": "2026-07-01T00:00:00.000Z"
   }
 ]
 ```
@@ -725,26 +1252,34 @@ List active service categories for the category grid on the home screen.
 ---
 
 ### GET `/barangays` — `PUBLIC`
-List all barangays in the municipality. Used to populate picker dropdowns.
+List all active barangays in the municipality, ordered alphabetically by name.
 
 **Response `200`:**
 ```json
 [
   {
-    "id": "uuid",
-    "name": "Camilmil",
-    "psgcCode": "045818001",
-    "centroidLat": "13.4125",
-    "centroidLng": "121.1796"
+    "id": "20000000-0000-4000-8000-000000000005",
+    "name": "Batino",
+    "centroidLat": null,
+    "centroidLng": null
+  },
+  {
+    "id": "20000000-0000-4000-8000-000000000001",
+    "name": "Canubing I",
+    "centroidLat": null,
+    "centroidLng": null
   }
 ]
 ```
+
+> `centroidLat` and `centroidLng` are `null` until the geography team populates them. Do not rely on them for MVP.
+> `psgcCode` and `isActive` are **not** returned from this endpoint.
 
 ---
 
 ## 11. Notifications (Push Tokens)
 
-Register the device's Expo push token immediately after login so the server can deliver booking events.
+Register the device's Expo push token immediately after every login so the server can deliver booking events in real time.
 
 ### POST `/notifications/push-token` — `PROTECTED`
 
@@ -757,16 +1292,14 @@ Register the device's Expo push token immediately after login so the server can 
 ```
 
 > `platform`: `IOS` or `ANDROID`.
+> If the token already exists, its `userId` and `platform` are updated (upsert).
 
-**Response `201`:**
-```json
-{ "message": "Push token registered." }
-```
+**Response `200`:** Empty body.
 
 ---
 
 ### DELETE `/notifications/push-token` — `PROTECTED`
-Remove a push token on logout.
+Remove the device's push token on logout.
 
 **Request body:**
 ```json
@@ -775,67 +1308,93 @@ Remove a push token on logout.
 }
 ```
 
+**Response `200`:** Empty body.
+
 ---
 
 ## 12. Booking Lifecycle — State Machine
 
 ```
                         ┌─────────────┐
-                        │   PENDING   │ ← created by customer
+                        │   PENDING   │ ← created by customer (30-min expiry set)
                         └──────┬──────┘
-              ┌────────────────┼────────────────┐
-              │                │                │
-          (accept)        (reject)          (30 min)
-              │                │             passes
-              ▼                ▼                ▼
-        ┌──────────┐     ┌──────────┐     ┌─────────┐
-        │ ACCEPTED │     │ REJECTED │     │ EXPIRED │
-        └────┬─────┘     └──────────┘     └─────────┘
+              ┌────────────────┼────────────────┬──────────────────┐
+              │                │                │                  │
+          (accept)         (reject)         (30 min             (customer
+              │                │              expires)            cancels)
+              ▼                ▼                ▼                  ▼
+        ┌──────────┐     ┌──────────┐     ┌─────────┐      ┌───────────┐
+        │ ACCEPTED │     │ REJECTED │     │ EXPIRED │      │ CANCELLED │
+        └────┬─────┘     └──────────┘     └─────────┘      └───────────┘
              │
       ┌──────┴──────────────────┐
       │                         │
-   (start)                  (cancel by
-      │                      worker*)
+   (start)                  (worker
+      │                      cancels*)
       ▼                         ▼
 ┌─────────────┐           ┌───────────┐
-│ IN_PROGRESS │           │ CANCELLED │ ← *strike issued
+│ IN_PROGRESS │           │ CANCELLED │ ← *strike auto-issued
 └──────┬──────┘           └───────────┘
        │
     (complete)
        │
        ▼
 ┌───────────┐
-│ COMPLETED │ → review prompt sent to customer
+│ COMPLETED │ → push notification sent → customer can submit review
 └───────────┘
        │
-   (customer reports
-    no-show within 2h)
+  (customer
+ reports no-show
+  within active
+   window*)
        │
        ▼
 ┌─────────────┐
-│   NO_SHOW   │ ← admin confirms → strike issued
+│   NO_SHOW   │ ← admin confirms → strike issued; admin dismisses → booking stays COMPLETED
 └─────────────┘
 ```
 
+*No-show can be reported while booking is still `ACCEPTED` or `IN_PROGRESS` — not after `COMPLETED`.
+
 **Rules summary:**
 - Customer can cancel `PENDING` freely (no penalty).
-- Worker cancellation of `ACCEPTED` → automatic `CANCELLED` + strike.
-- `PENDING` auto-expires after 30 minutes (server cron job).
-- `NO_SHOW` is set by admin after reviewing a customer report.
+- Worker cancellation of `ACCEPTED`/`IN_PROGRESS` → automatic `CANCELLED` + 1 strike. At 3 strikes → `SUSPENDED`.
+- `PENDING` auto-expires after 30 minutes (server cron job, no action needed client-side).
+- `NO_SHOW` is admin-set after reviewing a customer report — the booking status changes to `NO_SHOW`.
 
 ---
 
 ## 13. Typical App Flows
 
-### Customer: First Login & Profile Setup
+### Customer: First Login (Returning User)
 
 ```
 1. POST /auth/request-otp         { phone }
-2. POST /auth/verify-otp          { phone, code, role: "CUSTOMER" }
+2. POST /auth/verify-otp          { phone, code }
+   → response.type === "login"
    → store accessToken + refreshToken
 3. POST /notifications/push-token { token, platform }
-4. POST /customers/profile        { firstName, lastName }
-5. GET  /users/me                 → confirm account
+4. GET  /users/me                 → check customerProfile
+   → if customerProfile !== null: navigate to home screen
+   → if customerProfile === null: navigate to profile setup
+5. POST /customers/profile        { firstName, lastName }
+   → navigate to home screen
+```
+
+---
+
+### Customer: Registration (New User)
+
+```
+1. POST /auth/request-otp         { phone }
+2. POST /auth/verify-otp          { phone, code }
+   → response.type === "registration"
+   → show role picker screen
+3. POST /auth/register            { registrationToken, role: "CUSTOMER" }
+   → store accessToken + refreshToken
+4. POST /notifications/push-token { token, platform }
+5. POST /customers/profile        { firstName, lastName }
+   → navigate to home screen
 ```
 
 ---
@@ -843,30 +1402,36 @@ Remove a push token on logout.
 ### Customer: Book a Worker
 
 ```
-1. GET /categories                → populate home grid
-2. GET /barangays                 → populate barangay picker
-3. GET /workers/search?categoryId=<uuid>&barangayId=<uuid>&availableOnly=true
-4. GET /workers/<id>              → view full profile + reviews
-5. GET /reviews/worker/<id>       → display reviews
+1. GET  /categories               → populate home grid
+2. GET  /barangays                → populate location picker
+3. GET  /workers/search?categoryId=<uuid>&barangayId=<uuid>&availableOnly=true
+   → show worker cards (firstName, lastName, baseRate, averageRating, categories)
+4. GET  /workers/<workerId>       → open full worker profile
+5. GET  /reviews/worker/<workerId>?skip=0&take=10
+   → display reviews on profile screen
 6. POST /bookings                 { workerId, categoryId, barangayId, ... }
-   → polling or push notification for status changes
-7. GET  /bookings/<id>            → check status; show worker phone when ACCEPTED
-8. POST /reviews                  { bookingId, rating, comment }  ← after COMPLETED
+   → navigate to booking detail; poll or push for status changes
+7. GET  /bookings/<bookingId>     → on status=ACCEPTED, show worker.user.phone
+8. POST /reviews                  { bookingId, rating, comment } ← after COMPLETED
 ```
 
 ---
 
-### Worker: First Login & Onboarding
+### Worker: Registration & Onboarding (New User)
 
 ```
 1. POST /auth/request-otp         { phone }
-2. POST /auth/verify-otp          { phone, code, role: "WORKER" }
-   → store tokens
-3. POST /notifications/push-token { token, platform }
-4. POST /workers/profile          { firstName, lastName, baseRate, homeBarangayId, categories, serviceAreaBarangayIds }
-5. POST /workers/verification     multipart: { idPhoto: File, selfie: File }
-   → worker status = PENDING; wait for admin approval
-6. PATCH /workers/availability    { isOnline: true }  ← only allowed when VERIFIED
+2. POST /auth/verify-otp          { phone, code }
+   → response.type === "registration"
+   → show role picker screen
+3. POST /auth/register            { registrationToken, role: "WORKER" }
+   → store accessToken + refreshToken
+4. POST /notifications/push-token { token, platform }
+5. POST /workers/profile          { firstName, lastName, baseRate, homeBarangayId, categories, serviceAreaBarangayIds }
+   → navigate to verification screen (workerProfile.status === "PENDING")
+6. POST /workers/verification     multipart: { idPhoto: File, selfie: File }
+   → show "Under Review" screen; wait for admin push notification
+7. PATCH /workers/availability    { isOnline: true }  ← enabled once status === "VERIFIED"
 ```
 
 ---
@@ -874,12 +1439,14 @@ Remove a push token on logout.
 ### Worker: Handle an Incoming Booking
 
 ```
-Push notification received → open booking request modal
+Push notification received → open booking request screen
 
-1. GET  /bookings/<id>            → show customer details, location, time window
-2. PATCH /bookings/<id>/accept    (or /reject)
-3. PATCH /bookings/<id>/start     ← on arrival
-4. PATCH /bookings/<id>/complete  ← after job done
+1. GET  /bookings/<bookingId>            → show customer.firstName, barangay.name, timeWindow, notes
+2. PATCH /bookings/<bookingId>/accept    (or /reject)
+   → on accept: navigate to booking detail — customer sees your phone
+3. PATCH /bookings/<bookingId>/start     ← tap on arrival
+4. PATCH /bookings/<bookingId>/complete  ← tap after job done
+   → customer gets push notification to leave a review
 ```
 
 ---
@@ -887,26 +1454,30 @@ Push notification received → open booking request modal
 ### Token Refresh Flow (silent, background)
 
 ```
-On 401 response:
+On any 401 response:
 1. POST /auth/refresh             { refreshToken }
-   → new accessToken + refreshToken
-2. Retry the original request with new accessToken
-3. If refresh also fails → force logout → navigate to login screen
+   → new { accessToken, refreshToken }
+2. Store both new tokens (old refreshToken is now dead)
+3. Retry the original failed request with new accessToken
+4. If refresh returns 401 → force logout → navigate to phone entry screen
 ```
 
 ---
 
 ## Notes for the Mobile Team
 
-- **Phone format:** Always use E.164 format: `+63` followed by 10 digits (e.g., `+639171234567`).
-- **UUIDs:** All entity IDs are UUIDs (v4). Store and send them as strings.
-- **Decimal fields** (rates, coordinates) are returned as **strings** from the API — parse before arithmetic.
-- **Pagination** — all list endpoints return `{ data: [...], meta: { page, limit, total } }`.
-- **Worker phone:** Never displayed until `booking.status === "ACCEPTED"` (or later).
-- **Rating display:** Only show average rating if `worker.totalReviews >= 3` (UI-layer rule).
-- **Push notifications:** Register the Expo push token immediately after every login (token may rotate). Remove on logout.
-- **Multipart uploads:** Verification and credential uploads use `multipart/form-data`, not JSON.
-- **Rate limits:** OTP request is throttled to 3/15 min. Show a countdown UI to prevent user frustration.
+- **Phone format:** Always E.164: `+63` + 10 digits (e.g., `+639171234567`). No spaces or dashes.
+- **UUIDs:** All IDs are UUID v4. Store and send them as plain strings.
+- **Decimal fields** — `baseRate`, `rateOverride`, `agreedRate`, `averageRating`, `locationLat`, `locationLng` are returned as **decimal strings** (e.g., `"650.00"`, `"14.6001000"`). Parse to `Number` or `parseFloat` before arithmetic or map display.
+- **Null vs absent** — optional fields that have no value are returned as `null` (not omitted). The exception is `worker.user` / `customer.user` on `GET /bookings/:id`: these are entirely **absent** from the response object when contact is not yet revealed.
+- **Pagination** — bookings and reviews use `skip`/`take`. Worker search uses `page`/`limit`. Neither returns a total count — size your UI accordingly.
+- **Worker phone:** Never displayed until `booking.status === "ACCEPTED"` (or later active states). The server enforces this — the field simply won't exist in the response.
+- **Rating display:** Only show `averageRating` if `worker.totalReviews >= 3`. The public worker profile endpoint enforces this by returning `null` for `averageRating` when the count is below 3.
+- **Worker availability:** `isOnline: true` is only allowed when `workerProfile.status === "VERIFIED"`. The server returns `403` otherwise — gate this UI action on the worker's status.
+- **Push tokens:** Register immediately after every login (the token may change between app launches). Remove on logout.
+- **Multipart uploads:** Verification and credential uploads use `multipart/form-data`. Set the correct `Content-Type` boundary — most HTTP clients handle this automatically when you append files to a `FormData` object.v
+- **Rate limits:** OTP request is throttled at 3/15 min. Show a countdown UI after the first send to prevent user frustration.
+- **Empty responses:** `PATCH /bookings/:id/accept|reject|start|complete|cancel|update` and `POST|DELETE /notifications/push-token` all return HTTP `200` with an **empty body** — do not try to parse a JSON response.
 
 ---
 
