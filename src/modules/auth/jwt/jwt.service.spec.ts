@@ -8,6 +8,7 @@ const mockJwtConfig = {
   JWT_SECRET: 'test-secret-at-least-32-chars-long',
   JWT_ACCESS_EXPIRES_IN: '15m',
   JWT_REFRESH_EXPIRES_IN: '7d',
+  JWT_REGISTRATION_EXPIRES_IN: '15m',
 };
 
 describe('AuthJwtService', () => {
@@ -66,5 +67,38 @@ describe('AuthJwtService', () => {
     await expect(service.verifyRefreshToken('refresh')).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
+  });
+
+  it('signRegistrationToken signs with purpose claim', () => {
+    jwt.sign.mockReturnValue('reg-token');
+
+    expect(service.signRegistrationToken('+639171234567')).toBe('reg-token');
+    expect(jwt.sign).toHaveBeenCalledWith(
+      { sub: '+639171234567', purpose: 'registration' },
+      { expiresIn: mockJwtConfig.JWT_REGISTRATION_EXPIRES_IN },
+    );
+  });
+
+  it('verifyRegistrationToken returns payload for valid token', async () => {
+    const payload = { sub: '+639171234567', purpose: 'registration' };
+    jwt.verifyAsync.mockResolvedValue(payload);
+
+    await expect(service.verifyRegistrationToken('reg-token')).resolves.toEqual(payload);
+  });
+
+  it('verifyRegistrationToken throws for token with wrong purpose', async () => {
+    jwt.verifyAsync.mockResolvedValue({ sub: 'user-id', tokenId: 'tid' });
+
+    await expect(
+      service.verifyRegistrationToken('bad-token'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('verifyRegistrationToken throws for expired token', async () => {
+    jwt.verifyAsync.mockRejectedValue(new Error('jwt expired'));
+
+    await expect(
+      service.verifyRegistrationToken('expired-token'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

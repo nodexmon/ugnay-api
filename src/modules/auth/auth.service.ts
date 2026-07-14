@@ -16,6 +16,7 @@ import { createHash, randomUUID, timingSafeEqual } from 'crypto';
 import { Prisma, RefreshToken, User } from '@/generated/prisma/client';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import ms from 'ms';
+import type { VerifyOtpResult } from '@/modules/auth/auth.types';
 
 @Injectable()
 export class AuthService {
@@ -40,7 +41,7 @@ export class AuthService {
     };
   }
 
-  async verifyOtp(phone: string, code: string, role: Role) {
+  async verifyOtp(phone: string, code: string): Promise<VerifyOtpResult> {
     await this.otpService.verifyOtp(phone, code);
 
     const existingUser = await this.prisma.user.findUnique({
@@ -48,23 +49,29 @@ export class AuthService {
     });
 
     if (existingUser) {
-      this.assertUserRoleMatches(existingUser.role, role);
-
-      return this.issueTokens(
+      this.assertUserCanAuthenticate(existingUser);
+      const tokens = await this.issueTokens(
         existingUser.id,
         existingUser.phone,
         existingUser.role,
       );
+      return { type: 'login', ...tokens };
     }
 
-    const user = await this.prisma.user.upsert({
-      where: { phone },
-      update: {},
-      create: { phone, role },
-    });
+    const registrationToken = this.jwtService.signRegistrationToken(phone);
+    return { type: 'registration', registrationToken };
+  }
 
-    this.assertUserRoleMatches(user.role, role);
+  async register(registrationToken: string, role: Role) {
+    const payload = await this.jwtService.verifyRegistrationToken(registrationToken);
+    const phone = payload.sub;
 
+    const existing = await this.prisma.user.findUnique({ where: { phone } });
+    if (existing) {
+      throw new ConflictException('Phone number already registered.');
+    }
+
+    const user = await this.prisma.user.create({ data: { phone, role } });
     return this.issueTokens(user.id, user.phone, user.role);
   }
 
@@ -206,14 +213,6 @@ export class AuthService {
 
   private refreshTokenExpiryDate() {
     return new Date(Date.now() + ms(this.config.JWT_REFRESH_EXPIRES_IN));
-  }
-
-  private assertUserRoleMatches(existingRole: Role, requestedRole: Role) {
-    if (existingRole !== requestedRole) {
-      throw new ConflictException(
-        'Phone number is already registered with a different role.',
-      );
-    }
   }
 
   private assertUserCanAuthenticate(user: User) {

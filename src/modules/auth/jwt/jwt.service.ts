@@ -7,6 +7,7 @@ import { Role } from '@/generated/prisma/enums';
 import type {
   SignedTokens,
   RefreshTokenPayload,
+  RegistrationTokenPayload,
 } from '@/modules/auth/auth.types';
 
 @Injectable()
@@ -45,6 +46,27 @@ export class AuthJwtService {
       return payload as AuthJwtPayload & { tokenId: string };
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
+  signRegistrationToken(phone: string): string {
+    return this.jwt.sign(
+      { sub: phone, purpose: 'registration' },
+      { expiresIn: this.config.JWT_REGISTRATION_EXPIRES_IN },
+    );
+  }
+
+  async verifyRegistrationToken(token: string): Promise<RegistrationTokenPayload> {
+    try {
+      const payload = await this.jwt.verifyAsync<RegistrationTokenPayload>(token);
+
+      if (payload.purpose !== 'registration') {
+        throw new UnauthorizedException('Invalid registration token');
+      }
+
+      return payload;
+    } catch {
+      throw new UnauthorizedException('Invalid registration token');
     }
   }
 }
