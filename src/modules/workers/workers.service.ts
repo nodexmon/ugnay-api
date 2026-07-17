@@ -93,7 +93,7 @@ export class WorkersService {
       include: PUBLIC_WORKER_INCLUDE,
     });
 
-    if (!worker) throw new NotFoundException('Worker profile is not found.');
+    if (!worker) throw new NotFoundException('Worker profile not found.');
 
     return {
       ...worker,
@@ -316,7 +316,7 @@ export class WorkersService {
       where: { userId },
     });
     if (!worker) {
-      throw new NotFoundException('Worker profile not found');
+      throw new NotFoundException('Worker profile not found.');
     }
     return worker;
   }
