@@ -14,7 +14,11 @@ const completedBooking = {
 describe('ReviewsAssertions', () => {
   let assertions: ReviewsAssertions;
 
-  const prisma = { booking: { findUnique: jest.fn() } };
+  const prisma = {
+    booking: { findUnique: jest.fn() },
+    customerProfile: { findUnique: jest.fn() },
+    workerProfile: { findUnique: jest.fn() },
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -67,6 +71,37 @@ describe('ReviewsAssertions', () => {
       expect(() =>
         assertions.assertCustomerOwnsBooking('profile-id', 'other-id'),
       ).toThrow(ForbiddenException);
+    });
+  });
+
+  describe('assertCustomerProfileExists', () => {
+    it('returns the profile when found', async () => {
+      prisma.customerProfile.findUnique.mockResolvedValue({ id: 'cp-id' });
+      const result = await assertions.assertCustomerProfileExists('user-id');
+      expect(result).toEqual({ id: 'cp-id' });
+    });
+
+    it('throws NotFoundException when profile does not exist', async () => {
+      prisma.customerProfile.findUnique.mockResolvedValue(null);
+      await expect(
+        assertions.assertCustomerProfileExists('user-id'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('assertWorkerProfileExists', () => {
+    it('does not throw when profile exists', async () => {
+      prisma.workerProfile.findUnique.mockResolvedValue({ id: 'wp-id' });
+      await expect(
+        assertions.assertWorkerProfileExists('wp-id'),
+      ).resolves.not.toThrow();
+    });
+
+    it('throws NotFoundException when profile does not exist', async () => {
+      prisma.workerProfile.findUnique.mockResolvedValue(null);
+      await expect(
+        assertions.assertWorkerProfileExists('unknown-id'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

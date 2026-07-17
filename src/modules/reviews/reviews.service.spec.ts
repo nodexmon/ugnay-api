@@ -26,6 +26,8 @@ describe('ReviewsService', () => {
   const mockAssertions = {
     assertBookingExistsAndCompleted: jest.fn(),
     assertCustomerOwnsBooking: jest.fn(),
+    assertCustomerProfileExists: jest.fn(),
+    assertWorkerProfileExists: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -60,7 +62,9 @@ describe('ReviewsService', () => {
     mockAssertions.assertBookingExistsAndCompleted.mockResolvedValue(
       completedBooking,
     );
-    prisma.customerProfile.findUnique.mockResolvedValue(null);
+    mockAssertions.assertCustomerProfileExists.mockRejectedValue(
+      new NotFoundException('Customer profile not found.'),
+    );
 
     await expect(
       service.create({ bookingId: 'booking-id', rating: 5 }, user),
@@ -71,7 +75,7 @@ describe('ReviewsService', () => {
     mockAssertions.assertBookingExistsAndCompleted.mockResolvedValue(
       completedBooking,
     );
-    prisma.customerProfile.findUnique.mockResolvedValue({
+    mockAssertions.assertCustomerProfileExists.mockResolvedValue({
       id: 'my-profile-id',
     });
     mockAssertions.assertCustomerOwnsBooking.mockImplementation(() => {
@@ -86,17 +90,16 @@ describe('ReviewsService', () => {
   });
 
   it('throws NotFoundException when worker profile is not found', async () => {
-    prisma.workerProfile.findUnique.mockResolvedValue(null);
+    mockAssertions.assertWorkerProfileExists.mockRejectedValue(
+      new NotFoundException('Worker profile not found.'),
+    );
     await expect(
       service.findAllByWorkerId('unknown-id', { skip: 0, take: 20 }),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('queries reviews by WorkerProfile.id not userId', async () => {
-    prisma.workerProfile.findUnique.mockResolvedValue({
-      id: 'profile-id',
-      userId: 'user-id',
-    });
+  it('queries reviews by workerId', async () => {
+    mockAssertions.assertWorkerProfileExists.mockResolvedValue(undefined);
     prisma.review.findMany.mockResolvedValue([]);
 
     await service.findAllByWorkerId('profile-id', { skip: 0, take: 20 });

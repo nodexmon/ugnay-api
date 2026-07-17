@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { FindReviewsQueryDto } from './dto/find-reviews-query.dto';
@@ -20,13 +20,9 @@ export class ReviewsService {
       dto.bookingId,
     );
 
-    const customerProfile = await this.prisma.customerProfile.findUnique({
-      where: { userId: user.sub },
-      select: { id: true },
-    });
-
-    if (!customerProfile)
-      throw new NotFoundException('Customer profile not found.');
+    const customerProfile = await this.assertions.assertCustomerProfileExists(
+      user.sub,
+    );
 
     this.assertions.assertCustomerOwnsBooking(
       booking.customerId,
@@ -61,14 +57,9 @@ export class ReviewsService {
   }
 
   async findMyReviews(userId: string, query: FindReviewsQueryDto) {
-    const customerProfile = await this.prisma.customerProfile.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
-    if (!customerProfile) {
-      throw new NotFoundException('Customer profile not found.');
-    }
+    const customerProfile = await this.assertions.assertCustomerProfileExists(
+      userId,
+    );
 
     return this.prisma.review.findMany({
       where: { customerId: customerProfile.id },
@@ -79,17 +70,10 @@ export class ReviewsService {
   }
 
   async findAllByWorkerId(workerId: string, query: FindReviewsQueryDto) {
-    const worker = await this.prisma.workerProfile.findUnique({
-      where: { id: workerId },
-      select: { id: true },
-    });
-
-    if (!worker) {
-      throw new NotFoundException('Worker profile not found.');
-    }
+    await this.assertions.assertWorkerProfileExists(workerId);
 
     return this.prisma.review.findMany({
-      where: { workerId: worker.id },
+      where: { workerId },
       orderBy: { createdAt: 'desc' },
       skip: query.skip,
       take: query.take,
