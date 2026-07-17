@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Booking } from '@/generated/prisma/client';
-import { BookingStatus } from '@/generated/prisma/enums';
+import { BookingStatus, WorkerStatus } from '@/generated/prisma/enums';
 
 @Injectable()
 export class BookingsAssertions {
@@ -48,6 +48,15 @@ export class BookingsAssertions {
   }
 
   async assertWorkerIsAvailable(workerId: string): Promise<void> {
+    const worker = await this.prisma.workerProfile.findUnique({
+      where: { id: workerId },
+      select: { isOnline: true, status: true },
+    });
+
+    if (!worker || !worker.isOnline || worker.status !== WorkerStatus.VERIFIED) {
+      throw new ForbiddenException('Worker is not available.');
+    }
+
     const activeBooking = await this.prisma.booking.findFirst({
       where: {
         workerId,

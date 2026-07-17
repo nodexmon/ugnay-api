@@ -1,6 +1,6 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { BookingStatus } from '@/generated/prisma/enums';
+import { BookingStatus, WorkerStatus } from '@/generated/prisma/enums';
 import { PrismaService } from '@/prisma/prisma.service';
 import { BookingsAssertions } from './bookings.assertions';
 
@@ -12,7 +12,10 @@ describe('BookingsAssertions', () => {
   const prisma = {
     booking: { findUnique: jest.fn(), findFirst: jest.fn() },
     noShowReport: { findUnique: jest.fn() },
+    workerProfile: { findUnique: jest.fn() },
   };
+
+  const availableWorker = { isOnline: true, status: WorkerStatus.VERIFIED };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -103,14 +106,43 @@ describe('BookingsAssertions', () => {
   });
 
   describe('assertWorkerIsAvailable', () => {
-    it('does not throw when worker has no active booking', async () => {
+    it('does not throw when worker is online, verified, and has no active booking', async () => {
+      prisma.workerProfile.findUnique.mockResolvedValue(availableWorker);
       prisma.booking.findFirst.mockResolvedValue(null);
       await expect(
         assertions.assertWorkerIsAvailable('worker-id'),
       ).resolves.not.toThrow();
     });
 
+    it('throws ForbiddenException when worker profile does not exist', async () => {
+      prisma.workerProfile.findUnique.mockResolvedValue(null);
+      await expect(
+        assertions.assertWorkerIsAvailable('worker-id'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('throws ForbiddenException when worker is offline', async () => {
+      prisma.workerProfile.findUnique.mockResolvedValue({
+        isOnline: false,
+        status: WorkerStatus.VERIFIED,
+      });
+      await expect(
+        assertions.assertWorkerIsAvailable('worker-id'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('throws ForbiddenException when worker is not verified', async () => {
+      prisma.workerProfile.findUnique.mockResolvedValue({
+        isOnline: true,
+        status: WorkerStatus.PENDING,
+      });
+      await expect(
+        assertions.assertWorkerIsAvailable('worker-id'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
     it('throws ForbiddenException when worker has an active booking', async () => {
+      prisma.workerProfile.findUnique.mockResolvedValue(availableWorker);
       prisma.booking.findFirst.mockResolvedValue({
         id: 'booking-id',
         status: BookingStatus.ACCEPTED,
