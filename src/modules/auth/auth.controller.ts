@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { Throttle, ThrottlerOptions } from '@nestjs/throttler';
+import { ApiTags } from '@nestjs/swagger';
 import { AuthService } from '@/modules/auth/auth.service';
 import { SendOtpDto } from '@/modules/auth/dto/send-otp.dto';
 import { VerifyOtpDto } from '@/modules/auth/dto/verify-otp.dto';
@@ -13,6 +14,7 @@ const OTP_REQUEST_THROTTLE: ThrottlerOptions = { limit: 3, ttl: 900000 };
 const OTP_VERIFY_THROTTLE: ThrottlerOptions = { limit: 5, ttl: 900000 };
 const REFRESH_THROTTLE: ThrottlerOptions = { limit: 10, ttl: 3600000 };
 
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}

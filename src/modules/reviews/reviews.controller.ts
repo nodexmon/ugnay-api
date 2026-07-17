@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Query,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { FindReviewsQueryDto } from './dto/find-reviews-query.dto';
@@ -16,6 +17,8 @@ import { Action } from '@/casl/casl.types';
 import { Public } from '@/common/decorators/public-endpoint.decorator';
 import { type AuthJwtPayload } from '@/modules/auth/auth.types';
 
+@ApiTags('reviews')
+@ApiBearerAuth()
 @Controller('reviews')
 export class ReviewsController {
   constructor(private readonly reviewsService: ReviewsService) {}

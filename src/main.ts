@@ -6,6 +6,7 @@ import { AllExceptionsFilter } from '@/common/filters/all-exceptions.filter';
 import { HttpExceptionFilter } from '@/common/filters/http-exception.filter';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
@@ -26,6 +27,18 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('UGNAY API')
+      .setDescription('Two-sided marketplace API for local workers')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
+  }
+
   await app.listen(process.env.PORT ?? 3000);
 }
 void bootstrap();
