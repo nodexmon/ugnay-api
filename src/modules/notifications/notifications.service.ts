@@ -14,6 +14,8 @@ export class NotificationsService {
     private readonly logger: Logger,
   ) {}
 
+  // ─── Public API ──────────────────────────────────────────────────────────
+
   async sendToUser(userId: string, message: PushMessage): Promise<void> {
     const tokens = await this.prisma.pushToken.findMany({ where: { userId } });
 
