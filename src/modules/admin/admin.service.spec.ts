@@ -25,14 +25,22 @@ describe('AdminService', () => {
     workerCredential: { update: jest.fn() },
     workerProfile: { update: jest.fn(), updateMany: jest.fn() },
     user: { update: jest.fn() },
-    strike: { create: jest.fn() },
+    strike: { create: jest.fn(), findUnique: jest.fn() },
     noShowReport: { update: jest.fn() },
     booking: { update: jest.fn() },
   };
 
   const prisma = {
-    verificationDoc: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
-    workerCredential: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
+    verificationDoc: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      count: jest.fn(),
+    },
+    workerCredential: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      count: jest.fn(),
+    },
     workerProfile: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -46,13 +54,16 @@ describe('AdminService', () => {
       count: jest.fn(),
     },
     booking: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
-    noShowReport: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
+    noShowReport: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      count: jest.fn(),
+    },
     $transaction: jest.fn(),
   };
 
   const assertions = {
     assertWorkerIsUnverified: jest.fn(),
-    assertBookingNotAlreadyStruck: jest.fn(),
     assertUserExists: jest.fn(),
     assertWorkerProfileExists: jest.fn(),
     assertBookingExists: jest.fn(),
@@ -235,17 +246,30 @@ describe('AdminService', () => {
       prisma.workerCredential.findMany.mockResolvedValue([pendingCredential]);
       prisma.workerCredential.count.mockResolvedValue(1);
 
-      const result = await service.findPendingCredentials({ skip: 0, take: 10 });
+      const result = await service.findPendingCredentials({
+        skip: 0,
+        take: 10,
+      });
 
-      expect(result).toEqual({ items: [pendingCredential], total: 1, skip: 0, take: 10 });
+      expect(result).toEqual({
+        items: [pendingCredential],
+        total: 1,
+        skip: 0,
+        take: 10,
+      });
       expect(prisma.workerCredential.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { status: VerificationStatus.PENDING } }),
+        expect.objectContaining({
+          where: { status: VerificationStatus.PENDING },
+        }),
       );
     });
 
     it('approves a credential and updates its status to APPROVED', async () => {
       prisma.workerCredential.findUnique.mockResolvedValue(pendingCredential);
-      const approved = { ...pendingCredential, status: VerificationStatus.APPROVED };
+      const approved = {
+        ...pendingCredential,
+        status: VerificationStatus.APPROVED,
+      };
       tx.workerCredential.update.mockResolvedValue(approved);
 
       const result = await service.approveCredential('cred-id', adminUser);
@@ -264,10 +288,17 @@ describe('AdminService', () => {
 
     it('rejects a credential and stores the rejection reason', async () => {
       prisma.workerCredential.findUnique.mockResolvedValue(pendingCredential);
-      const rejected = { ...pendingCredential, status: VerificationStatus.REJECTED };
+      const rejected = {
+        ...pendingCredential,
+        status: VerificationStatus.REJECTED,
+      };
       tx.workerCredential.update.mockResolvedValue(rejected);
 
-      await service.rejectCredential('cred-id', adminUser, 'Certificate expired');
+      await service.rejectCredential(
+        'cred-id',
+        adminUser,
+        'Certificate expired',
+      );
 
       expect(tx.workerCredential.update).toHaveBeenCalledWith(
         expect.objectContaining({

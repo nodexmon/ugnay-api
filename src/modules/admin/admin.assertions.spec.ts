@@ -15,7 +15,6 @@ describe('AdminAssertions', () => {
   const prisma = {
     workerProfile: { findUnique: jest.fn() },
     booking: { findUnique: jest.fn() },
-    strike: { findUnique: jest.fn() },
     user: { findUnique: jest.fn() },
   };
 
@@ -64,22 +63,6 @@ describe('AdminAssertions', () => {
       prisma.workerProfile.findUnique.mockResolvedValue(verifiedWorker);
       await expect(
         assertions.assertWorkerIsUnverified('worker-id'),
-      ).rejects.toBeInstanceOf(ConflictException);
-    });
-  });
-
-  describe('assertBookingNotAlreadyStruck', () => {
-    it('does not throw when no strike exists for the booking', async () => {
-      prisma.strike.findUnique.mockResolvedValue(null);
-      await expect(
-        assertions.assertBookingNotAlreadyStruck('booking-id'),
-      ).resolves.not.toThrow();
-    });
-
-    it('throws ConflictException when a strike already exists for the booking', async () => {
-      prisma.strike.findUnique.mockResolvedValue({ id: 'strike-id' });
-      await expect(
-        assertions.assertBookingNotAlreadyStruck('booking-id'),
       ).rejects.toBeInstanceOf(ConflictException);
     });
   });

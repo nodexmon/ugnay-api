@@ -234,51 +234,51 @@ export class WorkersService {
       selfie,
     );
 
-    const doc = await this.prisma.$transaction(
-      async (tx: TransactionClient) => {
-        const pendingDoc = await tx.verificationDoc.findFirst({
-          where: { workerId: worker.id, status: VerificationStatus.PENDING },
-        });
-
-        if (pendingDoc)
-          throw new ConflictException(
-            'A verification submission is already pending',
-          );
-
-        const rejectedCount = await tx.verificationDoc.count({
-          where: { workerId: worker.id, status: VerificationStatus.REJECTED },
-        });
-
-        if (rejectedCount >= 2) {
-          throw new ForbiddenException(
-            'Verification reapplication limit has been reached.',
-          );
-        }
-
-        await tx.workerProfile.update({
-          where: { id: worker.id },
-          data: { status: WorkerStatus.PENDING },
-        });
-
-        return tx.verificationDoc.create({
-          data: {
-            workerId: worker.id,
-            idPhotoUrl: idPhotoPath.relative,
-            selfieUrl: selfiePath.relative,
-          },
-        });
-      },
-    );
-
     await Promise.all([
       this.fileStorage.write(idPhotoPath, idPhoto),
       this.fileStorage.write(selfiePath, selfie),
     ]);
 
-    return doc;
+    return this.prisma.$transaction(async (tx: TransactionClient) => {
+      const pendingDoc = await tx.verificationDoc.findFirst({
+        where: { workerId: worker.id, status: VerificationStatus.PENDING },
+      });
+
+      if (pendingDoc)
+        throw new ConflictException(
+          'A verification submission is already pending',
+        );
+
+      const rejectedCount = await tx.verificationDoc.count({
+        where: { workerId: worker.id, status: VerificationStatus.REJECTED },
+      });
+
+      if (rejectedCount >= 2) {
+        throw new ForbiddenException(
+          'Verification reapplication limit has been reached.',
+        );
+      }
+
+      await tx.workerProfile.update({
+        where: { id: worker.id },
+        data: { status: WorkerStatus.PENDING },
+      });
+
+      return tx.verificationDoc.create({
+        data: {
+          workerId: worker.id,
+          idPhotoUrl: idPhotoPath.relative,
+          selfieUrl: selfiePath.relative,
+        },
+      });
+    });
   }
 
-  async uploadCredential(userId: string, type: CredentialType, file: AvatarFile) {
+  async uploadCredential(
+    userId: string,
+    type: CredentialType,
+    file: AvatarFile,
+  ) {
     const worker = await this.getOwnProfile(userId);
 
     const credentialPath = this.fileStorage.resolvePath(
@@ -288,27 +288,28 @@ export class WorkersService {
       'credentials',
     );
 
-    const credential = await this.prisma.$transaction(
-      async (tx: TransactionClient) => {
-        const activeCount = await tx.workerCredential.count({
-          where: {
-            workerId: worker.id,
-            status: { in: [VerificationStatus.PENDING, VerificationStatus.APPROVED] },
-          },
-        });
-
-        if (activeCount >= 5) {
-          throw new BadRequestException('Maximum of 5 active credentials allowed');
-        }
-
-        return tx.workerCredential.create({
-          data: { workerId: worker.id, type, fileUrl: credentialPath.relative },
-        });
-      },
-    );
-
     await this.fileStorage.write(credentialPath, file);
-    return credential;
+
+    return this.prisma.$transaction(async (tx: TransactionClient) => {
+      const activeCount = await tx.workerCredential.count({
+        where: {
+          workerId: worker.id,
+          status: {
+            in: [VerificationStatus.PENDING, VerificationStatus.APPROVED],
+          },
+        },
+      });
+
+      if (activeCount >= 5) {
+        throw new BadRequestException(
+          'Maximum of 5 active credentials allowed',
+        );
+      }
+
+      return tx.workerCredential.create({
+        data: { workerId: worker.id, type, fileUrl: credentialPath.relative },
+      });
+    });
   }
 
   private async getOwnProfile(userId: string) {

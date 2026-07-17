@@ -255,6 +255,28 @@ July 17, 2026 — DX improvements (branch: chore/dx-improvements)
 
 ---
 
+July 17, 2026 — concurrency audit and race condition fixes (branch: fix/concurrency-and-error-handling)
+
+- Fixed cron race: bookings.cron updateMany now re-checks status: PENDING so a booking accepted
+  between findMany and updateMany is not overwritten back to EXPIRED
+- Fixed state transition race: accept/reject/start/complete/cancel now use updateMany with the
+  expected status in the where clause; throw ConflictException when count=0 (booking state changed
+  under the caller)
+- Fixed cancel TOCTOU: worker cancel penalty (applyStrike) and booking status update now both
+  inside the same transaction; a count=0 on the booking update rolls back the strike too
+- Fixed admin TOCTOU: assertBookingNotAlreadyStruck was called outside the transaction in
+  strikeWorker and resolveNoShow; concurrent admins could both pass and create duplicate strike
+  records (caught by DB unique, but surfaced as raw P2002). Check moved inside applyStrike
+  which runs inside the tx, now surfaces as ConflictException
+- Consolidated duplicate strike logic: extracted applyStrike() to common/utils/strike.util.ts;
+  removed incrementStrikeAndSuspendIfNeeded and createStrikeRecord from AdminService and
+  handleWorkerCancellationPenalty logic from BookingsService
+- Fixed file-before-DB order: submitVerification and uploadCredential in workers.service now
+  write files before opening the DB transaction; previously a failed write left a DB record
+  pointing to a missing file
+
+---
+
 July 17, 2026 — production hardening audit (branch: refactor/audit-security-quality)
 
 - Added helmet + 1 MB body size limit to main.ts

@@ -1,6 +1,7 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -11,7 +12,6 @@ import {
   CancellationActor,
   Role,
   StrikeReason,
-  WorkerStatus,
 } from '@/generated/prisma/enums';
 import { UpdateBookingDto } from './dto/update-booking.dto';
 import { AuthJwtPayload } from '../auth/auth.types';
@@ -24,10 +24,10 @@ import {
   BOOKING_PENDING_EXPIRY_MS,
   CONTACT_REVEAL_STATUSES,
 } from './bookings.constants';
-import { STRIKE_SUSPENSION_THRESHOLD } from '@/modules/admin/admin.constants';
 import { BookingsAssertions } from './bookings.assertions';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { UsersAssertions } from '../users/users.assertions';
+import { applyStrike } from '@/common/utils/strike.util';
 
 @Injectable()
 export class BookingsService {
@@ -187,10 +187,12 @@ export class BookingsService {
       BookingStatus.PENDING,
     );
     this.assertions.assertOwnership(booking.workerId, profileId);
-    await this.prisma.booking.update({
-      where: { id: bookingId },
+    const result = await this.prisma.booking.updateMany({
+      where: { id: bookingId, status: BookingStatus.PENDING },
       data: { status: BookingStatus.ACCEPTED, acceptedAt: new Date() },
     });
+    if (result.count === 0)
+      throw new ConflictException('Booking is no longer pending.');
     void this.notifyBookingParty(bookingId, 'customer', {
       title: 'Booking accepted',
       body: 'Your booking has been accepted.',
@@ -205,10 +207,12 @@ export class BookingsService {
       BookingStatus.PENDING,
     );
     this.assertions.assertOwnership(booking.workerId, profileId);
-    await this.prisma.booking.update({
-      where: { id: bookingId },
+    const result = await this.prisma.booking.updateMany({
+      where: { id: bookingId, status: BookingStatus.PENDING },
       data: { status: BookingStatus.REJECTED, rejectedAt: new Date() },
     });
+    if (result.count === 0)
+      throw new ConflictException('Booking is no longer pending.');
     void this.notifyBookingParty(bookingId, 'customer', {
       title: 'Booking declined',
       body: 'The worker has declined your booking request.',
@@ -223,10 +227,12 @@ export class BookingsService {
       BookingStatus.ACCEPTED,
     );
     this.assertions.assertOwnership(booking.workerId, profileId);
-    await this.prisma.booking.update({
-      where: { id: bookingId },
+    const result = await this.prisma.booking.updateMany({
+      where: { id: bookingId, status: BookingStatus.ACCEPTED },
       data: { status: BookingStatus.IN_PROGRESS, startedAt: new Date() },
     });
+    if (result.count === 0)
+      throw new ConflictException('Booking is no longer accepted.');
   }
 
   async complete(bookingId: string, user: AuthJwtPayload) {
@@ -237,10 +243,12 @@ export class BookingsService {
       BookingStatus.IN_PROGRESS,
     );
     this.assertions.assertOwnership(booking.workerId, profileId);
-    await this.prisma.booking.update({
-      where: { id: bookingId },
+    const result = await this.prisma.booking.updateMany({
+      where: { id: bookingId, status: BookingStatus.IN_PROGRESS },
       data: { status: BookingStatus.COMPLETED, completedAt: new Date() },
     });
+    if (result.count === 0)
+      throw new ConflictException('Booking is no longer in progress.');
     void this.notifyBookingParty(bookingId, 'customer', {
       title: 'Job complete',
       body: 'The job is done. Leave a review for your worker!',
@@ -252,7 +260,7 @@ export class BookingsService {
       throw new ForbiddenException('Insufficient permissions.');
     }
 
-    const activeUser = await this.usersAssertions.assertUserIsActive(user.sub);
+    await this.usersAssertions.assertUserIsActive(user.sub);
     const booking = await this.assertions.assertBookingExists(bookingId);
     const profileId = await this.getProfileId(user.sub, user.role);
 
@@ -273,13 +281,18 @@ export class BookingsService {
       );
     }
 
+    const expectedStatuses =
+      user.role === Role.CUSTOMER
+        ? [BookingStatus.PENDING]
+        : [BookingStatus.ACCEPTED, BookingStatus.IN_PROGRESS];
+
     await this.prisma.$transaction(async (tx: TransactionClient) => {
       if (user.role === Role.WORKER) {
-        await this.handleWorkerCancellationPenalty(tx, activeUser);
+        await this.handleWorkerCancellationPenalty(tx, profileId);
       }
 
-      await tx.booking.update({
-        where: { id: bookingId },
+      const result = await tx.booking.updateMany({
+        where: { id: bookingId, status: { in: expectedStatuses } },
         data: {
           status: BookingStatus.CANCELLED,
           cancelledAt: new Date(),
@@ -290,6 +303,10 @@ export class BookingsService {
           cancellationReason: dto.cancellationReason,
         },
       });
+
+      if (result.count === 0) {
+        throw new ConflictException('Booking status has changed.');
+      }
     });
 
     if (user.role === Role.WORKER) {
@@ -362,27 +379,12 @@ export class BookingsService {
 
   private async handleWorkerCancellationPenalty(
     tx: TransactionClient,
-    worker: User,
+    workerProfileId: string,
   ): Promise<void> {
-    const workerProfile = await tx.workerProfile.update({
-      where: { userId: worker.id },
-      data: { strikeCount: { increment: 1 } },
+    await applyStrike(tx, workerProfileId, {
+      reason: StrikeReason.POST_ACCEPT_CANCELLATION,
+      issuedBy: 'SYSTEM',
     });
-
-    await tx.strike.create({
-      data: {
-        workerId: workerProfile.id,
-        reason: StrikeReason.POST_ACCEPT_CANCELLATION,
-        issuedBy: 'SYSTEM',
-      },
-    });
-
-    if (workerProfile.strikeCount >= STRIKE_SUSPENSION_THRESHOLD) {
-      await tx.workerProfile.update({
-        where: { id: workerProfile.id },
-        data: { status: WorkerStatus.SUSPENDED, isOnline: false },
-      });
-    }
   }
 
   private async notifyBookingParty(
