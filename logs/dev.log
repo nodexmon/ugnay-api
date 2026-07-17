@@ -239,3 +239,17 @@ July 12, 2026 (docs update)
   all endpoints with request/response shapes, enum values, booking state machine diagram,
   typical flows for customer and worker, and mobile-specific integration notes
 
+---
+
+July 17, 2026 — DX improvements (branch: chore/dx-improvements)
+
+- Added missing package.json scripts: db:migrate, db:migrate:deploy, db:generate, prisma:studio
+- Enabled @typescript-eslint/no-explicit-any as 'warn' (was 'off') in eslint.config.mjs
+- Added jest coverageThreshold (lines 60%, functions 58%, branches 55%, statements 60%)
+- Added docker-compose.yml for local Postgres 17-alpine (postgres/postgres, db: ugnay, port 5432)
+- Added .vscode/launch.json with "Debug: start:dev" and "Debug: current test file" configs
+- Added Husky + lint-staged: pre-commit runs eslint --fix + prettier --write on staged .ts files
+- Installed @nestjs/swagger; configured SwaggerModule in main.ts (dev-only, at /api/docs)
+- Tagged all 10 controllers with @ApiTags and @ApiBearerAuth where applicable
+- Replaced NestJS boilerplate README.md with UGNAY-specific docs (quick start, scripts, env vars, architecture)
+

@@ -7,6 +7,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UploadsService } from './uploads.service';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Public } from '@/common/decorators/public-endpoint.decorator';
@@ -15,6 +16,8 @@ import { AvatarFilePipe } from './pipes/avatar-file.pipe';
 import { multerConfig } from '@/config/multer.config';
 import type { AvatarFile } from './uploads.types';
 
+@ApiTags('uploads')
+@ApiBearerAuth()
 @Controller('uploads')
 export class UploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
