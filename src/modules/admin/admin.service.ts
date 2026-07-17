@@ -16,6 +16,7 @@ import { ResolveNoShowDto } from './dto/resolve-no-show.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { ListWorkersQueryDto } from './dto/list-workers-query.dto';
 import { ListBookingsQueryDto } from './dto/list-bookings-query.dto';
+import { PaginationDto } from '@/common/dto/pagination.dto';
 import { AuthJwtPayload } from '../auth/auth.types';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
@@ -39,21 +40,28 @@ export class AdminService {
     return this.barangaySync.syncBarangays();
   }
 
-  async findPendingVerifications() {
-    return this.prisma.verificationDoc.findMany({
-      where: { status: VerificationStatus.PENDING },
-      include: {
-        worker: {
-          include: {
-            user: true,
-            homeBarangay: true,
-            categories: { include: { category: true } },
-            serviceAreas: { include: { barangay: true } },
+  async findPendingVerifications(query: PaginationDto) {
+    const where = { status: VerificationStatus.PENDING };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.verificationDoc.findMany({
+        where,
+        include: {
+          worker: {
+            include: {
+              user: { select: { id: true, phone: true, status: true } },
+              homeBarangay: true,
+              categories: { include: { category: true } },
+              serviceAreas: { include: { barangay: true } },
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'asc' },
-    });
+        orderBy: { createdAt: 'asc' },
+        skip: query.skip,
+        take: query.take,
+      }),
+      this.prisma.verificationDoc.count({ where }),
+    ]);
+    return { items, total, skip: query.skip, take: query.take };
   }
 
   async approveVerification(docId: string, user: AuthJwtPayload) {
@@ -179,27 +187,34 @@ export class AdminService {
     });
   }
 
-  async findPendingNoShows() {
-    return this.prisma.noShowReport.findMany({
-      where: { confirmed: null },
-      include: {
-        booking: {
-          include: {
-            worker: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                userId: true,
+  async findPendingNoShows(query: PaginationDto) {
+    const where = { confirmed: null };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.noShowReport.findMany({
+        where,
+        include: {
+          booking: {
+            include: {
+              worker: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  userId: true,
+                },
               },
+              customer: { select: { firstName: true, lastName: true } },
+              category: { select: { name: true } },
             },
-            customer: { select: { firstName: true, lastName: true } },
-            category: { select: { name: true } },
           },
         },
-      },
-      orderBy: { createdAt: 'asc' },
-    });
+        orderBy: { createdAt: 'asc' },
+        skip: query.skip,
+        take: query.take,
+      }),
+      this.prisma.noShowReport.count({ where }),
+    ]);
+    return { items, total, skip: query.skip, take: query.take };
   }
 
   async resolveNoShow(
@@ -354,21 +369,28 @@ export class AdminService {
     return { items, total, skip: query.skip, take: query.take };
   }
 
-  async findPendingCredentials() {
-    return this.prisma.workerCredential.findMany({
-      where: { status: VerificationStatus.PENDING },
-      include: {
-        worker: {
-          include: {
-            user: true,
-            homeBarangay: true,
-            categories: { include: { category: true } },
-            serviceAreas: { include: { barangay: true } },
+  async findPendingCredentials(query: PaginationDto) {
+    const where = { status: VerificationStatus.PENDING };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.workerCredential.findMany({
+        where,
+        include: {
+          worker: {
+            include: {
+              user: { select: { id: true, phone: true, status: true } },
+              homeBarangay: true,
+              categories: { include: { category: true } },
+              serviceAreas: { include: { barangay: true } },
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'asc' },
-    });
+        orderBy: { createdAt: 'asc' },
+        skip: query.skip,
+        take: query.take,
+      }),
+      this.prisma.workerCredential.count({ where }),
+    ]);
+    return { items, total, skip: query.skip, take: query.take };
   }
 
   async approveCredential(credentialId: string, user: AuthJwtPayload) {

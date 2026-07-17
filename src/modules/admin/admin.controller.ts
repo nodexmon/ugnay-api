@@ -20,6 +20,7 @@ import { ResolveNoShowDto } from './dto/resolve-no-show.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { ListWorkersQueryDto } from './dto/list-workers-query.dto';
 import { ListBookingsQueryDto } from './dto/list-bookings-query.dto';
+import { PaginationDto } from '@/common/dto/pagination.dto';
 
 @CheckAbility(Action.Manage, 'all')
 @Controller('admin')
@@ -42,8 +43,8 @@ export class AdminController {
   }
 
   @Get('verifications')
-  listPendingVerifications() {
-    return this.adminService.findPendingVerifications();
+  listPendingVerifications(@Query() query: PaginationDto) {
+    return this.adminService.findPendingVerifications(query);
   }
 
   @Patch('verifications/:id/approve')
@@ -64,8 +65,8 @@ export class AdminController {
   }
 
   @Get('credentials')
-  listPendingCredentials() {
-    return this.adminService.findPendingCredentials();
+  listPendingCredentials(@Query() query: PaginationDto) {
+    return this.adminService.findPendingCredentials(query);
   }
 
   @Patch('credentials/:id/approve')
@@ -107,8 +108,8 @@ export class AdminController {
   }
 
   @Get('no-shows')
-  listPendingNoShows() {
-    return this.adminService.findPendingNoShows();
+  listPendingNoShows(@Query() query: PaginationDto) {
+    return this.adminService.findPendingNoShows(query);
   }
 
   @Patch('no-shows/:id/resolve')

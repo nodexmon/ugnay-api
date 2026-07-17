@@ -58,9 +58,10 @@ describe('AdminController', () => {
   });
 
   it('listPendingVerifications calls service.findPendingVerifications', async () => {
-    mockService.findPendingVerifications.mockResolvedValue([]);
-    await controller.listPendingVerifications();
-    expect(service.findPendingVerifications).toHaveBeenCalled();
+    const query = { skip: 0, take: 10 };
+    mockService.findPendingVerifications.mockResolvedValue({ items: [], total: 0, skip: 0, take: 10 });
+    await controller.listPendingVerifications(query);
+    expect(service.findPendingVerifications).toHaveBeenCalledWith(query);
   });
 
   it('approveVerification calls service.approveVerification with id and user', async () => {
@@ -85,9 +86,10 @@ describe('AdminController', () => {
   });
 
   it('listPendingCredentials calls service.findPendingCredentials', async () => {
-    mockService.findPendingCredentials.mockResolvedValue([]);
-    await controller.listPendingCredentials();
-    expect(service.findPendingCredentials).toHaveBeenCalled();
+    const query = { skip: 0, take: 10 };
+    mockService.findPendingCredentials.mockResolvedValue({ items: [], total: 0, skip: 0, take: 10 });
+    await controller.listPendingCredentials(query);
+    expect(service.findPendingCredentials).toHaveBeenCalledWith(query);
   });
 
   it('approveCredential calls service.approveCredential with id and user', async () => {
@@ -116,9 +118,10 @@ describe('AdminController', () => {
   });
 
   it('listPendingNoShows calls service.findPendingNoShows', async () => {
-    mockService.findPendingNoShows.mockResolvedValue([]);
-    await controller.listPendingNoShows();
-    expect(service.findPendingNoShows).toHaveBeenCalled();
+    const query = { skip: 0, take: 10 };
+    mockService.findPendingNoShows.mockResolvedValue({ items: [], total: 0, skip: 0, take: 10 });
+    await controller.listPendingNoShows(query);
+    expect(service.findPendingNoShows).toHaveBeenCalledWith(query);
   });
 
   it('resolveNoShow calls service.resolveNoShow with id, user, and dto', async () => {

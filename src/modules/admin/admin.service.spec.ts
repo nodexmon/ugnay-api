@@ -31,8 +31,8 @@ describe('AdminService', () => {
   };
 
   const prisma = {
-    verificationDoc: { findMany: jest.fn(), findUnique: jest.fn() },
-    workerCredential: { findMany: jest.fn(), findUnique: jest.fn() },
+    verificationDoc: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
+    workerCredential: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
     workerProfile: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -46,7 +46,7 @@ describe('AdminService', () => {
       count: jest.fn(),
     },
     booking: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
-    noShowReport: { findMany: jest.fn(), findUnique: jest.fn() },
+    noShowReport: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
     $transaction: jest.fn(),
   };
 
@@ -233,10 +233,11 @@ describe('AdminService', () => {
 
     it('returns all pending credentials with worker details', async () => {
       prisma.workerCredential.findMany.mockResolvedValue([pendingCredential]);
+      prisma.workerCredential.count.mockResolvedValue(1);
 
-      const result = await service.findPendingCredentials();
+      const result = await service.findPendingCredentials({ skip: 0, take: 10 });
 
-      expect(result).toEqual([pendingCredential]);
+      expect(result).toEqual({ items: [pendingCredential], total: 1, skip: 0, take: 10 });
       expect(prisma.workerCredential.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { status: VerificationStatus.PENDING } }),
       );
