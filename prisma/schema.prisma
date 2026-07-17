@@ -123,8 +123,7 @@ model OtpRequest {
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  @@index([phone])
-  @@index([expiresAt])
+  @@index([phone, verified, expiresAt])
   @@map("otp_requests")
 }
 
