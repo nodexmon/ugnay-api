@@ -141,9 +141,7 @@ export class BookingsService {
       select: { id: true },
     });
     if (!customer) {
-      throw new ForbiddenException(
-        'Customer profile is required to create a booking.',
-      );
+      throw new NotFoundException('Customer profile not found.');
     }
 
     await this.assertions.assertWorkerIsAvailable(dto.workerId);

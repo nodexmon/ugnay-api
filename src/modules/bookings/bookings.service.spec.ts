@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   BookingStatus,
@@ -113,11 +113,11 @@ describe('BookingsService', () => {
       );
     });
 
-    it('throws ForbiddenException when customer profile is missing', async () => {
+    it('throws NotFoundException when customer profile is missing', async () => {
       prisma.customerProfile.findUnique.mockResolvedValue(null);
 
       await expect(service.create(customerJwt, dto)).rejects.toBeInstanceOf(
-        ForbiddenException,
+        NotFoundException,
       );
     });
 
