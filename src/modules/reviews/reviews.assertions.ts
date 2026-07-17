@@ -45,4 +45,21 @@ export class ReviewsAssertions {
       );
     }
   }
+
+  async assertCustomerProfileExists(userId: string): Promise<{ id: string }> {
+    const profile = await this.prisma.customerProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (!profile) throw new NotFoundException('Customer profile not found.');
+    return profile;
+  }
+
+  async assertWorkerProfileExists(workerId: string): Promise<void> {
+    const worker = await this.prisma.workerProfile.findUnique({
+      where: { id: workerId },
+      select: { id: true },
+    });
+    if (!worker) throw new NotFoundException('Worker profile not found.');
+  }
 }

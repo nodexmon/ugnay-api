@@ -1,20 +1,15 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { UserStatus } from '@/generated/prisma/enums';
 import { User } from '@/generated/prisma/client';
+import { assertUserExists } from '@/common/utils/assert.util';
 
 @Injectable()
 export class UsersAssertions {
   constructor(private readonly prisma: PrismaService) {}
 
-  async assertUserExists(userId: string): Promise<User> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException('User does not exist.');
-    return user;
+  assertUserExists(userId: string): Promise<User> {
+    return assertUserExists(this.prisma, userId);
   }
 
   async assertUserIsActive(userId: string): Promise<User> {

@@ -4,14 +4,19 @@ import { ValidationPipe } from '@nestjs/common';
 import { Logger } from 'nestjs-pino';
 import { AllExceptionsFilter } from '@/common/filters/all-exceptions.filter';
 import { HttpExceptionFilter } from '@/common/filters/http-exception.filter';
+import { json, urlencoded } from 'express';
+import helmet from 'helmet';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
+
+  app.use(json({ limit: '1mb' }));
+  app.use(urlencoded({ extended: true, limit: '1mb' }));
+  app.use(helmet());
+  app.enableCors({ origin: process.env.CORS_ORIGIN ?? false });
 
   app.useLogger(app.get(Logger));
-
-  app.enableCors({ origin: process.env.CORS_ORIGIN ?? false });
 
   app.useGlobalFilters(new AllExceptionsFilter(), new HttpExceptionFilter());
 

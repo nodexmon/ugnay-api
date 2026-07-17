@@ -19,7 +19,7 @@ export class AdminAssertions {
     const worker = await this.prisma.workerProfile.findUnique({
       where: { id: workerId },
     });
-    if (!worker) throw new NotFoundException('Worker profile does not exist.');
+    if (!worker) throw new NotFoundException('Worker profile not found.');
     return worker;
   }
 

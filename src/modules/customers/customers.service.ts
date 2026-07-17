@@ -11,6 +11,8 @@ import { UpdateCustomerDto } from './dto/update-customer.dto';
 export class CustomersService {
   constructor(private prisma: PrismaService) {}
 
+  // ─── Public API ──────────────────────────────────────────────────────────
+
   async getProfile(userId: string) {
     const profile = await this.prisma.customerProfile.findUnique({
       where: { userId },

@@ -141,9 +141,7 @@ export class BookingsService {
       select: { id: true },
     });
     if (!customer) {
-      throw new ForbiddenException(
-        'Customer profile is required to create a booking.',
-      );
+      throw new NotFoundException('Customer profile not found.');
     }
 
     await this.assertions.assertWorkerIsAvailable(dto.workerId);
@@ -335,14 +333,14 @@ export class BookingsService {
         where: { userId },
         select: { id: true },
       });
-      if (!profile) throw new ForbiddenException('Customer profile not found.');
+      if (!profile) throw new NotFoundException('Customer profile not found.');
       return profile.id;
     }
     const profile = await this.prisma.workerProfile.findUnique({
       where: { userId },
       select: { id: true },
     });
-    if (!profile) throw new ForbiddenException('Worker profile not found.');
+    if (!profile) throw new NotFoundException('Worker profile not found.');
     return profile.id;
   }
 
