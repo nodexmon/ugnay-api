@@ -17,6 +17,7 @@ export class BookingsCron {
   async expiredPendingBookings() {
     const expiredBookings = await this.prisma.booking.findMany({
       where: { status: BookingStatus.PENDING, expiresAt: { lt: new Date() } },
+      take: 100,
       include: { customer: { select: { userId: true } } },
     });
 
