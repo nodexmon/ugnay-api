@@ -849,7 +849,8 @@ Create a new booking request. The worker has 30 minutes to respond.
 > `notes`: optional, max 500 chars.
 > `agreedRate`: optional pre-negotiated rate. Omit to use the worker's `baseRate`.
 > Returns `403` if the customer has no profile yet.
-> Returns `400` if the targeted worker is currently busy (ACCEPTED or IN_PROGRESS booking).
+> Returns `403` if the worker is not online, not `VERIFIED`, or not found.
+> Returns `403` if the targeted worker is currently busy (`ACCEPTED` or `IN_PROGRESS` booking).
 
 **Response `201`:**
 ```json

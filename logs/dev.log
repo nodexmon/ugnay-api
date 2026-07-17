@@ -253,3 +253,22 @@ July 17, 2026 — DX improvements (branch: chore/dx-improvements)
 - Tagged all 10 controllers with @ApiTags and @ApiBearerAuth where applicable
 - Replaced NestJS boilerplate README.md with UGNAY-specific docs (quick start, scripts, env vars, architecture)
 
+---
+
+July 17, 2026 — production hardening audit (branch: refactor/audit-security-quality)
+
+- Added helmet + 1 MB body size limit to main.ts
+- Added @Public() to root GET / endpoint (was blocked by global JwtAuthGuard)
+- Fixed assertWorkerIsAvailable: now validates worker exists, isOnline, and VERIFIED before checking
+  for active bookings; previously a customer could book an offline or unverified worker
+- Paginated all three admin pending-list endpoints (verifications, credentials, no-shows): each now
+  accepts skip/take and returns { items, total, skip, take } instead of an unbounded array
+- Capped booking expiry cron batch at 100 records per run to prevent memory spikes
+- Replaced BookingsNotificationService class with private notifyBookingParty() on BookingsService
+- Added OtpRequest composite index on (phone, verified, expiresAt); dropped old single-field indexes
+- Refactored ReviewsAssertions to hold profile lookups inline; cleaned up section dividers
+- Standardised worker profile not-found messages and exception types across services
+- Updated docs/UGNAY_API_HANDOUT.md: corrected POST /bookings error codes (403 not 400 for busy
+  worker; added 403 for worker offline/unverified)
+- Updated docs/UGNAY_BRD_v1_1.md: noted pagination on admin GET list endpoints
+

@@ -361,15 +361,15 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | **GET** | /admin/users | List users (paginated, filterable by role/status) |
 | **GET** | /admin/workers | List worker profiles (paginated, filterable by status) |
 | **GET** | /admin/bookings | List bookings (paginated, filterable by status) |
-| **GET** | /admin/verifications | List pending worker verification applications |
+| **GET** | /admin/verifications | List pending verification applications (paginated; returns `{ items, total, skip, take }`) |
 | **PATCH** | /admin/verifications/:id/approve | Approve worker; set status to VERIFIED |
 | **PATCH** | /admin/verifications/:id/reject | Reject worker with reason |
-| **GET** | /admin/credentials | List pending worker credential submissions |
+| **GET** | /admin/credentials | List pending credential submissions (paginated; returns `{ items, total, skip, take }`) |
 | **PATCH** | /admin/credentials/:id/approve | Approve a credential submission |
 | **PATCH** | /admin/credentials/:id/reject | Reject a credential submission with reason |
 | **POST** | /admin/strikes | Issue manual strike to a worker |
 | **PATCH** | /admin/users/:id/suspend | Suspend or reinstate a user account |
-| **GET** | /admin/no-shows | List pending no-show reports awaiting resolution |
+| **GET** | /admin/no-shows | List pending no-show reports awaiting resolution (paginated; returns `{ items, total, skip, take }`) |
 | **PATCH** | /admin/no-shows/:id/resolve | Resolve a no-show report (confirm or dismiss) |
 | **POST** | /admin/barangays/sync | Sync barangay list from PSGC data source |
 
