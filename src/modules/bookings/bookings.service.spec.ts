@@ -1,4 +1,8 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   BookingStatus,
@@ -30,7 +34,7 @@ describe('BookingsService', () => {
   let service: BookingsService;
 
   const tx = {
-    booking: { update: jest.fn() },
+    booking: { updateMany: jest.fn() },
     workerProfile: { update: jest.fn() },
     strike: { create: jest.fn() },
   };
@@ -43,6 +47,7 @@ describe('BookingsService', () => {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     noShowReport: { create: jest.fn() },
     $transaction: jest.fn(),
@@ -67,6 +72,8 @@ describe('BookingsService', () => {
     );
     assertions.assertBookingExists.mockResolvedValue(pendingBooking);
     usersAssertions.assertUserIsActive.mockResolvedValue(customerUser);
+    prisma.booking.updateMany.mockResolvedValue({ count: 1 });
+    tx.booking.updateMany.mockResolvedValue({ count: 1 });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -160,8 +167,9 @@ describe('BookingsService', () => {
 
       await service.accept('booking-id', workerJwt);
 
-      expect(prisma.booking.update).toHaveBeenCalledWith(
+      expect(prisma.booking.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: expect.objectContaining({ status: BookingStatus.PENDING }),
           data: expect.objectContaining({ status: BookingStatus.ACCEPTED }),
         }),
       );
@@ -204,8 +212,9 @@ describe('BookingsService', () => {
 
       await service.reject('booking-id', workerJwt);
 
-      expect(prisma.booking.update).toHaveBeenCalledWith(
+      expect(prisma.booking.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: expect.objectContaining({ status: BookingStatus.PENDING }),
           data: expect.objectContaining({ status: BookingStatus.REJECTED }),
         }),
       );
@@ -227,8 +236,9 @@ describe('BookingsService', () => {
 
       await service.start('booking-id', workerJwt);
 
-      expect(prisma.booking.update).toHaveBeenCalledWith(
+      expect(prisma.booking.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: expect.objectContaining({ status: BookingStatus.ACCEPTED }),
           data: expect.objectContaining({ status: BookingStatus.IN_PROGRESS }),
         }),
       );
@@ -261,8 +271,9 @@ describe('BookingsService', () => {
 
       await service.complete('booking-id', workerJwt);
 
-      expect(prisma.booking.update).toHaveBeenCalledWith(
+      expect(prisma.booking.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: expect.objectContaining({ status: BookingStatus.IN_PROGRESS }),
           data: expect.objectContaining({ status: BookingStatus.COMPLETED }),
         }),
       );
@@ -293,7 +304,7 @@ describe('BookingsService', () => {
       await service.cancel('booking-id', customerJwt, cancelDto);
 
       expect(tx.workerProfile.update).not.toHaveBeenCalled();
-      expect(tx.booking.update).toHaveBeenCalledWith(
+      expect(tx.booking.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             status: BookingStatus.CANCELLED,
@@ -327,7 +338,7 @@ describe('BookingsService', () => {
           }),
         }),
       );
-      expect(tx.booking.update).toHaveBeenCalledWith(
+      expect(tx.booking.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             cancellationActor: CancellationActor.WORKER,

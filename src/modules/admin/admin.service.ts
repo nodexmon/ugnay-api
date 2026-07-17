@@ -21,9 +21,9 @@ import { AuthJwtPayload } from '../auth/auth.types';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { WORKER_INCLUDE } from '@/common/constants/worker-includes';
-import { STRIKE_SUSPENSION_THRESHOLD } from './admin.constants';
 import { AdminAssertions } from './admin.assertions';
 import { BarangaySyncService } from '@/modules/barangays/barangay-sync.service';
+import { applyStrike } from '@/common/utils/strike.util';
 
 @Injectable()
 export class AdminService {
@@ -169,22 +169,18 @@ export class AdminService {
     const worker = await this.assertions.assertWorkerProfileExists(
       dto.workerId,
     );
-
     if (dto.bookingId) {
       await this.assertions.assertBookingExists(dto.bookingId);
-      await this.assertions.assertBookingNotAlreadyStruck(dto.bookingId);
     }
 
-    const strikePayload = {
-      ...dto,
-      issuedBy: user.sub,
-    };
-
-    return this.prisma.$transaction(async (tx: TransactionClient) => {
-      await this.createStrikeRecord(tx, strikePayload);
-
-      return this.incrementStrikeAndSuspendIfNeeded(tx, worker.id);
-    });
+    return this.prisma.$transaction((tx: TransactionClient) =>
+      applyStrike(tx, worker.id, {
+        bookingId: dto.bookingId,
+        reason: dto.reason,
+        issuedBy: user.sub,
+        notes: dto.notes,
+      }),
+    );
   }
 
   async findPendingNoShows(query: PaginationDto) {
@@ -241,18 +237,6 @@ export class AdminService {
       throw new ConflictException('This report has already been resolved.');
     }
 
-    if (dto.confirmed) {
-      await this.assertions.assertBookingNotAlreadyStruck(report.bookingId);
-    }
-
-    const strikeNoShowPayload = {
-      workerId: report.booking.workerId,
-      bookingId: report.bookingId,
-      reason: StrikeReason.NO_SHOW,
-      issuedBy: user.sub,
-      notes: dto.notes,
-    };
-
     return this.prisma
       .$transaction(async (tx: TransactionClient) => {
         await tx.noShowReport.update({
@@ -265,12 +249,12 @@ export class AdminService {
         });
 
         if (dto.confirmed) {
-          await this.createStrikeRecord(tx, strikeNoShowPayload);
-
-          await this.incrementStrikeAndSuspendIfNeeded(
-            tx,
-            report.booking.workerId,
-          );
+          await applyStrike(tx, report.booking.workerId, {
+            bookingId: report.bookingId,
+            reason: StrikeReason.NO_SHOW,
+            issuedBy: user.sub,
+            notes: dto.notes,
+          });
 
           await tx.booking.update({
             where: { id: report.bookingId },
@@ -480,37 +464,5 @@ export class AdminService {
     }
 
     return doc;
-  }
-
-  private async createStrikeRecord(
-    tx: TransactionClient,
-    data: {
-      workerId: string;
-      bookingId?: string;
-      reason: StrikeReason;
-      issuedBy: string;
-      notes?: string;
-    },
-  ): Promise<void> {
-    await tx.strike.create({ data });
-  }
-
-  private async incrementStrikeAndSuspendIfNeeded(
-    tx: TransactionClient,
-    workerId: string,
-  ) {
-    const updated = await tx.workerProfile.update({
-      where: { id: workerId },
-      data: { strikeCount: { increment: 1 } },
-    });
-
-    if (updated.strikeCount >= STRIKE_SUSPENSION_THRESHOLD) {
-      await tx.workerProfile.update({
-        where: { id: updated.id },
-        data: { status: WorkerStatus.SUSPENDED, isOnline: false },
-      });
-    }
-
-    return updated;
   }
 }

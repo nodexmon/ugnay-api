@@ -30,17 +30,6 @@ export class AdminAssertions {
     }
   }
 
-  async assertBookingNotAlreadyStruck(bookingId: string): Promise<void> {
-    const existingStrike = await this.prisma.strike.findUnique({
-      where: { bookingId },
-    });
-    if (existingStrike) {
-      throw new ConflictException(
-        'This booking has already been used for a strike.',
-      );
-    }
-  }
-
   assertBookingExists(bookingId: string): Promise<Booking> {
     return assertBookingExists(this.prisma, bookingId);
   }
