@@ -12,6 +12,7 @@ import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { CheckAbility } from '@/common/decorators/check-ability.decorator';
 import { Action } from '@/casl/casl.types';
 import { type AuthJwtPayload } from '@/modules/auth/auth.types';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AdminService } from '@/modules/admin/admin.service';
 import { RejectVerificationDto } from '@/modules/admin/dto/reject-verification.dto';
 import { SuspendUserDto } from '@/modules/admin/dto/suspend-user.dto';
@@ -21,6 +22,8 @@ import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { ListWorkersQueryDto } from './dto/list-workers-query.dto';
 import { ListBookingsQueryDto } from './dto/list-bookings-query.dto';
 
+@ApiTags('admin')
+@ApiBearerAuth()
 @CheckAbility(Action.Manage, 'all')
 @Controller('admin')
 export class AdminController {

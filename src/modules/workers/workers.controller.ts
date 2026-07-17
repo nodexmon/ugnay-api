@@ -11,7 +11,11 @@ import {
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
+import {
+  FileFieldsInterceptor,
+  FileInterceptor,
+} from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { multerConfig } from '@/config/multer.config';
 import { WorkersService } from '@/modules/workers/workers.service';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
@@ -29,6 +33,8 @@ import { CredentialFilePipe } from '@/modules/workers/pipes/credential-file.pipe
 import { UploadCredentialDto } from '@/modules/workers/dto/upload-credential.dto';
 import type { AvatarFile } from '@/uploads/uploads.types';
 
+@ApiTags('workers')
+@ApiBearerAuth()
 @Controller('workers')
 export class WorkersController {
   constructor(private readonly workersService: WorkersService) {}
