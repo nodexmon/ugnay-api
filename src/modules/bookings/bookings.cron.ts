@@ -26,7 +26,10 @@ export class BookingsCron {
     this.logger.log(`Expiring ${expiredBookings.length} pending bookings`);
 
     await this.prisma.booking.updateMany({
-      where: { id: { in: expiredBookings.map((b) => b.id) } },
+      where: {
+        id: { in: expiredBookings.map((b) => b.id) },
+        status: BookingStatus.PENDING,
+      },
       data: { status: BookingStatus.EXPIRED },
     });
 

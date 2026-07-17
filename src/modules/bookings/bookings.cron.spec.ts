@@ -46,7 +46,10 @@ describe('BookingsCron', () => {
 
     expect(prisma.booking.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: { in: ['b1', 'b2'] } },
+        where: expect.objectContaining({
+          id: { in: ['b1', 'b2'] },
+          status: BookingStatus.PENDING,
+        }),
         data: { status: BookingStatus.EXPIRED },
       }),
     );
