@@ -30,12 +30,14 @@ src/
   app.module.ts          # Root module — registers global guards, config, logger, scheduler
   prisma/                # PrismaModule/PrismaService (global singleton, exported)
   config/                # Typed config factories: app, jwt, upload, database, logger, textbee
+  casl/                  # CaslAbilityFactory, CaslGuard, @CheckAbility() decorator
   common/
-    decorators/          # @Public(), @Roles(...), @CurrentUser()
+    decorators/          # @Public(), @CheckAbility(), @CurrentUser()
     pipes/               # VerificationFilesPipe
     types/               # express.d.ts augmentation (req.user)
+    utils/               # strike.util.ts (applyStrike — only shared cross-module util)
   modules/
-    auth/                # OTP + JWT auth, JwtStrategy, JwtAuthGuard, RolesGuard
+    auth/                # OTP + JWT auth, JwtStrategy, JwtAuthGuard
     users/               # User CRUD
     workers/             # Worker profiles, service areas, verification docs
     customers/           # Customer profiles
@@ -43,6 +45,8 @@ src/
     admin/               # Admin-only operations
     bookings/            # Booking lifecycle with @nestjs/schedule cron jobs
     reviews/             # Reviews tied 1:1 to completed bookings
+    barangays/           # Barangay listing + PSGC sync
+    notifications/       # Push notification delivery (Expo)
   uploads/               # File upload module (Multer)
   generated/prisma/      # Auto-generated Prisma client (do not edit manually)
 ```
