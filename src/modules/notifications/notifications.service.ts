@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Platform } from '@/generated/prisma/enums';
 import { Logger } from 'nestjs-pino';
-import { PushMessage } from './notifications.interface';
+import { PushMessage } from './notifications.types';
 import Expo, { ExpoPushMessage, ExpoPushTicket } from 'expo-server-sdk';
 
 @Injectable()

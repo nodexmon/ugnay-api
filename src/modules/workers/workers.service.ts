@@ -7,7 +7,7 @@ import {
 } from '@/generated/prisma/enums';
 import { CreateWorkerDto } from '@/modules/workers/dto/create-worker.dto';
 import { UpdateWorkerDto } from '@/modules/workers/dto/update-worker.dto';
-import { SearchWorkersDto } from '@/modules/workers/dto/search-workers.dto';
+import { FindWorkersQueryDto } from '@/modules/workers/dto/find-workers-query.dto';
 import type { UploadedVerificationFiles } from '@/modules/workers/workers.types';
 import type { AvatarFile } from '@/uploads/uploads.types';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
@@ -31,14 +31,8 @@ export class WorkersService {
 
   // ─── Public API ──────────────────────────────────────────────────────────────
 
-  async search(query: SearchWorkersDto) {
-    const {
-      availableOnly,
-      categoryId,
-      barangayId,
-      page = 1,
-      limit = 20,
-    } = query;
+  async search(query: FindWorkersQueryDto) {
+    const { availableOnly, categoryId, barangayId, skip, take } = query;
 
     return this.prisma.workerProfile.findMany({
       where: {
@@ -61,8 +55,8 @@ export class WorkersService {
         { totalReviews: 'desc' },
         { createdAt: 'desc' },
       ],
-      skip: (page - 1) * limit,
-      take: limit,
+      skip,
+      take,
     });
   }
 

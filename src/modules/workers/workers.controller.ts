@@ -25,7 +25,7 @@ import { Public } from '@/common/decorators/public-endpoint.decorator';
 import { CreateWorkerDto } from '@/modules/workers/dto/create-worker.dto';
 import { UpdateWorkerDto } from '@/modules/workers/dto/update-worker.dto';
 import { SetAvailabilityDto } from '@/modules/workers/dto/set-availability.dto';
-import { SearchWorkersDto } from '@/modules/workers/dto/search-workers.dto';
+import { FindWorkersQueryDto } from '@/modules/workers/dto/find-workers-query.dto';
 import { type AuthJwtPayload } from '@/modules/auth/auth.types';
 import { type UploadedVerificationFiles } from '@/modules/workers/workers.types';
 import { VerificationFilesPipe } from '@/common/pipes/verification-files.pipe';
@@ -41,7 +41,7 @@ export class WorkersController {
 
   @Public()
   @Get('search')
-  search(@Query() query: SearchWorkersDto) {
+  search(@Query() query: FindWorkersQueryDto) {
     return this.workersService.search(query);
   }
 

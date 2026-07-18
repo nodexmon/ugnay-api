@@ -18,9 +18,9 @@ import { RejectVerificationDto } from '@/modules/admin/dto/reject-verification.d
 import { SuspendUserDto } from '@/modules/admin/dto/suspend-user.dto';
 import { StrikeWorkerDto } from './dto/strike-worker.dto';
 import { ResolveNoShowDto } from './dto/resolve-no-show.dto';
-import { ListUsersQueryDto } from './dto/list-users-query.dto';
-import { ListWorkersQueryDto } from './dto/list-workers-query.dto';
-import { ListBookingsQueryDto } from './dto/list-bookings-query.dto';
+import { FindUsersQueryDto } from './dto/find-users-query.dto';
+import { FindWorkersQueryDto } from './dto/find-workers-query.dto';
+import { FindBookingsQueryDto } from './dto/find-bookings-query.dto';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 
 @ApiTags('admin')
@@ -31,17 +31,17 @@ export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @Get('users')
-  listUsers(@Query() query: ListUsersQueryDto) {
+  listUsers(@Query() query: FindUsersQueryDto) {
     return this.adminService.findUsers(query);
   }
 
   @Get('workers')
-  listWorkers(@Query() query: ListWorkersQueryDto) {
+  listWorkers(@Query() query: FindWorkersQueryDto) {
     return this.adminService.findWorkers(query);
   }
 
   @Get('bookings')
-  listBookings(@Query() query: ListBookingsQueryDto) {
+  listBookings(@Query() query: FindBookingsQueryDto) {
     return this.adminService.findBookings(query);
   }
 
