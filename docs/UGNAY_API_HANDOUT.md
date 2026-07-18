@@ -481,11 +481,11 @@ Search VERIFIED, active workers. Returns a plain array ordered by `averageRating
 categoryId    UUID      Filter by service category ID
 barangayId    UUID      Filter by service area — only workers who serve this barangay
 availableOnly boolean   true = only online workers (isOnline: true)
-page          integer   Default 1
-limit         integer   Default 20, max 50
+skip          integer   Records to skip (default 0)
+take          integer   Records to return (default 10, max 50)
 ```
 
-**Example:** `GET /workers/search?categoryId=<uuid>&barangayId=<uuid>&availableOnly=true&page=1&limit=20`
+**Example:** `GET /workers/search?categoryId=<uuid>&barangayId=<uuid>&availableOnly=true&skip=0&take=10`
 
 **Response `200`:** Plain array (no pagination wrapper):
 ```json
@@ -560,7 +560,7 @@ limit         integer   Default 20, max 50
 > `credentials` — only `APPROVED` credentials are returned from search, and only the `type` field. No file URLs.
 > `baseRate`, `rateOverride`, `averageRating` are **Decimal strings** — parse before arithmetic.
 > Worker phone numbers are **never** returned from search. Only revealed on booking acceptance.
-> There is **no total count** in this response. Use `page`/`limit` to paginate client-side.
+> There is **no total count** in this response. Use `skip`/`take` to paginate client-side.
 
 ---
 
@@ -1405,7 +1405,7 @@ Remove the device's push token on logout.
 ```
 1. GET  /categories               → populate home grid
 2. GET  /barangays                → populate location picker
-3. GET  /workers/search?categoryId=<uuid>&barangayId=<uuid>&availableOnly=true
+3. GET  /workers/search?categoryId=<uuid>&barangayId=<uuid>&availableOnly=true&skip=0&take=10
    → show worker cards (firstName, lastName, baseRate, averageRating, categories)
 4. GET  /workers/<workerId>       → open full worker profile
 5. GET  /reviews/worker/<workerId>?skip=0&take=10
@@ -1471,7 +1471,7 @@ On any 401 response:
 - **UUIDs:** All IDs are UUID v4. Store and send them as plain strings.
 - **Decimal fields** — `baseRate`, `rateOverride`, `agreedRate`, `averageRating`, `locationLat`, `locationLng` are returned as **decimal strings** (e.g., `"650.00"`, `"14.6001000"`). Parse to `Number` or `parseFloat` before arithmetic or map display.
 - **Null vs absent** — optional fields that have no value are returned as `null` (not omitted). The exception is `worker.user` / `customer.user` on `GET /bookings/:id`: these are entirely **absent** from the response object when contact is not yet revealed.
-- **Pagination** — bookings and reviews use `skip`/`take`. Worker search uses `page`/`limit`. Neither returns a total count — size your UI accordingly.
+- **Pagination** — all paginated endpoints use `skip`/`take`. None return a total count — size your UI accordingly.
 - **Worker phone:** Never displayed until `booking.status === "ACCEPTED"` (or later active states). The server enforces this — the field simply won't exist in the response.
 - **Rating display:** Only show `averageRating` if `worker.totalReviews >= 3`. The public worker profile endpoint enforces this by returning `null` for `averageRating` when the count is below 3.
 - **Worker availability:** `isOnline: true` is only allowed when `workerProfile.status === "VERIFIED"`. The server returns `403` otherwise — gate this UI action on the worker's status.
