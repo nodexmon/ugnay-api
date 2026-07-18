@@ -19,7 +19,12 @@ export class FileStorageService {
     private readonly config: ConfigType<typeof uploadConfig>,
   ) {}
 
-  resolvePath(workerId: string, kind: string, file: FileMetadata, subdir = 'verification'): FilePaths {
+  resolvePath(
+    workerId: string,
+    kind: string,
+    file: FileMetadata,
+    subdir = 'verification',
+  ): FilePaths {
     const uploadRoot = this.config.UPLOAD_DIR;
     const relativeDir = join(subdir, workerId);
     const extension = extname(file.originalname).toLowerCase() || '.jpg';

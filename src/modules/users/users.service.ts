@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
+import { WORKER_INCLUDE } from '@/common/constants/worker-includes';
 
 @Injectable()
 export class UsersService {
@@ -15,20 +16,12 @@ export class UsersService {
         status: true,
         createdAt: true,
         updatedAt: true,
-        workerProfile: {
-          include: {
-            homeBarangay: true,
-            categories: { include: { category: true } },
-            serviceAreas: { include: { barangay: true } },
-          },
-        },
+        workerProfile: { include: WORKER_INCLUDE },
         customerProfile: true,
       },
     });
 
-    if (!user) {
-      throw new NotFoundException('User not found.');
-    }
+    if (!user) throw new NotFoundException('User does not exist.');
     return user;
   }
 }

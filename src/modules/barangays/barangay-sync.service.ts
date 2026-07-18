@@ -1,4 +1,8 @@
-import { Inject, Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { Logger } from 'nestjs-pino';
@@ -79,9 +83,7 @@ export class BarangaySyncService {
     const url = `${apiUrl}/cities-municipalities/${calapanCityCode}/barangays.json`;
 
     try {
-      const response = await firstValueFrom(
-        this.http.get<PsgcBarangay[]>(url),
-      );
+      const response = await firstValueFrom(this.http.get<PsgcBarangay[]>(url));
       return response.data;
     } catch (err: unknown) {
       this.logger.error({ err }, 'Failed to fetch barangays from PSGC API');

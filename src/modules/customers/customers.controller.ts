@@ -16,8 +16,8 @@ export class CustomersController {
 
   @CheckAbility(Action.Read, 'CustomerProfile')
   @Get('profile')
-  getProfile(@CurrentUser() user: AuthJwtPayload) {
-    return this.customersService.getProfile(user.sub);
+  findProfile(@CurrentUser() user: AuthJwtPayload) {
+    return this.customersService.findProfile(user.sub);
   }
 
   @CheckAbility(Action.Create, 'CustomerProfile')

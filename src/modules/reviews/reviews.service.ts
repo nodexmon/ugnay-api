@@ -57,9 +57,8 @@ export class ReviewsService {
   }
 
   async findMyReviews(userId: string, query: FindReviewsQueryDto) {
-    const customerProfile = await this.assertions.assertCustomerProfileExists(
-      userId,
-    );
+    const customerProfile =
+      await this.assertions.assertCustomerProfileExists(userId);
 
     return this.prisma.review.findMany({
       where: { customerId: customerProfile.id },

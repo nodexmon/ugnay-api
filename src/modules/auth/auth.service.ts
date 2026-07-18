@@ -11,22 +11,27 @@ import { SmsService } from '@/modules/auth/sms/sms.service';
 import { AuthJwtService } from '@/modules/auth/jwt/jwt.service';
 import { jwtConfig } from '@/config';
 import type { ConfigType } from '@nestjs/config';
-import { Role, UserStatus } from '@/generated/prisma/enums';
-import { createHash, randomUUID, timingSafeEqual } from 'crypto';
-import { Prisma, RefreshToken, User } from '@/generated/prisma/client';
+import { Role } from '@/generated/prisma/enums';
+import { randomUUID } from 'crypto';
+import { Prisma } from '@/generated/prisma/client';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import ms from 'ms';
 import type { VerifyOtpResult } from '@/modules/auth/auth.types';
+import { AuthAssertions } from '@/modules/auth/auth.assertions';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private prisma: PrismaService,
-    private otpService: OtpService,
-    private smsService: SmsService,
-    private jwtService: AuthJwtService,
-    @Inject(jwtConfig.KEY) private config: ConfigType<typeof jwtConfig>,
+    private readonly prisma: PrismaService,
+    private readonly otpService: OtpService,
+    private readonly smsService: SmsService,
+    private readonly jwtService: AuthJwtService,
+    private readonly assertions: AuthAssertions,
+    @Inject(jwtConfig.KEY)
+    private readonly config: ConfigType<typeof jwtConfig>,
   ) {}
+
+  // ─── Public API ──────────────────────────────────────────────────────────────
 
   async sendOtp(phone: string) {
     const code = await this.otpService.createOtp(phone);
@@ -49,7 +54,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      this.assertUserCanAuthenticate(existingUser);
+      this.assertions.assertUserCanAuthenticate(existingUser);
       const tokens = await this.issueTokens(
         existingUser.id,
         existingUser.phone,
@@ -63,7 +68,8 @@ export class AuthService {
   }
 
   async register(registrationToken: string, role: Role) {
-    const payload = await this.jwtService.verifyRegistrationToken(registrationToken);
+    const payload =
+      await this.jwtService.verifyRegistrationToken(registrationToken);
     const phone = payload.sub;
 
     const existing = await this.prisma.user.findUnique({ where: { phone } });
@@ -78,11 +84,13 @@ export class AuthService {
   async refreshToken(refreshToken: string) {
     const payload = await this.jwtService.verifyRefreshToken(refreshToken);
 
-    const user = await this.assertUserExists(payload.sub);
-    this.assertUserCanAuthenticate(user);
+    const user = await this.assertions.assertUserExistsForRefresh(payload.sub);
+    this.assertions.assertUserCanAuthenticate(user);
 
-    const storedToken = await this.assertRefreshTokenExists(payload.tokenId);
-    this.assertTokenIsValid(user.id, storedToken, refreshToken);
+    const storedToken = await this.assertions.assertRefreshTokenExists(
+      payload.tokenId,
+    );
+    this.assertions.assertTokenIsValid(user.id, storedToken, refreshToken);
 
     const nextRefreshTokenId = randomUUID();
     const tokens = this.jwtService.signTokens(
@@ -102,14 +110,14 @@ export class AuthService {
       });
 
       if (revoked.count !== 1) {
-        throw new UnauthorizedException('Invalid refresh token');
+        throw new UnauthorizedException('Session is invalid.');
       }
 
       await tx.refreshToken.create({
         data: {
           id: nextRefreshTokenId,
           userId: user.id,
-          tokenHash: this.hashToken(tokens.refreshToken),
+          tokenHash: this.assertions.hashToken(tokens.refreshToken),
           expiresAt: this.refreshTokenExpiryDate(),
         },
       });
@@ -151,6 +159,8 @@ export class AuthService {
     });
   }
 
+  // ─── Private: business logic ─────────────────────────────────────────────────
+
   private async issueTokens(userId: string, phone: string, role: Role) {
     const refreshTokenId = randomUUID();
     const tokens = this.jwtService.signTokens(
@@ -164,7 +174,7 @@ export class AuthService {
       data: {
         id: refreshTokenId,
         userId,
-        tokenHash: this.hashToken(tokens.refreshToken),
+        tokenHash: this.assertions.hashToken(tokens.refreshToken),
         expiresAt: this.refreshTokenExpiryDate(),
       },
     });
@@ -172,65 +182,8 @@ export class AuthService {
     return tokens;
   }
 
-  private async assertUserExists(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-
-    if (!user) {
-      throw new UnauthorizedException('Invalid refresh token.');
-    }
-    return user;
-  }
-
-  private assertTokenIsValid(
-    userId: string,
-    storedToken: RefreshToken,
-    refreshToken: string,
-  ) {
-    if (
-      storedToken.userId !== userId ||
-      storedToken.revokedAt ||
-      storedToken.expiresAt < new Date() ||
-      !this.matchesTokenHash(refreshToken, storedToken.tokenHash)
-    ) {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
-  }
-
-  private hashToken(token: string) {
-    return createHash('sha256').update(token).digest('hex');
-  }
-
-  private matchesTokenHash(token: string, tokenHash: string) {
-    const incomingHash = this.hashToken(token);
-    const incomingBuffer = Buffer.from(incomingHash);
-    const storedBuffer = Buffer.from(tokenHash);
-
-    return (
-      incomingBuffer.length === storedBuffer.length &&
-      timingSafeEqual(incomingBuffer, storedBuffer)
-    );
-  }
-
   private refreshTokenExpiryDate() {
     return new Date(Date.now() + ms(this.config.JWT_REFRESH_EXPIRES_IN));
-  }
-
-  private assertUserCanAuthenticate(user: User) {
-    if (user.status !== UserStatus.ACTIVE) {
-      throw new UnauthorizedException('Account is inactive');
-    }
-  }
-
-  private async assertRefreshTokenExists(tokenId: string) {
-    const token = await this.prisma.refreshToken.findUnique({
-      where: { id: tokenId },
-    });
-
-    if (!token) {
-      throw new UnauthorizedException('Invalid refresh token.');
-    }
-
-    return token;
   }
 
   private async revokeTokensWhere(where: Prisma.RefreshTokenWhereInput) {

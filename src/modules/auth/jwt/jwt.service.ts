@@ -56,9 +56,12 @@ export class AuthJwtService {
     );
   }
 
-  async verifyRegistrationToken(token: string): Promise<RegistrationTokenPayload> {
+  async verifyRegistrationToken(
+    token: string,
+  ): Promise<RegistrationTokenPayload> {
     try {
-      const payload = await this.jwt.verifyAsync<RegistrationTokenPayload>(token);
+      const payload =
+        await this.jwt.verifyAsync<RegistrationTokenPayload>(token);
 
       if (payload.purpose !== 'registration') {
         throw new UnauthorizedException('Invalid registration token');

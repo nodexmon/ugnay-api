@@ -1,20 +1,11 @@
-import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import {
   BookingStatus,
-  CredentialType,
   UserStatus,
-  VerificationStatus,
   WorkerStatus,
 } from '@/generated/prisma/enums';
 import { CreateWorkerDto } from '@/modules/workers/dto/create-worker.dto';
-import { WorkerCategoryInputDto } from '@/modules/workers/dto/input-worker-category.dto';
 import { UpdateWorkerDto } from '@/modules/workers/dto/update-worker.dto';
 import { SearchWorkersDto } from '@/modules/workers/dto/search-workers.dto';
 import type { UploadedVerificationFiles } from '@/modules/workers/workers.types';
@@ -27,6 +18,7 @@ import {
   WORKER_INCLUDE,
 } from '@/common/constants/worker-includes';
 import { UsersAssertions } from '../users/users.assertions';
+import { CredentialType } from '@/generated/prisma/enums';
 
 @Injectable()
 export class WorkersService {
@@ -37,7 +29,7 @@ export class WorkersService {
     private readonly usersAssertions: UsersAssertions,
   ) {}
 
-  // ─── Public API ──────────────────────────────────────────────────────────
+  // ─── Public API ──────────────────────────────────────────────────────────────
 
   async search(query: SearchWorkersDto) {
     const {
@@ -104,12 +96,14 @@ export class WorkersService {
   async createProfile(userId: string, dto: CreateWorkerDto) {
     await this.usersAssertions.assertUserIsActive(userId);
     await this.assertions.assertProfileDoesNotExist(userId);
-    await this.validateCategories(dto.categories);
+    await this.assertions.assertCategoriesAreValid(
+      dto.categories.map((c) => c.categoryId),
+    );
 
     const barangayIds = [
       ...new Set([dto.homeBarangayId, ...(dto.serviceAreaBarangayIds ?? [])]),
     ];
-    await this.validateBarangays(barangayIds);
+    await this.assertions.assertBarangaysAreValid(barangayIds);
 
     return this.prisma.workerProfile.create({
       data: {
@@ -147,11 +141,13 @@ export class WorkersService {
           ...(dto.serviceAreaBarangayIds ?? []),
         ]),
       ];
-      await this.validateBarangays(barangayIds);
+      await this.assertions.assertBarangaysAreValid(barangayIds);
     }
 
     if (dto.categories) {
-      await this.validateCategories(dto.categories);
+      await this.assertions.assertCategoriesAreValid(
+        dto.categories.map((c) => c.categoryId),
+      );
     }
 
     return this.prisma.$transaction(async (tx: TransactionClient) => {
@@ -196,10 +192,8 @@ export class WorkersService {
   async setAvailability(userId: string, isOnline: boolean) {
     const worker = await this.getOwnProfile(userId);
 
-    if (isOnline && worker.status !== WorkerStatus.VERIFIED) {
-      throw new ForbiddenException(
-        'Worker must be verified before going online',
-      );
+    if (isOnline) {
+      this.assertions.assertWorkerCanGoOnline(worker);
     }
 
     return this.prisma.workerProfile.update({
@@ -211,14 +205,7 @@ export class WorkersService {
 
   async submitVerification(userId: string, files: UploadedVerificationFiles) {
     const worker = await this.getOwnProfile(userId);
-
-    if (worker.status === WorkerStatus.VERIFIED) {
-      throw new ConflictException('Worker is already verified');
-    }
-
-    if (worker.status === WorkerStatus.SUSPENDED) {
-      throw new ForbiddenException('Worker account is suspended');
-    }
+    this.assertions.assertWorkerCanSubmitVerification(worker);
 
     const idPhoto = files.idPhoto[0];
     const selfie = files.selfie[0];
@@ -240,24 +227,11 @@ export class WorkersService {
     ]);
 
     return this.prisma.$transaction(async (tx: TransactionClient) => {
-      const pendingDoc = await tx.verificationDoc.findFirst({
-        where: { workerId: worker.id, status: VerificationStatus.PENDING },
-      });
-
-      if (pendingDoc)
-        throw new ConflictException(
-          'A verification submission is already pending',
-        );
-
-      const rejectedCount = await tx.verificationDoc.count({
-        where: { workerId: worker.id, status: VerificationStatus.REJECTED },
-      });
-
-      if (rejectedCount >= 2) {
-        throw new ForbiddenException(
-          'Verification reapplication limit has been reached.',
-        );
-      }
+      await this.assertions.assertNoPendingVerification(worker.id, tx);
+      await this.assertions.assertVerificationReapplicationAllowed(
+        worker.id,
+        tx,
+      );
 
       await tx.workerProfile.update({
         where: { id: worker.id },
@@ -291,20 +265,7 @@ export class WorkersService {
     await this.fileStorage.write(credentialPath, file);
 
     return this.prisma.$transaction(async (tx: TransactionClient) => {
-      const activeCount = await tx.workerCredential.count({
-        where: {
-          workerId: worker.id,
-          status: {
-            in: [VerificationStatus.PENDING, VerificationStatus.APPROVED],
-          },
-        },
-      });
-
-      if (activeCount >= 5) {
-        throw new BadRequestException(
-          'Maximum of 5 active credentials allowed',
-        );
-      }
+      await this.assertions.assertActiveCredentialCountUnder(worker.id, tx);
 
       return tx.workerCredential.create({
         data: { workerId: worker.id, type, fileUrl: credentialPath.relative },
@@ -312,53 +273,13 @@ export class WorkersService {
     });
   }
 
+  // ─── Private: business logic ─────────────────────────────────────────────────
+
   private async getOwnProfile(userId: string) {
     const worker = await this.prisma.workerProfile.findUnique({
       where: { userId },
     });
-    if (!worker) {
-      throw new NotFoundException('Worker profile not found.');
-    }
+    if (!worker) throw new NotFoundException('Worker profile not found.');
     return worker;
-  }
-
-  // ─── Private: business logic ─────────────────────────────────────────────
-
-  private async validateActiveEntities(
-    ids: string[],
-    countFn: (ids: string[]) => Promise<number>,
-    label: string,
-  ): Promise<void> {
-    this.assertions.assertUnique(ids, label);
-    const count = await countFn(ids);
-    if (count !== ids.length) {
-      throw new BadRequestException(
-        `One or more ${label} are invalid or inactive`,
-      );
-    }
-  }
-
-  private async validateBarangays(barangayIds: string[]): Promise<void> {
-    await this.validateActiveEntities(
-      barangayIds,
-      (ids) =>
-        this.prisma.barangay.count({
-          where: { id: { in: ids }, isActive: true },
-        }),
-      'barangays',
-    );
-  }
-
-  private async validateCategories(
-    categories: WorkerCategoryInputDto[],
-  ): Promise<void> {
-    await this.validateActiveEntities(
-      categories.map((c) => c.categoryId),
-      (ids) =>
-        this.prisma.serviceCategory.count({
-          where: { id: { in: ids }, isActive: true },
-        }),
-      'categories',
-    );
   }
 }

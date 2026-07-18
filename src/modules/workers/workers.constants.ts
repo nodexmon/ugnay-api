@@ -1,0 +1,2 @@
+export const MAX_ACTIVE_CREDENTIALS = 5;
+export const MAX_VERIFICATION_REJECTIONS = 2;

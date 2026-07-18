@@ -23,21 +23,6 @@ describe('UsersAssertions', () => {
     assertions = module.get<UsersAssertions>(UsersAssertions);
   });
 
-  describe('assertUserExists', () => {
-    it('returns the user when found', async () => {
-      prisma.user.findUnique.mockResolvedValue(activeUser);
-      const result = await assertions.assertUserExists('user-id');
-      expect(result).toEqual(activeUser);
-    });
-
-    it('throws NotFoundException when user does not exist', async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
-      await expect(
-        assertions.assertUserExists('missing'),
-      ).rejects.toBeInstanceOf(NotFoundException);
-    });
-  });
-
   describe('assertUserIsActive', () => {
     it('returns the user when found and ACTIVE', async () => {
       prisma.user.findUnique.mockResolvedValue(activeUser);
@@ -45,11 +30,11 @@ describe('UsersAssertions', () => {
       expect(result).toEqual(activeUser);
     });
 
-    it('throws ForbiddenException when user does not exist', async () => {
+    it('throws NotFoundException when user does not exist', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
       await expect(
         assertions.assertUserIsActive('missing'),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('throws ForbiddenException when user is not ACTIVE', async () => {

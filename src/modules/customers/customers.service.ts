@@ -1,32 +1,24 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { CustomersAssertions } from './customers.assertions';
 
 @Injectable()
 export class CustomersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly assertions: CustomersAssertions,
+  ) {}
 
-  // ─── Public API ──────────────────────────────────────────────────────────
+  // ─── Public API ──────────────────────────────────────────────────────────────
 
-  async getProfile(userId: string) {
-    const profile = await this.prisma.customerProfile.findUnique({
-      where: { userId },
-    });
-    if (!profile) throw new NotFoundException('Customer profile not found.');
-    return profile;
+  async findProfile(userId: string) {
+    return this.assertions.assertCustomerProfileExists(userId);
   }
 
   async createProfile(userId: string, dto: CreateCustomerDto) {
-    const existing = await this.prisma.customerProfile.findUnique({
-      where: { userId },
-    });
-    if (existing)
-      throw new ConflictException('Customer profile already exists.');
+    await this.assertions.assertCustomerProfileDoesNotExist(userId);
 
     return this.prisma.customerProfile.create({
       data: {
@@ -39,7 +31,7 @@ export class CustomersService {
   }
 
   async updateProfile(userId: string, dto: UpdateCustomerDto) {
-    await this.getProfile(userId);
+    await this.assertions.assertCustomerProfileExists(userId);
     return this.prisma.customerProfile.update({
       where: { userId },
       data: {

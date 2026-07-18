@@ -1,6 +1,15 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { CredentialType, UserStatus, VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
+import {
+  CredentialType,
+  UserStatus,
+  VerificationStatus,
+  WorkerStatus,
+} from '@/generated/prisma/enums';
 import { PrismaService } from '@/prisma/prisma.service';
 import { WorkersService } from '@/modules/workers/workers.service';
 import { FileStorageService } from '@/modules/workers/file-storage.service';
@@ -12,7 +21,11 @@ describe('WorkersService', () => {
 
   const tx = {
     workerProfile: { update: jest.fn() },
-    verificationDoc: { findFirst: jest.fn(), count: jest.fn(), create: jest.fn() },
+    verificationDoc: {
+      findFirst: jest.fn(),
+      count: jest.fn(),
+      create: jest.fn(),
+    },
     workerCredential: { count: jest.fn(), create: jest.fn() },
   };
 
@@ -50,6 +63,13 @@ describe('WorkersService', () => {
   const assertions = {
     assertProfileDoesNotExist: jest.fn(),
     assertUnique: jest.fn(),
+    assertWorkerCanGoOnline: jest.fn(),
+    assertWorkerCanSubmitVerification: jest.fn(),
+    assertNoPendingVerification: jest.fn(),
+    assertVerificationReapplicationAllowed: jest.fn(),
+    assertActiveCredentialCountUnder: jest.fn(),
+    assertBarangaysAreValid: jest.fn(),
+    assertCategoriesAreValid: jest.fn(),
   };
 
   const usersAssertions = {
@@ -110,9 +130,9 @@ describe('WorkersService', () => {
       id: 'user-id',
       status: UserStatus.ACTIVE,
     });
-    assertions.assertUnique.mockImplementationOnce(() => {
-      throw new BadRequestException('Duplicate categories are not allowed');
-    });
+    assertions.assertCategoriesAreValid.mockRejectedValueOnce(
+      new BadRequestException('Duplicate categories are not allowed.'),
+    );
 
     await expect(
       service.createProfile('user-id', {
@@ -134,6 +154,11 @@ describe('WorkersService', () => {
       id: 'worker-id',
       status: WorkerStatus.PENDING,
     });
+    assertions.assertWorkerCanGoOnline.mockImplementationOnce(() => {
+      throw new ForbiddenException(
+        'Worker must be verified before going online.',
+      );
+    });
 
     await expect(
       service.setAvailability('user-id', true),
@@ -154,30 +179,47 @@ describe('WorkersService', () => {
     };
 
     beforeEach(() => {
-      prisma.workerProfile.findUnique.mockResolvedValue({ id: 'worker-id', status: WorkerStatus.VERIFIED });
+      prisma.workerProfile.findUnique.mockResolvedValue({
+        id: 'worker-id',
+        status: WorkerStatus.VERIFIED,
+      });
       fileStorage.resolvePath.mockReturnValue(credentialPath);
       fileStorage.write.mockResolvedValue(undefined);
     });
 
     it('creates a credential record and writes the file', async () => {
-      const created = { id: 'cred-id', type: CredentialType.LICENSE, status: VerificationStatus.PENDING };
-      tx.workerCredential.count.mockResolvedValue(0);
+      const created = {
+        id: 'cred-id',
+        type: CredentialType.LICENSE,
+        status: VerificationStatus.PENDING,
+      };
       tx.workerCredential.create.mockResolvedValue(created);
 
-      const result = await service.uploadCredential('user-id', CredentialType.LICENSE, file);
+      const result = await service.uploadCredential(
+        'user-id',
+        CredentialType.LICENSE,
+        file,
+      );
 
       expect(result).toBe(created);
       expect(tx.workerCredential.create).toHaveBeenCalledWith({
-        data: { workerId: 'worker-id', type: CredentialType.LICENSE, fileUrl: credentialPath.relative },
+        data: {
+          workerId: 'worker-id',
+          type: CredentialType.LICENSE,
+          fileUrl: credentialPath.relative,
+        },
       });
       expect(fileStorage.write).toHaveBeenCalledWith(credentialPath, file);
     });
 
     it('resolves the file path in the credentials subdirectory', async () => {
-      tx.workerCredential.count.mockResolvedValue(0);
       tx.workerCredential.create.mockResolvedValue({});
 
-      await service.uploadCredential('user-id', CredentialType.CERTIFICATION, file);
+      await service.uploadCredential(
+        'user-id',
+        CredentialType.CERTIFICATION,
+        file,
+      );
 
       expect(fileStorage.resolvePath).toHaveBeenCalledWith(
         'worker-id',
@@ -188,7 +230,9 @@ describe('WorkersService', () => {
     });
 
     it('throws BadRequestException when the worker already has 5 active credentials', async () => {
-      tx.workerCredential.count.mockResolvedValue(5);
+      assertions.assertActiveCredentialCountUnder.mockRejectedValueOnce(
+        new BadRequestException('Maximum of 5 active credentials allowed.'),
+      );
 
       await expect(
         service.uploadCredential('user-id', CredentialType.LICENSE, file),

@@ -1,16 +1,22 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { CustomersService } from './customers.service';
+import { CustomersAssertions } from './customers.assertions';
 import { PrismaService } from '@/prisma/prisma.service';
 
 describe('CustomersService', () => {
   let service: CustomersService;
+
   const prisma = {
     customerProfile: {
-      findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     },
+  };
+
+  const assertions = {
+    assertCustomerProfileExists: jest.fn(),
+    assertCustomerProfileDoesNotExist: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -19,6 +25,7 @@ describe('CustomersService', () => {
       providers: [
         CustomersService,
         { provide: PrismaService, useValue: prisma },
+        { provide: CustomersAssertions, useValue: assertions },
       ],
     }).compile();
 
@@ -26,14 +33,18 @@ describe('CustomersService', () => {
   });
 
   it('throws NotFoundException when profile does not exist', async () => {
-    prisma.customerProfile.findUnique.mockResolvedValue(null);
-    await expect(service.getProfile('user-id')).rejects.toBeInstanceOf(
+    assertions.assertCustomerProfileExists.mockRejectedValueOnce(
+      new NotFoundException('Customer profile not found.'),
+    );
+    await expect(service.findProfile('user-id')).rejects.toBeInstanceOf(
       NotFoundException,
     );
   });
 
   it('throws ConflictException when profile already exists on create', async () => {
-    prisma.customerProfile.findUnique.mockResolvedValue({ id: 'profile-id' });
+    assertions.assertCustomerProfileDoesNotExist.mockRejectedValueOnce(
+      new ConflictException('Customer profile already exists.'),
+    );
     await expect(
       service.createProfile('user-id', {
         firstName: 'Ana',
@@ -43,7 +54,6 @@ describe('CustomersService', () => {
   });
 
   it('creates a profile when none exists', async () => {
-    prisma.customerProfile.findUnique.mockResolvedValue(null);
     prisma.customerProfile.create.mockResolvedValue({
       id: 'profile-id',
       firstName: 'Ana',

@@ -6,6 +6,7 @@ import { AuthJwtService } from '@/modules/auth/jwt/jwt.service';
 import { OtpService } from '@/modules/auth/otp/otp.service';
 import { SmsService } from '@/modules/auth/sms/sms.service';
 import { AuthService } from '@/modules/auth/auth.service';
+import { AuthAssertions } from '@/modules/auth/auth.assertions';
 import { jwtConfig } from '@/config';
 
 const mockJwtConfig = {
@@ -24,6 +25,7 @@ const activeUser = {
 
 describe('AuthService', () => {
   let service: AuthService;
+
   const prisma = {
     user: {
       findUnique: jest.fn(),
@@ -36,13 +38,24 @@ describe('AuthService', () => {
     },
     $transaction: jest.fn(),
   };
+
+  const authAssertions = {
+    assertUserCanAuthenticate: jest.fn(),
+    assertUserExistsForRefresh: jest.fn(),
+    assertRefreshTokenExists: jest.fn(),
+    assertTokenIsValid: jest.fn(),
+    hashToken: jest.fn().mockReturnValue('hashed-token'),
+  };
+
   const otpService = {
     createOtp: jest.fn(),
     verifyOtp: jest.fn(),
   };
+
   const smsService = {
     sendSms: jest.fn(),
   };
+
   const jwtService = {
     signTokens: jest.fn(),
     verifyRefreshToken: jest.fn(),
@@ -57,10 +70,13 @@ describe('AuthService', () => {
       refreshToken: 'refresh',
     });
     jwtService.signRegistrationToken.mockReturnValue('reg-token');
+    authAssertions.hashToken.mockReturnValue('hashed-token');
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: PrismaService, useValue: prisma },
+        { provide: AuthAssertions, useValue: authAssertions },
         { provide: OtpService, useValue: otpService },
         { provide: SmsService, useValue: smsService },
         { provide: AuthJwtService, useValue: jwtService },
@@ -109,8 +125,13 @@ describe('AuthService', () => {
 
       const result = await service.verifyOtp('+639171234567', '123456');
 
-      expect(result).toEqual({ type: 'registration', registrationToken: 'reg-token' });
-      expect(jwtService.signRegistrationToken).toHaveBeenCalledWith('+639171234567');
+      expect(result).toEqual({
+        type: 'registration',
+        registrationToken: 'reg-token',
+      });
+      expect(jwtService.signRegistrationToken).toHaveBeenCalledWith(
+        '+639171234567',
+      );
       expect(jwtService.signTokens).not.toHaveBeenCalled();
     });
 
@@ -120,10 +141,13 @@ describe('AuthService', () => {
         ...activeUser,
         status: UserStatus.SUSPENDED,
       });
+      authAssertions.assertUserCanAuthenticate.mockImplementationOnce(() => {
+        throw new UnauthorizedException('Account is inactive.');
+      });
 
-      await expect(service.verifyOtp('+639171234567', '123456')).rejects.toBeInstanceOf(
-        UnauthorizedException,
-      );
+      await expect(
+        service.verifyOtp('+639171234567', '123456'),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
     });
   });
 
@@ -142,7 +166,10 @@ describe('AuthService', () => {
       expect(prisma.user.create).toHaveBeenCalledWith({
         data: { phone: '+639171234567', role: Role.WORKER },
       });
-      expect(result).toEqual({ accessToken: 'access', refreshToken: 'refresh' });
+      expect(result).toEqual({
+        accessToken: 'access',
+        refreshToken: 'refresh',
+      });
     });
 
     it('throws ConflictException if phone already registered', async () => {
@@ -152,9 +179,9 @@ describe('AuthService', () => {
       });
       prisma.user.findUnique.mockResolvedValue(activeUser);
 
-      await expect(service.register('reg-token', Role.WORKER)).rejects.toBeInstanceOf(
-        ConflictException,
-      );
+      await expect(
+        service.register('reg-token', Role.WORKER),
+      ).rejects.toBeInstanceOf(ConflictException);
     });
 
     it('throws UnauthorizedException for invalid registration token', async () => {
@@ -162,9 +189,9 @@ describe('AuthService', () => {
         new UnauthorizedException('Invalid registration token'),
       );
 
-      await expect(service.register('bad-token', Role.WORKER)).rejects.toBeInstanceOf(
-        UnauthorizedException,
-      );
+      await expect(
+        service.register('bad-token', Role.WORKER),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
     });
   });
 });

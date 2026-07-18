@@ -20,7 +20,10 @@ import { PaginationDto } from '@/common/dto/pagination.dto';
 import { AuthJwtPayload } from '../auth/auth.types';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
-import { WORKER_INCLUDE } from '@/common/constants/worker-includes';
+import {
+  ADMIN_WORKER_INCLUDE,
+  WORKER_INCLUDE,
+} from '@/common/constants/worker-includes';
 import { AdminAssertions } from './admin.assertions';
 import { BarangaySyncService } from '@/modules/barangays/barangay-sync.service';
 import { applyStrike } from '@/common/utils/strike.util';
@@ -34,7 +37,7 @@ export class AdminService {
     private readonly barangaySync: BarangaySyncService,
   ) {}
 
-  // ─── Public API ──────────────────────────────────────────────────────────
+  // ─── Public API ──────────────────────────────────────────────────────────────
 
   syncBarangays() {
     return this.barangaySync.syncBarangays();
@@ -45,16 +48,7 @@ export class AdminService {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.verificationDoc.findMany({
         where,
-        include: {
-          worker: {
-            include: {
-              user: { select: { id: true, phone: true, status: true } },
-              homeBarangay: true,
-              categories: { include: { category: true } },
-              serviceAreas: { include: { barangay: true } },
-            },
-          },
-        },
+        include: { worker: { include: ADMIN_WORKER_INCLUDE } },
         orderBy: { createdAt: 'asc' },
         skip: query.skip,
         take: query.take,
@@ -65,7 +59,7 @@ export class AdminService {
   }
 
   async approveVerification(docId: string, user: AuthJwtPayload) {
-    const doc = await this.getPendingVerification(docId);
+    const doc = await this.assertions.findPendingVerification(docId);
     await this.assertions.assertWorkerIsUnverified(doc.workerId);
 
     return this.prisma
@@ -101,7 +95,7 @@ export class AdminService {
     user: AuthJwtPayload,
     reason: string,
   ) {
-    const doc = await this.getPendingVerification(docId);
+    const doc = await this.assertions.findPendingVerification(docId);
 
     return this.prisma
       .$transaction(async (tx: TransactionClient) => {
@@ -358,16 +352,7 @@ export class AdminService {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.workerCredential.findMany({
         where,
-        include: {
-          worker: {
-            include: {
-              user: { select: { id: true, phone: true, status: true } },
-              homeBarangay: true,
-              categories: { include: { category: true } },
-              serviceAreas: { include: { barangay: true } },
-            },
-          },
-        },
+        include: { worker: { include: ADMIN_WORKER_INCLUDE } },
         orderBy: { createdAt: 'asc' },
         skip: query.skip,
         take: query.take,
@@ -378,7 +363,8 @@ export class AdminService {
   }
 
   async approveCredential(credentialId: string, user: AuthJwtPayload) {
-    const credential = await this.getPendingCredential(credentialId);
+    const credential =
+      await this.assertions.findPendingCredential(credentialId);
 
     return this.prisma
       .$transaction(async (tx: TransactionClient) => {
@@ -407,7 +393,8 @@ export class AdminService {
     user: AuthJwtPayload,
     reason: string,
   ) {
-    const credential = await this.getPendingCredential(credentialId);
+    const credential =
+      await this.assertions.findPendingCredential(credentialId);
 
     return this.prisma
       .$transaction(async (tx: TransactionClient) => {
@@ -430,39 +417,5 @@ export class AdminService {
           .catch(() => {});
         return result;
       });
-  }
-
-  // ─── Private: business logic ─────────────────────────────────────────────
-
-  private async getPendingCredential(id: string) {
-    const credential = await this.prisma.workerCredential.findUnique({
-      where: { id },
-      include: { worker: { select: { userId: true } } },
-    });
-
-    if (!credential) throw new NotFoundException('Credential not found.');
-
-    if (credential.status !== VerificationStatus.PENDING) {
-      throw new ConflictException('Credential has already been reviewed.');
-    }
-
-    return credential;
-  }
-
-  private async getPendingVerification(id: string) {
-    const doc = await this.prisma.verificationDoc.findUnique({
-      where: { id },
-      include: { worker: { select: { userId: true } } },
-    });
-
-    if (!doc) throw new NotFoundException('Verification submission not found.');
-
-    if (doc.status !== VerificationStatus.PENDING) {
-      throw new ConflictException(
-        'Verification submission has already been reviewed',
-      );
-    }
-
-    return doc;
   }
 }

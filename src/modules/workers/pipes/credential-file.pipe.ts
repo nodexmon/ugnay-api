@@ -1,7 +1,12 @@
 import { BadRequestException, Injectable, PipeTransform } from '@nestjs/common';
 import type { AvatarFile } from '@/uploads/uploads.types';
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+const ALLOWED_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/pdf',
+];
 const MAX_BYTES = 5 * 1024 * 1024;
 
 @Injectable()
