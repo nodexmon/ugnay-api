@@ -341,3 +341,26 @@ July 18, 2026 — OCD-driven full codebase standardization pass (branch: refacto
   users.controller, bookings.controller — each test verifies correct delegation and return value
 - Test count: 187 → 216 (all passing)
 
+---
+
+July 18, 2026 — assertions convention standardization (branch: refactor/standardize-assertions-convention)
+
+- Established strict naming rule: `assert*` methods always return `void`/`Promise<void>` (validate + throw only);
+  methods that fetch-validate-return an entity use the `find*` or `resolve*` prefix
+- Bucket A (converted to void — callers never used the return value):
+  categories.assertCategoryExists, admin.assertBookingExists, admin.assertUserExists;
+  removed unused return statements and trimmed stale imports
+- Bucket B (renamed to find* — callers consume the returned entity):
+  bookings.assertBookingExists → findBooking, admin.assertWorkerProfileExists → findWorkerProfile,
+  users.assertUserIsActive → findActiveUser, auth.assertUserExistsForRefresh → findUserForRefresh,
+  auth.assertRefreshTokenExists → findRefreshToken,
+  reviews.assertBookingExistsAndCompleted → findCompletedBooking,
+  reviews.assertCustomerProfileExists → findCustomerProfile,
+  customers.assertCustomerProfileExists → findCustomerProfile
+- Updated all call sites across bookings.service, admin.service, auth.service, reviews.service,
+  customers.service, workers.service
+- Updated all spec mock objects and describe block names to match new method names
+- Updated CLAUDE.md: documented the two-tier assert*/find* convention replacing the old single-tier rule;
+  corrected false reference to nonexistent assert.util.ts; noted strike.util.ts as the only real shared util
+- Test count: 216 → 216 (all passing)
+

@@ -40,18 +40,18 @@ describe('BookingsAssertions', () => {
     });
   });
 
-  describe('assertBookingExists', () => {
+  describe('findBooking', () => {
     it('returns the booking when found', async () => {
       prisma.booking.findUnique.mockResolvedValue(pendingBooking);
-      const result = await assertions.assertBookingExists('booking-id');
+      const result = await assertions.findBooking('booking-id');
       expect(result).toEqual(pendingBooking);
     });
 
     it('throws NotFoundException when booking does not exist', async () => {
       prisma.booking.findUnique.mockResolvedValue(null);
-      await expect(
-        assertions.assertBookingExists('missing'),
-      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(assertions.findBooking('missing')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 

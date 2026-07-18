@@ -5,13 +5,13 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
-import type { Booking, User, WorkerProfile } from '@/generated/prisma/client';
+import type { WorkerProfile } from '@/generated/prisma/client';
 
 @Injectable()
 export class AdminAssertions {
   constructor(private readonly prisma: PrismaService) {}
 
-  async assertWorkerProfileExists(workerId: string): Promise<WorkerProfile> {
+  async findWorkerProfile(workerId: string): Promise<WorkerProfile> {
     const worker = await this.prisma.workerProfile.findUnique({
       where: { id: workerId },
     });
@@ -20,24 +20,22 @@ export class AdminAssertions {
   }
 
   async assertWorkerIsUnverified(workerId: string): Promise<void> {
-    const worker = await this.assertWorkerProfileExists(workerId);
+    const worker = await this.findWorkerProfile(workerId);
     if (worker.status === WorkerStatus.VERIFIED) {
       throw new ConflictException('Worker is already verified.');
     }
   }
 
-  async assertBookingExists(bookingId: string): Promise<Booking> {
+  async assertBookingExists(bookingId: string): Promise<void> {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
     });
     if (!booking) throw new NotFoundException('Booking not found.');
-    return booking;
   }
 
-  async assertUserExists(userId: string): Promise<User> {
+  async assertUserExists(userId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User does not exist.');
-    return user;
   }
 
   async findPendingVerification(docId: string) {

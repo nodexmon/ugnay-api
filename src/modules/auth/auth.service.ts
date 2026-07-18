@@ -84,12 +84,10 @@ export class AuthService {
   async refreshToken(refreshToken: string) {
     const payload = await this.jwtService.verifyRefreshToken(refreshToken);
 
-    const user = await this.assertions.assertUserExistsForRefresh(payload.sub);
+    const user = await this.assertions.findUserForRefresh(payload.sub);
     this.assertions.assertUserCanAuthenticate(user);
 
-    const storedToken = await this.assertions.assertRefreshTokenExists(
-      payload.tokenId,
-    );
+    const storedToken = await this.assertions.findRefreshToken(payload.tokenId);
     this.assertions.assertTokenIsValid(user.id, storedToken, refreshToken);
 
     const nextRefreshTokenId = randomUUID();

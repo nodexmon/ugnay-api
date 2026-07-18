@@ -65,7 +65,7 @@ describe('AdminService', () => {
   const assertions = {
     assertWorkerIsUnverified: jest.fn(),
     assertUserExists: jest.fn(),
-    assertWorkerProfileExists: jest.fn(),
+    findWorkerProfile: jest.fn(),
     assertBookingExists: jest.fn(),
     findPendingVerification: jest.fn(),
     findPendingCredential: jest.fn(),

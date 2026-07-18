@@ -29,17 +29,17 @@ describe('AdminAssertions', () => {
     assertions = module.get<AdminAssertions>(AdminAssertions);
   });
 
-  describe('assertWorkerProfileExists', () => {
+  describe('findWorkerProfile', () => {
     it('returns the worker profile when found', async () => {
       prisma.workerProfile.findUnique.mockResolvedValue(workerProfile);
-      const result = await assertions.assertWorkerProfileExists('worker-id');
+      const result = await assertions.findWorkerProfile('worker-id');
       expect(result).toEqual(workerProfile);
     });
 
     it('throws NotFoundException when worker profile does not exist', async () => {
       prisma.workerProfile.findUnique.mockResolvedValue(null);
       await expect(
-        assertions.assertWorkerProfileExists('missing'),
+        assertions.findWorkerProfile('missing'),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
@@ -68,10 +68,11 @@ describe('AdminAssertions', () => {
   });
 
   describe('assertBookingExists', () => {
-    it('returns the booking when found', async () => {
+    it('does not throw when booking is found', async () => {
       prisma.booking.findUnique.mockResolvedValue(booking);
-      const result = await assertions.assertBookingExists('booking-id');
-      expect(result).toEqual(booking);
+      await expect(
+        assertions.assertBookingExists('booking-id'),
+      ).resolves.not.toThrow();
     });
 
     it('throws NotFoundException when booking does not exist', async () => {
@@ -83,10 +84,11 @@ describe('AdminAssertions', () => {
   });
 
   describe('assertUserExists', () => {
-    it('returns the user when found', async () => {
+    it('does not throw when user is found', async () => {
       prisma.user.findUnique.mockResolvedValue(user);
-      const result = await assertions.assertUserExists('user-id');
-      expect(result).toEqual(user);
+      await expect(
+        assertions.assertUserExists('user-id'),
+      ).resolves.not.toThrow();
     });
 
     it('throws NotFoundException when user does not exist', async () => {

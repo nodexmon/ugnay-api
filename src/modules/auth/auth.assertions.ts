@@ -8,7 +8,7 @@ import { createHash, timingSafeEqual } from 'crypto';
 export class AuthAssertions {
   constructor(private readonly prisma: PrismaService) {}
 
-  async assertUserExistsForRefresh(userId: string): Promise<User> {
+  async findUserForRefresh(userId: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('Invalid refresh token.');
     return user;
@@ -20,7 +20,7 @@ export class AuthAssertions {
     }
   }
 
-  async assertRefreshTokenExists(tokenId: string): Promise<RefreshToken> {
+  async findRefreshToken(tokenId: string): Promise<RefreshToken> {
     const token = await this.prisma.refreshToken.findUnique({
       where: { id: tokenId },
     });

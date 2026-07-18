@@ -14,7 +14,7 @@ export class CustomersService {
   // ─── Public API ──────────────────────────────────────────────────────────────
 
   async findProfile(userId: string) {
-    return this.assertions.assertCustomerProfileExists(userId);
+    return this.assertions.findCustomerProfile(userId);
   }
 
   async createProfile(userId: string, dto: CreateCustomerDto) {
@@ -31,7 +31,7 @@ export class CustomersService {
   }
 
   async updateProfile(userId: string, dto: UpdateCustomerDto) {
-    await this.assertions.assertCustomerProfileExists(userId);
+    await this.assertions.findCustomerProfile(userId);
     return this.prisma.customerProfile.update({
       where: { userId },
       data: {

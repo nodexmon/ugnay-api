@@ -73,7 +73,7 @@ describe('WorkersService', () => {
   };
 
   const usersAssertions = {
-    assertUserIsActive: jest.fn(),
+    findActiveUser: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -126,7 +126,7 @@ describe('WorkersService', () => {
   });
 
   it('rejects duplicate worker categories during profile creation', async () => {
-    usersAssertions.assertUserIsActive.mockResolvedValueOnce({
+    usersAssertions.findActiveUser.mockResolvedValueOnce({
       id: 'user-id',
       status: UserStatus.ACTIVE,
     });

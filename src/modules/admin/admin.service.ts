@@ -160,9 +160,7 @@ export class AdminService {
   }
 
   async strikeWorker(user: AuthJwtPayload, dto: StrikeWorkerDto) {
-    const worker = await this.assertions.assertWorkerProfileExists(
-      dto.workerId,
-    );
+    const worker = await this.assertions.findWorkerProfile(dto.workerId);
     if (dto.bookingId) {
       await this.assertions.assertBookingExists(dto.bookingId);
     }

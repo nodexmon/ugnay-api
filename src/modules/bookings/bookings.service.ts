@@ -133,7 +133,7 @@ export class BookingsService {
   }
 
   async create(user: AuthJwtPayload, dto: CreateBookingDto) {
-    await this.usersAssertions.assertUserIsActive(user.sub);
+    await this.usersAssertions.findActiveUser(user.sub);
 
     const customerId = await this.assertions.resolveProfileId(
       user.sub,
@@ -252,8 +252,8 @@ export class BookingsService {
       throw new ForbiddenException('Insufficient permissions.');
     }
 
-    await this.usersAssertions.assertUserIsActive(user.sub);
-    const booking = await this.assertions.assertBookingExists(bookingId);
+    await this.usersAssertions.findActiveUser(user.sub);
+    const booking = await this.assertions.findBooking(bookingId);
     const profileId = await this.assertions.resolveProfileId(
       user.sub,
       user.role,
@@ -345,8 +345,8 @@ export class BookingsService {
     bookingId: string,
     ...allowedStatuses: BookingStatus[]
   ): Promise<{ activeUser: User; booking: Booking; profileId: string }> {
-    const activeUser = await this.usersAssertions.assertUserIsActive(userId);
-    const booking = await this.assertions.assertBookingExists(bookingId);
+    const activeUser = await this.usersAssertions.findActiveUser(userId);
+    const booking = await this.assertions.findBooking(bookingId);
 
     this.assertions.assertBookingInStatus(booking.status, ...allowedStatuses);
 

@@ -16,9 +16,7 @@ type ReviewableBooking = Pick<
 export class ReviewsAssertions {
   constructor(private readonly prisma: PrismaService) {}
 
-  async assertBookingExistsAndCompleted(
-    bookingId: string,
-  ): Promise<ReviewableBooking> {
+  async findCompletedBooking(bookingId: string): Promise<ReviewableBooking> {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       select: { id: true, status: true, workerId: true, customerId: true },
@@ -46,7 +44,7 @@ export class ReviewsAssertions {
     }
   }
 
-  async assertCustomerProfileExists(userId: string): Promise<{ id: string }> {
+  async findCustomerProfile(userId: string): Promise<{ id: string }> {
     const profile = await this.prisma.customerProfile.findUnique({
       where: { userId },
       select: { id: true },
