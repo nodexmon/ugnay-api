@@ -4,7 +4,10 @@ Apply these standards when writing or fixing spec files in this project.
 - Use `Test.createTestingModule` from `@nestjs/testing` — never instantiate classes manually.
 - Provide only what the class under test actually injects. Do not import real modules.
 - Mock every dependency with a plain object of `jest.fn()` values — no real DB, no real HTTP, no file system.
-- For `PrismaService`: `{ provide: PrismaService, useValue: { modelName: { findUnique: jest.fn(), ... } } }`
+- For **service specs**: mock the assertions class, not Prisma directly:
+  `{ provide: BookingsAssertions, useValue: { assertX: jest.fn(), findX: jest.fn() } }`
+- For **assertions specs**: mock `PrismaService` directly:
+  `{ provide: PrismaService, useValue: { modelName: { findUnique: jest.fn(), ... } } }`
 - For config tokens: `{ provide: jwtConfig.KEY, useValue: { JWT_SECRET: '...', ... } }`
 - Call `jest.clearAllMocks()` in `beforeEach` — never rely on state from a prior test.
 
