@@ -27,7 +27,7 @@ describe('BookingsController', () => {
         },
         {
           provide: UsersAssertions,
-          useValue: { assertUserExists: jest.fn() },
+          useValue: { assertUserIsActive: jest.fn() },
         },
         {
           provide: NotificationsService,
