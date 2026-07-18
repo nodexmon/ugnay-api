@@ -15,7 +15,7 @@ describe('CustomersService', () => {
   };
 
   const assertions = {
-    assertCustomerProfileExists: jest.fn(),
+    findCustomerProfile: jest.fn(),
     assertCustomerProfileDoesNotExist: jest.fn(),
   };
 
@@ -33,7 +33,7 @@ describe('CustomersService', () => {
   });
 
   it('throws NotFoundException when profile does not exist', async () => {
-    assertions.assertCustomerProfileExists.mockRejectedValueOnce(
+    assertions.findCustomerProfile.mockRejectedValueOnce(
       new NotFoundException('Customer profile not found.'),
     );
     await expect(service.findProfile('user-id')).rejects.toBeInstanceOf(

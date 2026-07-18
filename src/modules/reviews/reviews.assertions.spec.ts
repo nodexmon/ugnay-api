@@ -31,11 +31,10 @@ describe('ReviewsAssertions', () => {
     assertions = module.get<ReviewsAssertions>(ReviewsAssertions);
   });
 
-  describe('assertBookingExistsAndCompleted', () => {
+  describe('findCompletedBooking', () => {
     it('returns the booking when it exists and is COMPLETED', async () => {
       prisma.booking.findUnique.mockResolvedValue(completedBooking);
-      const result =
-        await assertions.assertBookingExistsAndCompleted('booking-id');
+      const result = await assertions.findCompletedBooking('booking-id');
       expect(result).toMatchObject({
         id: 'booking-id',
         status: BookingStatus.COMPLETED,
@@ -45,7 +44,7 @@ describe('ReviewsAssertions', () => {
     it('throws NotFoundException when booking does not exist', async () => {
       prisma.booking.findUnique.mockResolvedValue(null);
       await expect(
-        assertions.assertBookingExistsAndCompleted('missing'),
+        assertions.findCompletedBooking('missing'),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
@@ -55,7 +54,7 @@ describe('ReviewsAssertions', () => {
         status: BookingStatus.ACCEPTED,
       });
       await expect(
-        assertions.assertBookingExistsAndCompleted('booking-id'),
+        assertions.findCompletedBooking('booking-id'),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
@@ -74,17 +73,17 @@ describe('ReviewsAssertions', () => {
     });
   });
 
-  describe('assertCustomerProfileExists', () => {
+  describe('findCustomerProfile', () => {
     it('returns the profile when found', async () => {
       prisma.customerProfile.findUnique.mockResolvedValue({ id: 'cp-id' });
-      const result = await assertions.assertCustomerProfileExists('user-id');
+      const result = await assertions.findCustomerProfile('user-id');
       expect(result).toEqual({ id: 'cp-id' });
     });
 
     it('throws NotFoundException when profile does not exist', async () => {
       prisma.customerProfile.findUnique.mockResolvedValue(null);
       await expect(
-        assertions.assertCustomerProfileExists('user-id'),
+        assertions.findCustomerProfile('user-id'),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });

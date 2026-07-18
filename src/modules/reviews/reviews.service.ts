@@ -16,13 +16,9 @@ export class ReviewsService {
   // ─── Public API ──────────────────────────────────────────────────────────────
 
   async create(dto: CreateReviewDto, user: AuthJwtPayload) {
-    const booking = await this.assertions.assertBookingExistsAndCompleted(
-      dto.bookingId,
-    );
+    const booking = await this.assertions.findCompletedBooking(dto.bookingId);
 
-    const customerProfile = await this.assertions.assertCustomerProfileExists(
-      user.sub,
-    );
+    const customerProfile = await this.assertions.findCustomerProfile(user.sub);
 
     this.assertions.assertCustomerOwnsBooking(
       booking.customerId,
@@ -57,8 +53,7 @@ export class ReviewsService {
   }
 
   async findMyReviews(userId: string, query: FindReviewsQueryDto) {
-    const customerProfile =
-      await this.assertions.assertCustomerProfileExists(userId);
+    const customerProfile = await this.assertions.findCustomerProfile(userId);
 
     return this.prisma.review.findMany({
       where: { customerId: customerProfile.id },

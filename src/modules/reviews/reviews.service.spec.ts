@@ -24,9 +24,9 @@ describe('ReviewsService', () => {
   };
 
   const mockAssertions = {
-    assertBookingExistsAndCompleted: jest.fn(),
+    findCompletedBooking: jest.fn(),
     assertCustomerOwnsBooking: jest.fn(),
-    assertCustomerProfileExists: jest.fn(),
+    findCustomerProfile: jest.fn(),
     assertWorkerProfileExists: jest.fn(),
   };
 
@@ -48,7 +48,7 @@ describe('ReviewsService', () => {
   });
 
   it('throws ForbiddenException when booking is not COMPLETED', async () => {
-    mockAssertions.assertBookingExistsAndCompleted.mockRejectedValue(
+    mockAssertions.findCompletedBooking.mockRejectedValue(
       new ForbiddenException(
         'Reviews can only be submitted for completed bookings.',
       ),
@@ -59,10 +59,8 @@ describe('ReviewsService', () => {
   });
 
   it('throws NotFoundException when caller has no customer profile', async () => {
-    mockAssertions.assertBookingExistsAndCompleted.mockResolvedValue(
-      completedBooking,
-    );
-    mockAssertions.assertCustomerProfileExists.mockRejectedValue(
+    mockAssertions.findCompletedBooking.mockResolvedValue(completedBooking);
+    mockAssertions.findCustomerProfile.mockRejectedValue(
       new NotFoundException('Customer profile not found.'),
     );
 
@@ -72,10 +70,8 @@ describe('ReviewsService', () => {
   });
 
   it('throws ForbiddenException when caller is not the booking customer', async () => {
-    mockAssertions.assertBookingExistsAndCompleted.mockResolvedValue(
-      completedBooking,
-    );
-    mockAssertions.assertCustomerProfileExists.mockResolvedValue({
+    mockAssertions.findCompletedBooking.mockResolvedValue(completedBooking);
+    mockAssertions.findCustomerProfile.mockResolvedValue({
       id: 'my-profile-id',
     });
     mockAssertions.assertCustomerOwnsBooking.mockImplementation(() => {

@@ -11,7 +11,7 @@ import { User } from '@/generated/prisma/client';
 export class UsersAssertions {
   constructor(private readonly prisma: PrismaService) {}
 
-  async assertUserIsActive(userId: string): Promise<User> {
+  async findActiveUser(userId: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User does not exist.');
     if (user.status !== UserStatus.ACTIVE)

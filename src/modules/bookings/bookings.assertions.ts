@@ -19,7 +19,7 @@ export class BookingsAssertions {
     }
   }
 
-  async assertBookingExists(bookingId: string): Promise<Booking> {
+  async findBooking(bookingId: string): Promise<Booking> {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
     });

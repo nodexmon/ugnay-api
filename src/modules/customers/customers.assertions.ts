@@ -10,7 +10,7 @@ import { CustomerProfile } from '@/generated/prisma/client';
 export class CustomersAssertions {
   constructor(private readonly prisma: PrismaService) {}
 
-  async assertCustomerProfileExists(userId: string): Promise<CustomerProfile> {
+  async findCustomerProfile(userId: string): Promise<CustomerProfile> {
     const profile = await this.prisma.customerProfile.findUnique({
       where: { userId },
     });

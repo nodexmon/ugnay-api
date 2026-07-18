@@ -118,9 +118,14 @@ src/modules/[name]/
 // ─── Private: business logic ─────────────────────────────────────────────────
 ```
 
-**Assertions class pattern** — module-specific assertion methods (validate + throw) live in `[name].assertions.ts` as an `@Injectable()` class, registered in the module's `providers` array and injected into the service constructor. Services call `this.assertions.assertX(...)`. In specs, mock the entire class: `{ provide: [Name]Assertions, useValue: { assertX: jest.fn() } }`.
+**Assertions class pattern** — module-specific guard and finder methods live in `[name].assertions.ts` as an `@Injectable()` class, registered in the module's `providers` array and injected into the service constructor. Two distinct naming conventions apply:
 
-**Shared assertion utilities** — cross-module helpers (`assertBookingExists`, `assertWorkerProfileExists`, `assertUserIsActive`) live in `src/common/utils/assert.util.ts` as standalone functions (not injectable — avoids circular DI risk).
+- **`assert*` methods** always return `void`/`Promise<void>` — they validate a condition and throw if it fails. Nothing more.
+- **`find*` / `resolve*` methods** fetch an entity, validate its existence (and optionally its state), then return it. Use this form only when the caller needs the returned value — it avoids a second DB fetch.
+
+Services call `this.assertions.assertX(...)` for guards and `const entity = await this.assertions.findX(...)` for finders. In specs, mock the entire class: `{ provide: [Name]Assertions, useValue: { assertX: jest.fn(), findX: jest.fn() } }`.
+
+**Shared assertion utilities** — assertions are module-scoped. The only shared utility is `src/common/utils/strike.util.ts` (`applyStrike`), used as a standalone function to avoid circular DI.
 
 **Notification fire-and-forget** — always use:
 

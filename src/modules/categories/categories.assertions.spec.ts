@@ -22,10 +22,11 @@ describe('CategoriesAssertions', () => {
   });
 
   describe('assertCategoryExists', () => {
-    it('returns the category when found', async () => {
+    it('does not throw when category is found', async () => {
       prisma.serviceCategory.findUnique.mockResolvedValue(category);
-      const result = await assertions.assertCategoryExists('cat-id');
-      expect(result).toEqual(category);
+      await expect(
+        assertions.assertCategoryExists('cat-id'),
+      ).resolves.not.toThrow();
     });
 
     it('throws NotFoundException when category does not exist', async () => {

@@ -41,8 +41,8 @@ describe('AuthService', () => {
 
   const authAssertions = {
     assertUserCanAuthenticate: jest.fn(),
-    assertUserExistsForRefresh: jest.fn(),
-    assertRefreshTokenExists: jest.fn(),
+    findUserForRefresh: jest.fn(),
+    findRefreshToken: jest.fn(),
     assertTokenIsValid: jest.fn(),
     hashToken: jest.fn().mockReturnValue('hashed-token'),
   };
