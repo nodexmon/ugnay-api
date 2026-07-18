@@ -67,6 +67,8 @@ describe('AdminService', () => {
     assertUserExists: jest.fn(),
     assertWorkerProfileExists: jest.fn(),
     assertBookingExists: jest.fn(),
+    findPendingVerification: jest.fn(),
+    findPendingCredential: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -98,7 +100,7 @@ describe('AdminService', () => {
   });
 
   it('suspends the worker profile on a second verification rejection', async () => {
-    prisma.verificationDoc.findUnique.mockResolvedValue({
+    assertions.findPendingVerification.mockResolvedValue({
       id: 'doc-id',
       workerId: 'worker-id',
       status: VerificationStatus.PENDING,
@@ -265,7 +267,7 @@ describe('AdminService', () => {
     });
 
     it('approves a credential and updates its status to APPROVED', async () => {
-      prisma.workerCredential.findUnique.mockResolvedValue(pendingCredential);
+      assertions.findPendingCredential.mockResolvedValue(pendingCredential);
       const approved = {
         ...pendingCredential,
         status: VerificationStatus.APPROVED,
@@ -287,7 +289,7 @@ describe('AdminService', () => {
     });
 
     it('rejects a credential and stores the rejection reason', async () => {
-      prisma.workerCredential.findUnique.mockResolvedValue(pendingCredential);
+      assertions.findPendingCredential.mockResolvedValue(pendingCredential);
       const rejected = {
         ...pendingCredential,
         status: VerificationStatus.REJECTED,
@@ -311,7 +313,9 @@ describe('AdminService', () => {
     });
 
     it('throws NotFoundException when the credential does not exist', async () => {
-      prisma.workerCredential.findUnique.mockResolvedValue(null);
+      assertions.findPendingCredential.mockRejectedValueOnce(
+        new NotFoundException('Credential not found.'),
+      );
 
       await expect(
         service.approveCredential('cred-id', adminUser),
@@ -319,10 +323,9 @@ describe('AdminService', () => {
     });
 
     it('throws ConflictException when the credential was already reviewed', async () => {
-      prisma.workerCredential.findUnique.mockResolvedValue({
-        ...pendingCredential,
-        status: VerificationStatus.APPROVED,
-      });
+      assertions.findPendingCredential.mockRejectedValueOnce(
+        new ConflictException('Credential has already been reviewed.'),
+      );
 
       await expect(
         service.approveCredential('cred-id', adminUser),

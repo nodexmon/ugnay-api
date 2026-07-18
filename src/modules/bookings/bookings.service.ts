@@ -1,6 +1,5 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -20,7 +19,6 @@ import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { FindBookingsQueryDto } from './dto/find-bookings-query.dto';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import {
-  BOOKING_MAX_ADVANCE_MS,
   BOOKING_PENDING_EXPIRY_MS,
   CONTACT_REVEAL_STATUSES,
 } from './bookings.constants';
@@ -28,6 +26,7 @@ import { BookingsAssertions } from './bookings.assertions';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { UsersAssertions } from '../users/users.assertions';
 import { applyStrike } from '@/common/utils/strike.util';
+import { BOOKING_PARTY_IDS_INCLUDE } from '@/common/constants/booking-selects';
 
 @Injectable()
 export class BookingsService {
@@ -136,24 +135,17 @@ export class BookingsService {
   async create(user: AuthJwtPayload, dto: CreateBookingDto) {
     await this.usersAssertions.assertUserIsActive(user.sub);
 
-    const customer = await this.prisma.customerProfile.findUnique({
-      where: { userId: user.sub },
-      select: { id: true },
-    });
-    if (!customer) {
-      throw new NotFoundException('Customer profile not found.');
-    }
+    const customerId = await this.assertions.resolveProfileId(
+      user.sub,
+      Role.CUSTOMER,
+    );
 
     await this.assertions.assertWorkerIsAvailable(dto.workerId);
-
-    const maxScheduledDate = new Date(Date.now() + BOOKING_MAX_ADVANCE_MS);
-    if (dto.scheduledDate > maxScheduledDate) {
-      throw new BadRequestException('Scheduled booking must be within 7 days.');
-    }
+    this.assertions.assertScheduledDateIsValid(dto.scheduledDate);
 
     const booking = await this.prisma.booking.create({
       data: {
-        customerId: customer.id,
+        customerId,
         status: BookingStatus.PENDING,
         expiresAt: new Date(Date.now() + BOOKING_PENDING_EXPIRY_MS),
         ...dto,
@@ -262,7 +254,10 @@ export class BookingsService {
 
     await this.usersAssertions.assertUserIsActive(user.sub);
     const booking = await this.assertions.assertBookingExists(bookingId);
-    const profileId = await this.getProfileId(user.sub, user.role);
+    const profileId = await this.assertions.resolveProfileId(
+      user.sub,
+      user.role,
+    );
 
     if (user.role === Role.CUSTOMER) {
       this.assertions.assertOwnership(booking.customerId, profileId);
@@ -344,23 +339,6 @@ export class BookingsService {
 
   // ─── Private: business logic ─────────────────────────────────────────────────
 
-  private async getProfileId(userId: string, role: Role): Promise<string> {
-    if (role === Role.CUSTOMER) {
-      const profile = await this.prisma.customerProfile.findUnique({
-        where: { userId },
-        select: { id: true },
-      });
-      if (!profile) throw new NotFoundException('Customer profile not found.');
-      return profile.id;
-    }
-    const profile = await this.prisma.workerProfile.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-    if (!profile) throw new NotFoundException('Worker profile not found.');
-    return profile.id;
-  }
-
   private async prepareBookingAction(
     userId: string,
     role: Role,
@@ -372,7 +350,7 @@ export class BookingsService {
 
     this.assertions.assertBookingInStatus(booking.status, ...allowedStatuses);
 
-    const profileId = await this.getProfileId(userId, role);
+    const profileId = await this.assertions.resolveProfileId(userId, role);
 
     return { activeUser, booking, profileId };
   }
@@ -394,10 +372,7 @@ export class BookingsService {
   ): Promise<void> {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
-      include: {
-        worker: { select: { userId: true } },
-        customer: { select: { userId: true } },
-      },
+      include: BOOKING_PARTY_IDS_INCLUDE,
     });
     if (!booking) return;
     const userId =

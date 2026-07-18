@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthService } from '@/modules/auth/auth.service';
+import { AuthAssertions } from '@/modules/auth/auth.assertions';
 import { AuthController } from '@/modules/auth/auth.controller';
 import { OtpService } from '@/modules/auth/otp/otp.service';
 import { AuthJwtService } from '@/modules/auth/jwt/jwt.service';
@@ -28,6 +29,13 @@ import { jwtConfig } from '@/config';
     ConfigModule.forFeature(jwtConfig),
   ],
   controllers: [AuthController],
-  providers: [AuthService, OtpService, AuthJwtService, SmsService, JwtStrategy],
+  providers: [
+    AuthService,
+    AuthAssertions,
+    OtpService,
+    AuthJwtService,
+    SmsService,
+    JwtStrategy,
+  ],
 })
 export class AuthModule {}

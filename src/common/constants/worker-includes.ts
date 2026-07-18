@@ -14,3 +14,8 @@ export const WORKER_INCLUDE = {
   verificationDocs: { orderBy: { createdAt: 'desc' as const } },
   credentials: { orderBy: { createdAt: 'desc' as const } },
 } as const;
+
+export const ADMIN_WORKER_INCLUDE = {
+  ...WORKER_INCLUDE,
+  user: { select: { id: true, phone: true, status: true } },
+} as const;

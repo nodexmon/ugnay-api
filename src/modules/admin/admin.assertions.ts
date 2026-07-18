@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import { WorkerStatus } from '@/generated/prisma/enums';
+import { VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
 import type { Booking, User, WorkerProfile } from '@/generated/prisma/client';
 import {
   assertBookingExists,
@@ -36,5 +36,31 @@ export class AdminAssertions {
 
   assertUserExists(userId: string): Promise<User> {
     return assertUserExists(this.prisma, userId);
+  }
+
+  async findPendingVerification(docId: string) {
+    const doc = await this.prisma.verificationDoc.findUnique({
+      where: { id: docId },
+      include: { worker: { select: { userId: true } } },
+    });
+    if (!doc) throw new NotFoundException('Verification submission not found.');
+    if (doc.status !== VerificationStatus.PENDING) {
+      throw new ConflictException(
+        'Verification submission has already been reviewed.',
+      );
+    }
+    return doc;
+  }
+
+  async findPendingCredential(credentialId: string) {
+    const credential = await this.prisma.workerCredential.findUnique({
+      where: { id: credentialId },
+      include: { worker: { select: { userId: true } } },
+    });
+    if (!credential) throw new NotFoundException('Credential not found.');
+    if (credential.status !== VerificationStatus.PENDING) {
+      throw new ConflictException('Credential has already been reviewed.');
+    }
+    return credential;
   }
 }

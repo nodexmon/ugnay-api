@@ -7,7 +7,7 @@ import { AuthJwtPayload } from '@/modules/auth/auth.types';
 describe('CustomersController', () => {
   let controller: CustomersController;
   let customersService: {
-    getProfile: jest.Mock;
+    findProfile: jest.Mock;
     createProfile: jest.Mock;
     updateProfile: jest.Mock;
   };
@@ -20,7 +20,7 @@ describe('CustomersController', () => {
 
   beforeEach(async () => {
     customersService = {
-      getProfile: jest.fn(),
+      findProfile: jest.fn(),
       createProfile: jest.fn(),
       updateProfile: jest.fn(),
     };
@@ -37,10 +37,10 @@ describe('CustomersController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('delegates getProfile to the service', () => {
-    customersService.getProfile.mockResolvedValue({ id: 'profile-id' });
-    controller.getProfile(user);
-    expect(customersService.getProfile).toHaveBeenCalledWith(user.sub);
+  it('delegates findProfile to the service', () => {
+    customersService.findProfile.mockResolvedValue({ id: 'profile-id' });
+    controller.findProfile(user);
+    expect(customersService.findProfile).toHaveBeenCalledWith(user.sub);
   });
 
   it('delegates createProfile to the service', () => {

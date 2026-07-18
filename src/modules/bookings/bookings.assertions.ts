@@ -1,11 +1,13 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Booking } from '@/generated/prisma/client';
-import { BookingStatus, WorkerStatus } from '@/generated/prisma/enums';
+import { BookingStatus, Role, WorkerStatus } from '@/generated/prisma/enums';
+import { BOOKING_MAX_ADVANCE_MS } from '@/modules/bookings/bookings.constants';
 
 @Injectable()
 export class BookingsAssertions {
@@ -53,7 +55,11 @@ export class BookingsAssertions {
       select: { isOnline: true, status: true },
     });
 
-    if (!worker || !worker.isOnline || worker.status !== WorkerStatus.VERIFIED) {
+    if (
+      !worker ||
+      !worker.isOnline ||
+      worker.status !== WorkerStatus.VERIFIED
+    ) {
       throw new ForbiddenException('Worker is not available.');
     }
 
@@ -66,5 +72,29 @@ export class BookingsAssertions {
     if (activeBooking) {
       throw new ForbiddenException('Worker is currently unavailable.');
     }
+  }
+
+  assertScheduledDateIsValid(scheduledAt: Date): void {
+    const maxScheduledDate = new Date(Date.now() + BOOKING_MAX_ADVANCE_MS);
+    if (scheduledAt > maxScheduledDate) {
+      throw new BadRequestException('Scheduled booking must be within 7 days.');
+    }
+  }
+
+  async resolveProfileId(userId: string, role: Role): Promise<string> {
+    if (role === Role.CUSTOMER) {
+      const profile = await this.prisma.customerProfile.findUnique({
+        where: { userId },
+        select: { id: true },
+      });
+      if (!profile) throw new NotFoundException('Customer profile not found.');
+      return profile.id;
+    }
+    const profile = await this.prisma.workerProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (!profile) throw new NotFoundException('Worker profile not found.');
+    return profile.id;
   }
 }
