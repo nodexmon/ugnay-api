@@ -59,13 +59,14 @@ Copy `.env.example` to `.env` and fill in each value:
 | Variable | Description |
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection string |
-| `JWT_SECRET` | Secret for signing JWT access tokens |
-| `JWT_EXPIRY` | Access token lifetime (e.g. `15m`) |
-| `REFRESH_SECRET` | Secret for signing refresh tokens |
-| `REFRESH_EXPIRY` | Refresh token lifetime (e.g. `7d`) |
-| `TEXTBEE_API_KEY` | TextBee SMS gateway API key |
-| `TEXTBEE_DEVICE_ID` | TextBee device ID for OTP delivery |
-| `CORS_ORIGIN` | Allowed CORS origin (leave blank to deny all) |
+| `JWT_SECRET` | Secret for signing JWT access and refresh tokens |
+| `JWT_ACCESS_EXPIRES_IN` | Access token lifetime (e.g. `15m`) |
+| `JWT_REFRESH_EXPIRES_IN` | Refresh token lifetime (e.g. `7d`) |
+| `TEXTBEE_API_URL` | TextBee API base URL |
+| `SMS_API_KEY` | TextBee SMS gateway API key |
+| `DEVICE_ID` | TextBee device ID for OTP delivery |
+| `UPLOAD_DIR` | Directory for uploaded files (e.g. `uploads`) |
+| `CORS_ORIGIN` | Allowed CORS origin (leave blank to disable) |
 | `PORT` | HTTP port (default: `3000`) |
 | `NODE_ENV` | `development` or `production` |
 
@@ -110,6 +111,7 @@ src/modules/
   admin/         Admin-only operations (verify workers, manage strikes)
   notifications/ Push notification token registration (Expo)
   categories/    Service category management
+  barangays/     Barangay listing + PSGC sync
 ```
 
 Three guards apply globally: `JwtAuthGuard` (bypass with `@Public()`), `CaslGuard` (declare with `@CheckAbility()`), `ThrottlerGuard`.
