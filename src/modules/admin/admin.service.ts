@@ -13,9 +13,9 @@ import {
 } from '@/generated/prisma/enums';
 import { StrikeWorkerDto } from './dto/strike-worker.dto';
 import { ResolveNoShowDto } from './dto/resolve-no-show.dto';
-import { ListUsersQueryDto } from './dto/list-users-query.dto';
-import { ListWorkersQueryDto } from './dto/list-workers-query.dto';
-import { ListBookingsQueryDto } from './dto/list-bookings-query.dto';
+import { FindUsersQueryDto } from './dto/find-users-query.dto';
+import { FindWorkersQueryDto } from './dto/find-workers-query.dto';
+import { FindBookingsQueryDto } from './dto/find-bookings-query.dto';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 import { AuthJwtPayload } from '../auth/auth.types';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
@@ -271,7 +271,7 @@ export class AdminService {
       });
   }
 
-  async findUsers(query: ListUsersQueryDto) {
+  async findUsers(query: FindUsersQueryDto) {
     const where = {
       ...(query.role && { role: query.role }),
       ...(query.status && { status: query.status }),
@@ -295,7 +295,7 @@ export class AdminService {
     return { items, total, skip: query.skip, take: query.take };
   }
 
-  async findWorkers(query: ListWorkersQueryDto) {
+  async findWorkers(query: FindWorkersQueryDto) {
     const where = {
       ...(query.status && { status: query.status }),
     };
@@ -322,7 +322,7 @@ export class AdminService {
     return { items, total, skip: query.skip, take: query.take };
   }
 
-  async findBookings(query: ListBookingsQueryDto) {
+  async findBookings(query: FindBookingsQueryDto) {
     const where = {
       ...(query.status && { status: query.status }),
     };

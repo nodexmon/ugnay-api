@@ -294,3 +294,50 @@ July 17, 2026 — production hardening audit (branch: refactor/audit-security-qu
   worker; added 403 for worker offline/unverified)
 - Updated docs/UGNAY_BRD_v1_1.md: noted pagination on admin GET list endpoints
 
+---
+
+July 18, 2026 — senior-level refactor: assertions extraction and Prisma deduplication (branch: refactor/service-assertions-cleanup)
+
+- Created AuthAssertions (auth.assertions.ts): extracted assertUserExistsForRefresh,
+  assertUserCanAuthenticate, assertRefreshTokenExists, assertTokenIsValid, hashToken out
+  of auth.service.ts; registered in auth.module.ts
+- Created CustomersAssertions (customers.assertions.ts): extracted assertCustomerProfileExists,
+  assertCustomerProfileDoesNotExist; registered in customers.module.ts
+- Expanded WorkersAssertions with 7 new methods: assertWorkerCanGoOnline,
+  assertWorkerCanSubmitVerification, assertNoPendingVerification,
+  assertVerificationReapplicationAllowed, assertActiveCredentialCountUnder,
+  assertBarangaysAreValid, assertCategoriesAreValid; removed all inline validation from
+  workers.service.ts
+- Added workers.constants.ts: MAX_ACTIVE_CREDENTIALS, MAX_VERIFICATION_REJECTIONS
+- Expanded AdminAssertions with findPendingVerification / findPendingCredential (fetch+validate);
+  removed getPendingVerification / getPendingCredential private methods from admin.service.ts
+- Added assertScheduledDateIsValid and resolveProfileId to BookingsAssertions; removed
+  getProfileId() private method from bookings.service.ts
+- Added BOOKING_PARTY_IDS_INCLUDE to booking-selects.ts; added ADMIN_WORKER_INCLUDE to
+  worker-includes.ts (extends WORKER_INCLUDE with user select for admin views)
+- Applied WORKER_INCLUDE constant in users.service and admin.service (eliminated inline shapes)
+- Renamed customers.service getProfile -> findProfile (consistent find* naming convention)
+- Standardised error message punctuation across all modules
+- Updated all spec files to mock assertions layer instead of Prisma directly; 187 tests pass
+
+---
+
+July 18, 2026 — OCD-driven full codebase standardization pass (branch: refactor/standardization-pass)
+
+- Renamed all query DTOs to Find*QueryDto: SearchWorkersDto → FindWorkersQueryDto (workers),
+  ListUsersQueryDto → FindUsersQueryDto, ListWorkersQueryDto → FindWorkersQueryDto,
+  ListBookingsQueryDto → FindBookingsQueryDto (admin); deleted old files
+- Migrated workers search pagination from custom page/limit fields to PaginationDto skip/take;
+  workers search now uses the same skip/take convention as all other modules
+- Added readonly to barangays.service.ts constructor injection (was the only service without it)
+- Renamed notifications.interface.ts → notifications.types.ts; updated importer in
+  notifications.service.ts; consistent with .types.ts convention used across all modules
+- Removed delegation anti-pattern from AdminAssertions: assertBookingExists and assertUserExists
+  now query Prisma directly (matching every other assertions class); deleted assert.util.ts
+  (no remaining callers)
+- Added unit tests for 5 previously unspecced services: sms.service, notifications.service,
+  barangay-sync.service, uploads.service, file-storage.service
+- Replaced toBeDefined()-only controller specs with full route coverage: auth.controller,
+  users.controller, bookings.controller — each test verifies correct delegation and return value
+- Test count: 187 → 216 (all passing)
+
