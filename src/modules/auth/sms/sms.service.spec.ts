@@ -1,19 +1,23 @@
+import { InternalServerErrorException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { HttpService } from '@nestjs/axios';
 import { Logger } from 'nestjs-pino';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { textbeeConfig } from '@/config/textbee.config';
 import { SmsService } from '@/modules/auth/sms/sms.service';
 
 describe('SmsService', () => {
   let service: SmsService;
+
   const http = {
     post: jest.fn(),
   };
+
   const logger = {
     debug: jest.fn(),
     error: jest.fn(),
   };
+
   const config = {
     TEXTBEE_API_URL: 'https://api.textbee.dev/api/v1',
     DEVICE_ID: 'device-id',
@@ -22,6 +26,7 @@ describe('SmsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SmsService,
@@ -34,30 +39,35 @@ describe('SmsService', () => {
     service = module.get<SmsService>(SmsService);
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
+  describe('sendSms', () => {
+    it('returns status and messageId on success', async () => {
+      const responseData = { status: 'sent', messageId: 'message-id' };
+      http.post.mockReturnValue(of({ data: responseData }));
 
-  it('sends an SMS through TextBee', async () => {
-    const response = { data: { messageId: 'message-id' } };
-    http.post.mockReturnValue(of(response));
+      const result = await service.sendSms(
+        '+639171234567',
+        'Your OTP is 123456',
+      );
 
-    await expect(
-      service.sendSms('+639171234567', 'Your OTP is 123456'),
-    ).resolves.toEqual(response.data);
-    expect(http.post).toHaveBeenCalledWith(
-      'https://api.textbee.dev/api/v1/gateway/devices/device-id/send-sms',
-      {
-        recipients: ['+639171234567'],
-        message: 'Your OTP is 123456',
-      },
-      {
-        headers: { 'x-api-key': 'api-key' },
-      },
-    );
-    expect(logger.debug).toHaveBeenCalledWith(
-      { phone: '+639171234567' },
-      'SMS sent successfully',
-    );
+      expect(http.post).toHaveBeenCalledWith(
+        'https://api.textbee.dev/api/v1/gateway/devices/device-id/send-sms',
+        { recipients: ['+639171234567'], message: 'Your OTP is 123456' },
+        { headers: { 'x-api-key': 'api-key' } },
+      );
+      expect(logger.debug).toHaveBeenCalledWith(
+        { phone: '+639171234567' },
+        'SMS sent successfully',
+      );
+      expect(result).toEqual(responseData);
+    });
+
+    it('throws InternalServerErrorException when the HTTP request fails', async () => {
+      http.post.mockReturnValue(throwError(() => new Error('Network error')));
+
+      await expect(
+        service.sendSms('+639171234567', 'Your OTP is 123456'),
+      ).rejects.toBeInstanceOf(InternalServerErrorException);
+      expect(logger.error).toHaveBeenCalled();
+    });
   });
 });
