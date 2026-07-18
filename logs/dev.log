@@ -364,3 +364,16 @@ July 18, 2026 — assertions convention standardization (branch: refactor/standa
   corrected false reference to nonexistent assert.util.ts; noted strike.util.ts as the only real shared util
 - Test count: 216 → 216 (all passing)
 
+---
+
+July 18, 2026 — documentation and skills maintenance
+
+- Fixed stale module layout in CLAUDE.md: added casl/, barangays/, notifications/, common/utils/
+- Fixed stale decorator refs in CLAUDE.md: @Roles → @CheckAbility, removed RolesGuard from auth module description
+- Fixed stale patterns in implement.md: @Roles → @CheckAbility; replaced three-divider service structure
+  with two-divider + assertions class section; replaced assert.util.ts shared helpers with strike.util.ts note
+- Fixed stale @Roles ref in refactor.md
+- Added assertions class mocking pattern to write-tests.md (service specs mock assertions class,
+  assertions specs mock PrismaService directly)
+- Removed hardcoded "50 tests" from write-tests.md
+
