@@ -176,7 +176,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | REV-01 | Review eligibility | Only customers with a COMPLETED booking for that worker may leave a review. |
 | REV-02 | Rating scale | 1–5 star rating (integer) plus optional written review up to 500 characters. |
 | REV-03 | One review per booking | A customer may submit exactly one review per completed booking. Reviews cannot be edited. |
-| REV-04 | Worker rating display | Worker profile shows average rating and total review count. Minimum 3 reviews before average is displayed publicly. The API always returns the `averageRating` field; the 3-review threshold is enforced at the UI layer. |
+| REV-04 | Worker rating display | Worker profile shows average rating and total review count. Minimum 3 reviews before average is displayed publicly. The server returns `null` for `averageRating` on public endpoints when `totalReviews < 3`. The own-profile endpoint always returns the raw value. |
 
 ---
 
@@ -225,7 +225,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | Layer | Technology | Rationale |
 |---|---|---|
 | API Server | NestJS (Node.js) | TypeScript, modular, REST-ready, large ecosystem |
-| Database | PostgreSQL 16 | Relational integrity, JSON support, battle-tested |
+| Database | PostgreSQL 17 | Relational integrity, JSON support, battle-tested |
 | ORM | Prisma | Type-safe queries, auto-migrations, great DX |
 | Mobile | React Native + Expo | iOS + Android from one codebase; OTA updates |
 | Push Notifications | Expo Push Notifications | Single API for APNs and FCM; free tier sufficient |
