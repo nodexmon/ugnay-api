@@ -10,7 +10,7 @@ When asked to refactor a module or file, apply all of the following. Do not just
 - No raw string interpolation in queries or file paths — use parameterized Prisma calls.
 - No sensitive data (tokens, hashes, OTP codes) returned in API responses.
 - No hardcoded secrets or credentials — use config factories.
-- Auth checks must use guards (`@Roles`, `@Public`, `@CurrentUser`) — never manual `req.user` comparisons in services.
+- Auth checks must use guards (`@CheckAbility`, `@Public`, `@CurrentUser`) — never manual `req.user` comparisons in services.
 - Ownership checks must happen before any mutation ("does this booking belong to the caller?").
 
 ## Step 3: NestJS anti-patterns
