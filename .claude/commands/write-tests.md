@@ -32,4 +32,4 @@ Apply these standards when writing or fixing spec files in this project.
 ## Before finishing
 - Run the specific file: `pnpm jest src/path/to/file.spec.ts`
 - Run all tests: `pnpm test`
-- All 50 tests must pass. Fix failures — never skip or comment them out.
+- All tests must pass. Fix failures — never skip or comment them out.

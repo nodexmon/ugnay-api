@@ -7,7 +7,7 @@ Apply these project-specific patterns when implementing any feature in this Nest
 - Register the module in `app.module.ts` unless it is `@Global()`.
 
 ## Auth and guards
-- `@Roles(Role.X)` + `@CurrentUser()` on the controller handles access. Never duplicate role checks in the service.
+- `@CheckAbility(Action, Subject)` + `@CurrentUser()` on the controller handles access. Never duplicate permission checks in the service.
 - Mark public routes with `@Public()`. Every route is JWT-protected by default.
 - Ownership checks ("this booking belongs to the caller") go in the service, not the controller.
 
@@ -32,17 +32,22 @@ Apply these project-specific patterns when implementing any feature in this Nest
 - Constants that are hardcoded inline in a service file belong in `[name].constants.ts`.
 
 ## Service structure
-- Use three section dividers in every service:
+- Use two section dividers in every service:
   ```
   // ─── Public API ──────────────────────────────────────────────────────────────
   // ─── Private: business logic ─────────────────────────────────────────────────
-  // ─── Private: assertions ─────────────────────────────────────────────────────
   ```
-- Assertion methods (methods that only validate and throw) go under `Private: assertions`.
+- Assertion and finder methods belong in `[name].assertions.ts`, not in the service.
+
+## Assertions class
+- Every module has a `[name].assertions.ts` with an `@Injectable()` class registered in the module's `providers`.
+- `assert*` methods return `void`/`Promise<void>` — validate and throw only.
+- `find*` / `resolve*` methods fetch, validate, and return the entity — use when the caller needs the value.
+- Inject into the service and call as `this.assertions.assertX(...)` or `const e = await this.assertions.findX(...)`.
 
 ## Shared utilities
-- Cross-module assertion helpers live in `src/common/utils/assert.util.ts`. Check there before writing a new private `assertXExist` in a service.
-- Existing shared helpers: `assertUserIsActive`, `assertBookingExists`, `assertWorkerProfileExists`.
+- The only cross-module utility is `src/common/utils/strike.util.ts` (`applyStrike`). Check there before writing cross-module logic.
+- All other assertion helpers are module-scoped — do not create new shared assert helpers.
 
 ## Notifications
 - Always fire-and-forget: `void this.notifications.sendToUser(...).catch(() => {})`.
