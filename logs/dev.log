@@ -576,3 +576,22 @@ July 20, 2026 — BRD gap analysis and v1.3 update
     race condition, customer no-shows, permanent ban admin error, worker with
     no push token, fake reviews via multiple accounts
 
+---
+
+July 20, 2026 — BRD v1.3 gap-closure audit and handout sync
+
+- Fixed bug: BookingStatus.CUSTOMER_NO_SHOW was missing from historyStatuses in
+  bookings.service.ts; bookings with that status were invisible to GET /bookings?status=history
+- Updated docs/UGNAY_API_HANDOUT.md:
+  - Added CUSTOMER_NO_SHOW to BookingStatus enum reference and history filter group docs
+  - Fixed PATCH /bookings/:id/update → PATCH /bookings/:id throughout handout
+  - Added GET /workers/verification endpoint documentation
+  - Added GET /workers/strikes endpoint documentation
+  - Added PATCH /bookings/:id/report-customer-no-show endpoint documentation
+  - Added new Section 14 (Admin Endpoints) documenting: GET /admin/no-shows,
+    PATCH /admin/no-shows/:id/resolve, GET /admin/customer-no-shows,
+    PATCH /admin/customer-no-shows/:id/resolve, GET /admin/reviews, DELETE /admin/reviews/:id
+  - Updated booking state machine diagram to show CUSTOMER_NO_SHOW terminal state
+  - Fixed Notes section empty-response list (removed /update suffix reference)
+- Test count: 253 (unchanged — logic bug fix only)
+
