@@ -167,6 +167,9 @@ Always invoke the project skills defined in `.claude/commands/` for the relevant
 | `add-notification` | When sending a push notification from a service method |
 | `add-relation` | When adding a new Prisma relation between models |
 | `document-endpoint` | When adding Swagger docs to a new endpoint |
+| `soft-delete` | When adding soft-delete to a model or querying a soft-deleteable model |
+| `fix-migration` | When a migration fails, needs rollback, or schema/DB have drifted |
+| `add-index` | When adding a performance index to speed up a query or cron job |
 
 ## Dev Log
 
