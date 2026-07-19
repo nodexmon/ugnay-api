@@ -15,6 +15,10 @@ export class CaslAbilityFactory {
         break;
 
       case Role.WORKER:
+        // User
+        can(Action.Read, 'User');
+        can(Action.Update, 'User');
+
         // Worker Profile
         can(Action.Read, 'WorkerProfile');
         can(Action.Create, 'WorkerProfile');
@@ -46,6 +50,10 @@ export class CaslAbilityFactory {
         break;
 
       case Role.CUSTOMER:
+        // User
+        can(Action.Read, 'User');
+        can(Action.Update, 'User');
+
         // Worker Profile
         can(Action.Read, 'WorkerProfile');
 
