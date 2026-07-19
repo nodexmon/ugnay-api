@@ -402,3 +402,8 @@ Hooks (.claude/settings.json):
 - Stop: prints dev log reminder at end of every session
 - File path read from stdin JSON (tool_input.file_path); CLAUDE_PROJECT_DIR used for project root
 
+- Added add-transaction: two forms (batch $transaction([]) vs interactive async callback),
+  TransactionClient import path, what goes inside (writes, tx-passed helpers, updateMany race guard),
+  what goes outside (file I/O before tx, notifications via .then(), external API calls),
+  when NOT to use a transaction
+
