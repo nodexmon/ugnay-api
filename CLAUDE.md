@@ -173,6 +173,7 @@ Always invoke the project skills defined in `.claude/commands/` for the relevant
 | `add-transaction` | When wrapping multiple Prisma writes in a transaction |
 | `upload-file` | When adding an endpoint that accepts file uploads |
 | `handle-error` | When deciding which exception type to throw |
+| `error-message` | When writing any exception message string — format, phrasing, period |
 | `add-enum` | When adding a new Prisma enum to the schema |
 | `typescript` | Apply to every TypeScript file written or modified |
 | `prisma-query` | When writing or reviewing any Prisma query |

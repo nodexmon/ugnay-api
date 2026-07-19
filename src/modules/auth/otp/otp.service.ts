@@ -57,7 +57,7 @@ export class OtpService {
     });
 
     if (!otp) {
-      throw new UnauthorizedException('Invalid or expired OTP');
+      throw new UnauthorizedException('Invalid or expired OTP.');
     }
 
     return otp;

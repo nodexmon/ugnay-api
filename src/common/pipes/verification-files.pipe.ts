@@ -12,17 +12,17 @@ export class VerificationFilesPipe implements PipeTransform {
       const file = files?.[field]?.[0];
 
       if (!file) {
-        throw new BadRequestException(`${field} files is required`);
+        throw new BadRequestException(`${field} file is required.`);
       }
 
       if (!ALLOWED_TYPES.includes(file.mimetype)) {
         throw new BadRequestException(
-          `${field} file must be a JPEG, PNG, or WEBP image`,
+          `${field} file must be a JPEG, PNG, or WEBP image.`,
         );
       }
 
       if (file.size > MAX_BYTES) {
-        throw new BadRequestException(`${field} must not exceed 5MB`);
+        throw new BadRequestException(`${field} file must not exceed 5 MB.`);
       }
     }
 

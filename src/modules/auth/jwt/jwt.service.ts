@@ -41,11 +41,11 @@ export class AuthJwtService {
       const payload = await this.jwt.verifyAsync<AuthJwtPayload>(refreshToken);
 
       if (!payload.tokenId)
-        throw new UnauthorizedException('Invalid refresh token');
+        throw new UnauthorizedException('Invalid refresh token.');
 
       return payload as AuthJwtPayload & { tokenId: string };
     } catch {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException('Invalid refresh token.');
     }
   }
 
@@ -64,12 +64,12 @@ export class AuthJwtService {
         await this.jwt.verifyAsync<RegistrationTokenPayload>(token);
 
       if (payload.purpose !== 'registration') {
-        throw new UnauthorizedException('Invalid registration token');
+        throw new UnauthorizedException('Invalid registration token.');
       }
 
       return payload;
     } catch {
-      throw new UnauthorizedException('Invalid registration token');
+      throw new UnauthorizedException('Invalid registration token.');
     }
   }
 }

@@ -21,7 +21,7 @@ export class UsersService {
       },
     });
 
-    if (!user) throw new NotFoundException('User does not exist.');
+    if (!user) throw new NotFoundException('User not found.');
     return user;
   }
 }
