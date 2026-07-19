@@ -473,3 +473,20 @@ July 19, 2026 — naming skill and codebase audit
   BookingsService.handleWorkerCancellationPenalty → applyWorkerCancellationStrike
   ('handle' was a vague verb; 'apply' names the concrete action)
 
+---
+
+July 20, 2026 — error-message skill, yagni skill, and codebase audits
+
+- Created .claude/commands/error-message.md: skill enforcing consistent exception message
+  formatting (period termination, sentence case, subject-first, patterns per exception type,
+  "not found" over "does not exist")
+- Applied error-message audit: fixed 11 violations across 6 files — missing periods in
+  jwt.service, otp.service; lowercase + no period in credential-file.pipe and
+  verification-files.pipe; grammar fix ("files is" → "file is"); standardised
+  "does not exist" → "not found" in users.service, users.assertions, categories.assertions
+- Created .claude/commands/yagni.md: skill preventing over-engineering (rule of three,
+  single-use abstractions, unnecessary generics, config vs constants, flag parameters)
+- Applied yagni audit: inlined applyWorkerCancellationStrike (single-use private method
+  wrapping one applyStrike call); deleted empty booking.types.ts placeholder
+- Added error-message, yagni, and naming skills to CLAUDE.md skills table
+
