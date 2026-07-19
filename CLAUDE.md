@@ -161,6 +161,9 @@ Always invoke the project skills defined in `.claude/commands/` for the relevant
 | `add-module` | When creating a brand-new domain module from scratch |
 | `add-config` | When adding a new env var or replacing a hardcoded value |
 | `e2e-test` | When writing or extending end-to-end tests |
+| `add-permission` | When adding a new CASL action, subject, or role grant |
+| `add-cron` | When adding a new scheduled background job |
+| `paginate` | When implementing a list endpoint that returns `{ items, total, skip, take }` |
 
 ## Dev Log
 
