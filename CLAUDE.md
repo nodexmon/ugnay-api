@@ -182,6 +182,7 @@ Always invoke the project skills defined in `.claude/commands/` for the relevant
 | `remove-endpoint` | When deleting a route and cleaning up all associated artifacts |
 | `security` | After implementing any endpoint — run before committing |
 | `naming` | When writing or reviewing any variable, function, class, or type name |
+| `yagni` | Before adding any abstraction, utility, config, or optional parameter |
 
 ## Dev Log
 
