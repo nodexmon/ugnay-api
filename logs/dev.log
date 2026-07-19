@@ -415,4 +415,11 @@ Hooks (.claude/settings.json):
 - Added typescript: import type discipline, no any/no non-null assertions, unknown in catch blocks,
   Record<K,V> over index signatures, interface vs type vs class, discriminated unions, as const,
   annotate public async returns, TransactionClient typed, enum import path
+- Added prisma-query: select vs include decision, findUnique vs findFirst rules, no findUniqueOrThrow,
+  reusable shapes in src/common/constants/ as const, relation filters (some/none), aggregates for
+  denormalization only, orderBy hardcoded never from client, no Prisma inside loops, unbounded query rules
+- Added add-decorator: Pattern A (SetMetadata + Reflector for guards) vs Pattern B (createParamDecorator
+  for params), file location, when NOT to add a new decorator, testing patterns
+- Added write-script: script template (PrismaPg + dotenv/config + $disconnect in both then/catch),
+  tsx runner, idempotent operations, batch processing ≤100 rows, dry-run flag pattern, enum imports
 
