@@ -406,4 +406,13 @@ Hooks (.claude/settings.json):
   TransactionClient import path, what goes inside (writes, tx-passed helpers, updateMany race guard),
   what goes outside (file I/O before tx, notifications via .then(), external API calls),
   when NOT to use a transaction
+- Added upload-file: FileInterceptor vs FileFieldsInterceptor, multerConfig, pipe validation pattern,
+  FileStorageService.resolvePath()+write() usage, file-before-transaction ordering, relative path in DB
+- Added handle-error: decision table for all 6 exception types, message patterns, when NOT to throw each,
+  ConflictException vs BadRequestException distinction, ForbiddenException vs UnauthorizedException
+- Added add-enum: schema definition, import from @/generated/prisma/enums, @IsEnum DTO pattern,
+  @ApiProperty enum field, constants Set pattern, CASL subjects are model names not enums
+- Added typescript: import type discipline, no any/no non-null assertions, unknown in catch blocks,
+  Record<K,V> over index signatures, interface vs type vs class, discriminated unions, as const,
+  annotate public async returns, TransactionClient typed, enum import path
 
