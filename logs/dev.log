@@ -428,3 +428,36 @@ Hooks (.claude/settings.json):
   ownership both required), input validation (ParseUUIDPipe, @Type coercion, file pipes), response
   safety (no leaked hashes/tokens), rate limiting (@Throttle override), raw SQL rules, infra checklist
 
+---
+
+July 19, 2026 — skills audit applied to codebase (branch: refactor/apply-skills-audit)
+
+Security (security.md):
+- Added can(Action.Read, 'User') and can(Action.Update, 'User') grants for WORKER and CUSTOMER
+  roles in casl-ability.factory.ts; User subject was defined but never granted to non-admin roles
+- Added @CheckAbility(Action.Read, 'User') to GET /users/me (users.controller.ts)
+- Added @CheckAbility to three auth session routes: Read for GET /sessions, Update for
+  DELETE /sessions and DELETE /sessions/:tokenId
+- Added ParseUUIDPipe to @Param('tokenId') in DELETE /sessions/:tokenId
+- Added @ApiTags and @ApiBearerAuth to users.controller.ts and auth.controller.ts
+
+Pagination (prisma-query.md + paginate.md):
+- Refactored workers.search, bookings.findMany, reviews.findMyReviews,
+  reviews.findAllByWorkerId: all four list endpoints used skip/take but returned a bare array
+  instead of {items, total, skip, take}; each now uses $transaction([findMany, count])
+  with identical where on both queries
+- Updated workers.service.spec.ts and reviews.service.spec.ts: added count mock, updated
+  $transaction mock to handle both batch-array and async-callback forms
+
+Architecture (implement.md + architecture.md):
+- Moved resolveNoShow find+validate from admin.service.ts into AdminAssertions.findPendingNoShowReport();
+  removed ConflictException/NotFoundException imports from admin.service.ts
+- Updated admin.service.spec.ts: resolveNoShow tests now mock assertions.findPendingNoShowReport
+
+Tests (write-tests.md):
+- Added auth.assertions.spec.ts: 11 tests (findUserForRefresh, assertUserCanAuthenticate,
+  findRefreshToken, assertTokenIsValid 5 branches, hashToken)
+- Added customers.assertions.spec.ts: 4 tests (findCustomerProfile, assertCustomerProfileDoesNotExist)
+- Added notifications.controller.spec.ts: 3 tests (registerToken, removeToken)
+- Test count: 236 → 254 (all passing)
+
