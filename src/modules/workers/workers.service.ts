@@ -34,30 +34,36 @@ export class WorkersService {
   async search(query: FindWorkersQueryDto) {
     const { availableOnly, categoryId, barangayId, skip, take } = query;
 
-    return this.prisma.workerProfile.findMany({
-      where: {
-        status: WorkerStatus.VERIFIED,
-        isOnline: availableOnly === true ? true : undefined,
-        user: { status: UserStatus.ACTIVE },
-        categories: categoryId
-          ? { some: { categoryId, category: { isActive: true } } }
-          : undefined,
-        serviceAreas: barangayId ? { some: { barangayId } } : undefined,
-        bookings: {
-          none: {
-            status: { in: [BookingStatus.ACCEPTED, BookingStatus.IN_PROGRESS] },
-          },
+    const where = {
+      status: WorkerStatus.VERIFIED,
+      isOnline: availableOnly === true ? true : undefined,
+      user: { status: UserStatus.ACTIVE },
+      categories: categoryId
+        ? { some: { categoryId, category: { isActive: true } } }
+        : undefined,
+      serviceAreas: barangayId ? { some: { barangayId } } : undefined,
+      bookings: {
+        none: {
+          status: { in: [BookingStatus.ACCEPTED, BookingStatus.IN_PROGRESS] },
         },
       },
-      include: PUBLIC_WORKER_INCLUDE,
-      orderBy: [
-        { averageRating: 'desc' },
-        { totalReviews: 'desc' },
-        { createdAt: 'desc' },
-      ],
-      skip,
-      take,
-    });
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.workerProfile.findMany({
+        where,
+        include: PUBLIC_WORKER_INCLUDE,
+        orderBy: [
+          { averageRating: 'desc' },
+          { totalReviews: 'desc' },
+          { createdAt: 'desc' },
+        ],
+        skip,
+        take,
+      }),
+      this.prisma.workerProfile.count({ where }),
+    ]);
+    return { items, total, skip, take };
   }
 
   async findOwnProfile(userId: string) {

@@ -37,6 +37,7 @@ describe('WorkersService', () => {
       findMany: jest.fn(),
       findFirst: jest.fn(),
       findUnique: jest.fn(),
+      count: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     },
@@ -79,7 +80,10 @@ describe('WorkersService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     prisma.$transaction.mockImplementation(
-      (cb: (transaction: typeof tx) => unknown) => cb(tx),
+      (arg: ((transaction: typeof tx) => unknown) | Promise<unknown>[]) => {
+        if (Array.isArray(arg)) return Promise.all(arg);
+        return arg(tx);
+      },
     );
 
     const module: TestingModule = await Test.createTestingModule({
@@ -97,8 +101,9 @@ describe('WorkersService', () => {
 
   it('searches verified active workers by default', async () => {
     prisma.workerProfile.findMany.mockResolvedValue([]);
+    prisma.workerProfile.count.mockResolvedValue(0);
 
-    await service.search({});
+    const result = await service.search({});
 
     expect(prisma.workerProfile.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -109,10 +114,12 @@ describe('WorkersService', () => {
         }),
       }),
     );
+    expect(result).toMatchObject({ items: [], total: 0 });
   });
 
   it('filters to online workers when availableOnly is true', async () => {
     prisma.workerProfile.findMany.mockResolvedValue([]);
+    prisma.workerProfile.count.mockResolvedValue(0);
 
     await service.search({ availableOnly: true });
 

@@ -101,35 +101,41 @@ export class BookingsService {
     ];
     const isCustomer = user.role === Role.CUSTOMER;
 
-    return this.prisma.booking.findMany({
-      where: {
-        ...(isCustomer
-          ? { customer: { userId: user.sub } }
-          : { worker: { userId: user.sub } }),
-        ...(query.status === 'active' && { status: { in: activeStatuses } }),
-        ...(query.status === 'history' && { status: { in: historyStatuses } }),
-      },
-      include: {
-        worker: isCustomer
-          ? {
-              select: {
-                firstName: true,
-                lastName: true,
-                avatarUrl: true,
-                averageRating: true,
-              },
-            }
-          : false,
-        customer: isCustomer
-          ? false
-          : { select: { firstName: true, lastName: true, avatarUrl: true } },
-        category: { select: { name: true, iconUrl: true } },
-        barangay: { select: { name: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip: query.skip,
-      take: query.take,
-    });
+    const where = {
+      ...(isCustomer
+        ? { customer: { userId: user.sub } }
+        : { worker: { userId: user.sub } }),
+      ...(query.status === 'active' && { status: { in: activeStatuses } }),
+      ...(query.status === 'history' && { status: { in: historyStatuses } }),
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.booking.findMany({
+        where,
+        include: {
+          worker: isCustomer
+            ? {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  avatarUrl: true,
+                  averageRating: true,
+                },
+              }
+            : false,
+          customer: isCustomer
+            ? false
+            : { select: { firstName: true, lastName: true, avatarUrl: true } },
+          category: { select: { name: true, iconUrl: true } },
+          barangay: { select: { name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: query.skip,
+        take: query.take,
+      }),
+      this.prisma.booking.count({ where }),
+    ]);
+    return { items, total, skip: query.skip, take: query.take };
   }
 
   async create(user: AuthJwtPayload, dto: CreateBookingDto) {

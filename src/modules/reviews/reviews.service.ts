@@ -55,22 +55,32 @@ export class ReviewsService {
   async findMyReviews(userId: string, query: FindReviewsQueryDto) {
     const customerProfile = await this.assertions.findCustomerProfile(userId);
 
-    return this.prisma.review.findMany({
-      where: { customerId: customerProfile.id },
-      orderBy: { createdAt: 'desc' },
-      skip: query.skip,
-      take: query.take,
-    });
+    const where = { customerId: customerProfile.id };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.review.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: query.skip,
+        take: query.take,
+      }),
+      this.prisma.review.count({ where }),
+    ]);
+    return { items, total, skip: query.skip, take: query.take };
   }
 
   async findAllByWorkerId(workerId: string, query: FindReviewsQueryDto) {
     await this.assertions.assertWorkerProfileExists(workerId);
 
-    return this.prisma.review.findMany({
-      where: { workerId },
-      orderBy: { createdAt: 'desc' },
-      skip: query.skip,
-      take: query.take,
-    });
+    const where = { workerId };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.review.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: query.skip,
+        take: query.take,
+      }),
+      this.prisma.review.count({ where }),
+    ]);
+    return { items, total, skip: query.skip, take: query.take };
   }
 }
