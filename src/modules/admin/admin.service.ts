@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import {
   BookingStatus,
@@ -210,24 +206,7 @@ export class AdminService {
     user: AuthJwtPayload,
     dto: ResolveNoShowDto,
   ) {
-    const report = await this.prisma.noShowReport.findUnique({
-      where: { id: reportId },
-      include: {
-        booking: {
-          select: {
-            id: true,
-            workerId: true,
-            worker: { select: { userId: true } },
-          },
-        },
-      },
-    });
-
-    if (!report) throw new NotFoundException('No-show report not found.');
-
-    if (report.confirmed !== null) {
-      throw new ConflictException('This report has already been resolved.');
-    }
+    const report = await this.assertions.findPendingNoShowReport(reportId);
 
     return this.prisma
       .$transaction(async (tx: TransactionClient) => {
