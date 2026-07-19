@@ -1113,7 +1113,7 @@ Report a worker no-show. Can only be filed when the booking is in `ACCEPTED` or 
 
 > `description` is optional, max 500 chars.
 
-**Response `201`:**
+**Response `200`:**
 ```json
 {
   "id": "91000000-0000-4000-8000-000000000001",
@@ -1476,7 +1476,7 @@ On any 401 response:
 - **Rating display:** Only show `averageRating` if `worker.totalReviews >= 3`. The public worker profile endpoint enforces this by returning `null` for `averageRating` when the count is below 3.
 - **Worker availability:** `isOnline: true` is only allowed when `workerProfile.status === "VERIFIED"`. The server returns `403` otherwise — gate this UI action on the worker's status.
 - **Push tokens:** Register immediately after every login (the token may change between app launches). Remove on logout.
-- **Multipart uploads:** Verification and credential uploads use `multipart/form-data`. Set the correct `Content-Type` boundary — most HTTP clients handle this automatically when you append files to a `FormData` object.v
+- **Multipart uploads:** Verification and credential uploads use `multipart/form-data`. Set the correct `Content-Type` boundary — most HTTP clients handle this automatically when you append files to a `FormData` object.
 - **Rate limits:** OTP request is throttled at 3/15 min. Show a countdown UI after the first send to prevent user frustration.
 - **Empty responses:** `PATCH /bookings/:id/accept|reject|start|complete|cancel|update` and `POST|DELETE /notifications/push-token` all return HTTP `200` with an **empty body** — do not try to parse a JSON response.
 
