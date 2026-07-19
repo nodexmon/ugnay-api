@@ -84,6 +84,18 @@ export class WorkersController {
     return this.workersService.setAvailability(user.sub, dto.isOnline);
   }
 
+  @CheckAbility(Action.Read, 'VerificationDoc')
+  @Get('verification')
+  getOwnVerification(@CurrentUser() user: AuthJwtPayload) {
+    return this.workersService.findOwnVerification(user.sub);
+  }
+
+  @CheckAbility(Action.Read, 'WorkerProfile')
+  @Get('strikes')
+  getOwnStrikes(@CurrentUser() user: AuthJwtPayload) {
+    return this.workersService.findOwnStrikes(user.sub);
+  }
+
   @CheckAbility(Action.Create, 'VerificationDoc')
   @Post('verification')
   @UseInterceptors(
