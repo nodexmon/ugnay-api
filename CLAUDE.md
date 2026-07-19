@@ -171,6 +171,10 @@ Always invoke the project skills defined in `.claude/commands/` for the relevant
 | `fix-migration` | When a migration fails, needs rollback, or schema/DB have drifted |
 | `add-index` | When adding a performance index to speed up a query or cron job |
 | `add-transaction` | When wrapping multiple Prisma writes in a transaction |
+| `upload-file` | When adding an endpoint that accepts file uploads |
+| `handle-error` | When deciding which exception type to throw |
+| `add-enum` | When adding a new Prisma enum to the schema |
+| `typescript` | Apply to every TypeScript file written or modified |
 
 ## Dev Log
 
