@@ -422,4 +422,9 @@ Hooks (.claude/settings.json):
   for params), file location, when NOT to add a new decorator, testing patterns
 - Added write-script: script template (PrismaPg + dotenv/config + $disconnect in both then/catch),
   tsx runner, idempotent operations, batch processing ≤100 rows, dry-run flag pattern, enum imports
+- Added remove-endpoint: 8-step checklist (controller → service → assertions → DTOs → CASL grant →
+  tests → swagger auto → handout manual); grep-before-delete rule for every artifact
+- Added security: auth (@Public only for true public routes), authorization (CASL role + service
+  ownership both required), input validation (ParseUUIDPipe, @Type coercion, file pipes), response
+  safety (no leaked hashes/tokens), rate limiting (@Throttle override), raw SQL rules, infra checklist
 
