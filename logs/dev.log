@@ -475,7 +475,7 @@ July 19, 2026 — naming skill and codebase audit
 
 ---
 
-July 20, 2026 — error-message skill, yagni skill, and codebase audits
+July 20, 2026 — error-message skill, yagni skill, and codebase audits (first pass)
 
 - Created .claude/commands/error-message.md: skill enforcing consistent exception message
   formatting (period termination, sentence case, subject-first, patterns per exception type,
@@ -489,4 +489,15 @@ July 20, 2026 — error-message skill, yagni skill, and codebase audits
 - Applied yagni audit: inlined applyWorkerCancellationStrike (single-use private method
   wrapping one applyStrike call); deleted empty booking.types.ts placeholder
 - Added error-message, yagni, and naming skills to CLAUDE.md skills table
+- Updated yagni.md: clarified single-export constants files are intentional convention,
+  not a violation; only duplicates and empty files qualify
+
+---
+
+July 20, 2026 — error-message second-pass audit
+
+- Re-scanned all exception messages after first-pass fixes
+- Fixed 4 remaining violations in avatar-file.pipe.ts and admin.assertions.ts:
+  avatar messages missing capitalisation, period, and "file" noun;
+  admin.assertions "User does not exist." → "User not found."
 
