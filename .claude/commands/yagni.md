@@ -134,7 +134,11 @@ async findUser(id: string): Promise<User> { ... }
 
 ## Constants files
 
-Don't create a `[module].constants.ts` file for a single constant. Inline it or co-locate it in the file that owns it. Extract to a constants file only when there are **three or more** related constants that multiple files reference.
+A `[module].constants.ts` file with a single export is **not** over-engineering — it keeps the owning module's source files focused and is the project convention. Do not inline a constant just because its file has one export.
+
+What IS over-engineering:
+- A constants file whose only export is already defined elsewhere (duplicate)
+- A constants file with zero exports (empty placeholder — delete it)
 
 ---
 
