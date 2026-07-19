@@ -3,11 +3,22 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Booking } from '@/generated/prisma/client';
-import { BookingStatus, Role, WorkerStatus } from '@/generated/prisma/enums';
-import { BOOKING_MAX_ADVANCE_MS } from '@/modules/bookings/bookings.constants';
+import {
+  BookingStatus,
+  Role,
+  TimeWindow,
+  WorkerStatus,
+} from '@/generated/prisma/enums';
+import {
+  BOOKING_MAX_ADVANCE_MS,
+  NO_SHOW_DEADLINE_EXTRA_MS,
+  PST_OFFSET_MS,
+  TIME_WINDOW_END_HOUR_PST,
+} from '@/modules/bookings/bookings.constants';
 
 @Injectable()
 export class BookingsAssertions {
@@ -66,18 +77,55 @@ export class BookingsAssertions {
     const activeBooking = await this.prisma.booking.findFirst({
       where: {
         workerId,
-        status: { in: [BookingStatus.ACCEPTED, BookingStatus.IN_PROGRESS] },
+        status: {
+          in: [
+            BookingStatus.PENDING,
+            BookingStatus.ACCEPTED,
+            BookingStatus.IN_PROGRESS,
+          ],
+        },
       },
     });
     if (activeBooking) {
-      throw new ForbiddenException('Worker is currently unavailable.');
+      throw new UnprocessableEntityException(
+        'Worker is currently unavailable.',
+      );
     }
   }
 
   assertScheduledDateIsValid(scheduledAt: Date): void {
+    const toDayMs = (d: Date) => {
+      const p = new Date(d.getTime() + PST_OFFSET_MS);
+      return Date.UTC(p.getUTCFullYear(), p.getUTCMonth(), p.getUTCDate());
+    };
+    if (toDayMs(scheduledAt) < toDayMs(new Date())) {
+      throw new UnprocessableEntityException(
+        'Scheduled date cannot be in the past.',
+      );
+    }
     const maxScheduledDate = new Date(Date.now() + BOOKING_MAX_ADVANCE_MS);
     if (scheduledAt > maxScheduledDate) {
       throw new BadRequestException('Scheduled booking must be within 7 days.');
+    }
+  }
+
+  assertNoShowWindowOpen(booking: {
+    scheduledDate: Date;
+    timeWindow: TimeWindow;
+  }): void {
+    const scheduled = new Date(booking.scheduledDate.getTime() + PST_OFFSET_MS);
+    const endHour = TIME_WINDOW_END_HOUR_PST[booking.timeWindow];
+    const deadlineUTC =
+      Date.UTC(
+        scheduled.getUTCFullYear(),
+        scheduled.getUTCMonth(),
+        scheduled.getUTCDate(),
+      ) -
+      PST_OFFSET_MS +
+      endHour * 60 * 60 * 1000 +
+      NO_SHOW_DEADLINE_EXTRA_MS;
+    if (Date.now() > deadlineUTC) {
+      throw new ForbiddenException('No-show report window has closed.');
     }
   }
 
