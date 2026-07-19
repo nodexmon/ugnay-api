@@ -289,7 +289,10 @@ export class BookingsService {
 
     await this.prisma.$transaction(async (tx: TransactionClient) => {
       if (user.role === Role.WORKER) {
-        await this.applyWorkerCancellationStrike(tx, profileId);
+        await applyStrike(tx, profileId, {
+          reason: StrikeReason.POST_ACCEPT_CANCELLATION,
+          issuedBy: 'SYSTEM',
+        });
       }
 
       const result = await tx.booking.updateMany({
@@ -359,16 +362,6 @@ export class BookingsService {
     const profileId = await this.assertions.resolveProfileId(userId, role);
 
     return { activeUser, booking, profileId };
-  }
-
-  private async applyWorkerCancellationStrike(
-    tx: TransactionClient,
-    workerProfileId: string,
-  ): Promise<void> {
-    await applyStrike(tx, workerProfileId, {
-      reason: StrikeReason.POST_ACCEPT_CANCELLATION,
-      issuedBy: 'SYSTEM',
-    });
   }
 
   private async notifyBookingParty(
