@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { HttpException, UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '@/prisma/prisma.service';
 import { OtpService } from '@/modules/auth/otp/otp.service';
@@ -11,6 +11,7 @@ describe('OtpService', () => {
       create: jest.fn(),
       findFirst: jest.fn(),
       update: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
     },
     $transaction: jest.fn(async (callback) => callback(prisma)),
   };
@@ -22,6 +23,14 @@ describe('OtpService', () => {
     }).compile();
 
     service = module.get<OtpService>(OtpService);
+  });
+
+  it('throws 429 when 5 or more OTPs have been sent to the same phone in the last hour', async () => {
+    prisma.otpRequest.count.mockResolvedValueOnce(5);
+
+    await expect(service.createOtp('+639171234567')).rejects.toBeInstanceOf(
+      HttpException,
+    );
   });
 
   it('creates a six digit OTP request', async () => {

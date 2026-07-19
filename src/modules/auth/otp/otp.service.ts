@@ -1,8 +1,13 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { randomInt } from 'crypto';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
-import { OTP_EXPIRY_MS } from './otp.constants';
+import { OTP_EXPIRY_MS, OTP_HOURLY_LIMIT } from './otp.constants';
 
 @Injectable()
 export class OtpService {
@@ -13,6 +18,19 @@ export class OtpService {
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
 
     await this.prisma.$transaction(async (tx: TransactionClient) => {
+      const recentCount = await tx.otpRequest.count({
+        where: {
+          phone,
+          createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) },
+        },
+      });
+      if (recentCount >= OTP_HOURLY_LIMIT) {
+        throw new HttpException(
+          'Too many OTP requests. Please try again later.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+
       // Invalid previous OTPs for this phone
       await tx.otpRequest.updateMany({
         where: { phone, verified: false },
