@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Logger } from 'nestjs-pino';
 import { PrismaService } from '@/prisma/prisma.service';
 import {
   BookingStatus,
@@ -22,6 +23,7 @@ import {
   WORKER_INCLUDE,
 } from '@/common/constants/worker-includes';
 import { FindReviewsAdminQueryDto } from './dto/find-reviews-admin-query.dto';
+import { ReinstateWorkerDto } from './dto/reinstate-worker.dto';
 import { AdminAssertions } from './admin.assertions';
 import { BarangaySyncService } from '@/modules/barangays/barangay-sync.service';
 import { applyStrike } from '@/common/utils/strike.util';
@@ -33,6 +35,7 @@ export class AdminService {
     private readonly notifications: NotificationsService,
     private readonly assertions: AdminAssertions,
     private readonly barangaySync: BarangaySyncService,
+    private readonly logger: Logger,
   ) {}
 
   // ─── Public API ──────────────────────────────────────────────────────────────
@@ -151,9 +154,35 @@ export class AdminService {
           where: { userId: workerId },
           data: { status: WorkerStatus.SUSPENDED, isOnline: false },
         });
+      } else {
+        await tx.workerProfile.updateMany({
+          where: { userId: workerId },
+          data: { status: WorkerStatus.VERIFIED },
+        });
       }
 
       return updatedUser;
+    });
+  }
+
+  async reinstateWorker(
+    userId: string,
+    dto: ReinstateWorkerDto,
+    admin: AuthJwtPayload,
+  ) {
+    await this.assertions.findSuspendedWorker(userId);
+    this.logger.log(
+      `Worker ${userId} reinstated by ${admin.sub}. Note: ${dto.auditNote}`,
+    );
+    return this.prisma.$transaction(async (tx: TransactionClient) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { status: UserStatus.ACTIVE },
+      });
+      return tx.workerProfile.updateMany({
+        where: { userId },
+        data: { status: WorkerStatus.VERIFIED, strikeCount: 0 },
+      });
     });
   }
 

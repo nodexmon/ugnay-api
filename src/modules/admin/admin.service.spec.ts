@@ -1,4 +1,5 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { Logger } from 'nestjs-pino';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   BookingStatus,
@@ -73,6 +74,7 @@ describe('AdminService', () => {
     assertWorkerIsUnverified: jest.fn(),
     assertUserExists: jest.fn(),
     findWorkerProfile: jest.fn(),
+    findSuspendedWorker: jest.fn(),
     assertBookingExists: jest.fn(),
     findPendingVerification: jest.fn(),
     findPendingCredential: jest.fn(),
@@ -102,6 +104,7 @@ describe('AdminService', () => {
           provide: BarangaySyncService,
           useValue: { syncBarangays: jest.fn() },
         },
+        { provide: Logger, useValue: { log: jest.fn() } },
       ],
     }).compile();
 
@@ -154,6 +157,66 @@ describe('AdminService', () => {
     expect(tx.workerProfile.updateMany).toHaveBeenCalledWith({
       where: { userId: 'user-id' },
       data: { status: WorkerStatus.SUSPENDED, isOnline: false },
+    });
+  });
+
+  it('restores WorkerProfile to VERIFIED when unsuspending a user', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-id',
+      status: UserStatus.SUSPENDED,
+    });
+    tx.user.update.mockResolvedValue({
+      id: 'user-id',
+      status: UserStatus.ACTIVE,
+    });
+
+    await service.setUserSuspension('user-id', false);
+
+    expect(tx.workerProfile.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-id' },
+      data: { status: WorkerStatus.VERIFIED },
+    });
+  });
+
+  describe('reinstateWorker', () => {
+    const suspendedWorker = {
+      id: 'worker-profile-id',
+      userId: 'user-id',
+      status: WorkerStatus.SUSPENDED,
+    };
+
+    it('resets strikeCount and restores statuses for a suspended worker', async () => {
+      assertions.findSuspendedWorker.mockResolvedValue(suspendedWorker);
+      tx.user.update.mockResolvedValue({
+        id: 'user-id',
+        status: UserStatus.ACTIVE,
+      });
+      tx.workerProfile.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.reinstateWorker(
+        'user-id',
+        { auditNote: 'Reviewed and cleared' },
+        adminUser,
+      );
+
+      expect(tx.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-id' },
+        data: { status: UserStatus.ACTIVE },
+      });
+      expect(tx.workerProfile.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-id' },
+        data: { status: WorkerStatus.VERIFIED, strikeCount: 0 },
+      });
+    });
+
+    it('throws NotFoundException when worker is not suspended', async () => {
+      assertions.findSuspendedWorker.mockRejectedValue(
+        new NotFoundException('Suspended worker not found.'),
+      );
+
+      await expect(
+        service.reinstateWorker('user-id', { auditNote: 'note' }, adminUser),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 

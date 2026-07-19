@@ -23,6 +23,7 @@ import { FindUsersQueryDto } from './dto/find-users-query.dto';
 import { FindWorkersQueryDto } from './dto/find-workers-query.dto';
 import { FindBookingsQueryDto } from './dto/find-bookings-query.dto';
 import { FindReviewsAdminQueryDto } from './dto/find-reviews-admin-query.dto';
+import { ReinstateWorkerDto } from './dto/reinstate-worker.dto';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 
 @ApiTags('admin')
@@ -97,6 +98,15 @@ export class AdminController {
     @Body() dto: SuspendUserDto,
   ) {
     return this.adminService.setUserSuspension(id, dto.suspended);
+  }
+
+  @Patch('workers/:id/reinstate')
+  reinstateWorker(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReinstateWorkerDto,
+  ) {
+    return this.adminService.reinstateWorker(id, dto, user);
   }
 
   @Post('barangays/sync')
