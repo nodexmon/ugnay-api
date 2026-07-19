@@ -14,6 +14,7 @@ export enum Action {
   Complete = 'complete',
   Cancel = 'cancel',
   ReportNoShow = 'report-no-show',
+  ReportCustomerNoShow = 'report-customer-no-show',
 }
 
 export type Subject =
