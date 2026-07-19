@@ -512,3 +512,44 @@ July 20, 2026 — naming skill second-pass audit
   (acceptCount, rejectCount, startCount, completeCount, cancelCount) so each
   guard clause is self-documenting
 
+---
+
+July 20, 2026 — BRD gap analysis and v1.3 update
+
+- Conducted full BRD review against implementation; identified ~30 gaps across
+  auth, worker onboarding, booking lifecycle, reviews, business rules, schema,
+  API, mobile screens, and risk register
+- Updated docs/UGNAY_BRD_v1_1.md to v1.3 with the following additions:
+  - AUTH: 4 new requirements — OTP rate limit (5/hr, AUTH-05), PH phone format
+    validation (AUTH-06), suspended-session JWT behaviour (AUTH-07), admin
+    account provisioning via seed script (AUTH-08)
+  - Workers: WRK-01 min-1-category enforced; WRK-02/03 file constraints
+    (JPEG/PNG, 5 MB, MIME validated); WRK-04 push on verification result;
+    WRK-05 permanent ban clarified with admin reinstatement path; WRK-07
+    (professional credentials) formally documented; WRK-08 service area
+    updates post-verification
+  - Bookings: BKG-01 past-date guard + same-day = IMMEDIATE enforced server-side;
+    BKG-05 post-acceptance customer cancellation fully rewritten (direct cancel,
+    no ack required, worker notified by push); BKG-06 no-show window clarified
+    to end-of-window + 2 hours; BKG-08 customer no-show report (symmetric with
+    worker no-show, admin review flow); BKG-09 expiry push notification to
+    customer; BKG-10 concurrent booking guard (HTTP 422 before DB write)
+  - Reviews: REV-03 admin deletion with rating recalculation; REV-05/REV-06
+    added as explicit known gaps (worker-to-customer reviews, review bombing)
+  - Business rules: BR-02, BR-06, BR-07, BR-11 amended for clarity; BR-13
+    (agreedRate auto-snapshot) and BR-14 (cancellationReason policy) added
+  - Schema: Section 8.3 added (bare-string FK rationale, deletedAt, audit log
+    deferral, agreedRate/cancellationReason definitions); CUSTOMER_NO_SHOW
+    added to booking status enum
+  - API: 5 new endpoints (GET /workers/verification, GET /workers/strikes,
+    PATCH /bookings/:id/report-customer-no-show, GET /admin/reviews,
+    DELETE /admin/reviews/:id); /bookings/:id/update renamed to /bookings/:id;
+    global pagination convention documented once in Section 9 header
+  - Mobile: booking confirmation preview screen (Screen 5a — shows agreedRate
+    before submit); cancel booking screen (Screen 9); verification-rejected
+    screen (Worker 3a); customer no-show screen (Worker 8); empty/error states
+    documented as required UI states for all list views
+  - Risk register: 6 new risks — VPS disk failure for uploaded files, booking
+    race condition, customer no-shows, permanent ban admin error, worker with
+    no push token, fake reviews via multiple accounts
+
