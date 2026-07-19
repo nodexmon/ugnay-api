@@ -69,6 +69,7 @@ describe('AdminService', () => {
     assertBookingExists: jest.fn(),
     findPendingVerification: jest.fn(),
     findPendingCredential: jest.fn(),
+    findPendingNoShowReport: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -161,7 +162,7 @@ describe('AdminService', () => {
     };
 
     it('confirms a no-show: strikes by worker profile id, marks booking NO_SHOW', async () => {
-      prisma.noShowReport.findUnique.mockResolvedValue(report);
+      assertions.findPendingNoShowReport.mockResolvedValue(report);
       tx.workerProfile.update.mockResolvedValue({
         id: 'worker-profile-id',
         strikeCount: 1,
@@ -189,7 +190,7 @@ describe('AdminService', () => {
     });
 
     it('suspends the worker when confirming a no-show pushes strike count to 3', async () => {
-      prisma.noShowReport.findUnique.mockResolvedValue(report);
+      assertions.findPendingNoShowReport.mockResolvedValue(report);
       tx.workerProfile.update
         .mockResolvedValueOnce({ id: 'worker-profile-id', strikeCount: 3 })
         .mockResolvedValueOnce({
@@ -207,7 +208,7 @@ describe('AdminService', () => {
     });
 
     it('dismisses a no-show without issuing a strike or changing booking status', async () => {
-      prisma.noShowReport.findUnique.mockResolvedValue(report);
+      assertions.findPendingNoShowReport.mockResolvedValue(report);
 
       await service.resolveNoShow('report-id', adminUser, { confirmed: false });
 
@@ -216,10 +217,9 @@ describe('AdminService', () => {
     });
 
     it('throws ConflictException when the report is already resolved', async () => {
-      prisma.noShowReport.findUnique.mockResolvedValue({
-        ...report,
-        confirmed: false,
-      });
+      assertions.findPendingNoShowReport.mockRejectedValue(
+        new ConflictException('This report has already been resolved.'),
+      );
 
       await expect(
         service.resolveNoShow('report-id', adminUser, { confirmed: true }),
@@ -227,7 +227,9 @@ describe('AdminService', () => {
     });
 
     it('throws NotFoundException when the report does not exist', async () => {
-      prisma.noShowReport.findUnique.mockResolvedValue(null);
+      assertions.findPendingNoShowReport.mockRejectedValue(
+        new NotFoundException('No-show report not found.'),
+      );
 
       await expect(
         service.resolveNoShow('report-id', adminUser, { confirmed: true }),

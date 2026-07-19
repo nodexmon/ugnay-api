@@ -152,6 +152,34 @@ Always invoke the project skills defined in `.claude/commands/` for the relevant
 | `write-tests` | When writing or fixing spec files |
 | `clean-code` | Apply clean coding principles to everything written or modified |
 | `architecture` | Apply architectural rules to keep the codebase modular and layered |
+| `migrate` | When changing `prisma/schema.prisma` — schema edit → migrate → generate → update code |
+| `pr` | Before opening or marking a PR ready — pre-flight checklist |
+| `debug` | When diagnosing a failing test, runtime error, or unexpected behavior |
+| `dto` | When writing or modifying any DTO file |
+| `seed` | When adding or modifying seed data in `prisma/seed.ts` |
+| `add-endpoint` | When adding a new route to an existing controller |
+| `add-module` | When creating a brand-new domain module from scratch |
+| `add-config` | When adding a new env var or replacing a hardcoded value |
+| `e2e-test` | When writing or extending end-to-end tests |
+| `add-permission` | When adding a new CASL action, subject, or role grant |
+| `add-cron` | When adding a new scheduled background job |
+| `paginate` | When implementing a list endpoint that returns `{ items, total, skip, take }` |
+| `add-notification` | When sending a push notification from a service method |
+| `add-relation` | When adding a new Prisma relation between models |
+| `document-endpoint` | When adding Swagger docs to a new endpoint |
+| `soft-delete` | When adding soft-delete to a model or querying a soft-deleteable model |
+| `fix-migration` | When a migration fails, needs rollback, or schema/DB have drifted |
+| `add-index` | When adding a performance index to speed up a query or cron job |
+| `add-transaction` | When wrapping multiple Prisma writes in a transaction |
+| `upload-file` | When adding an endpoint that accepts file uploads |
+| `handle-error` | When deciding which exception type to throw |
+| `add-enum` | When adding a new Prisma enum to the schema |
+| `typescript` | Apply to every TypeScript file written or modified |
+| `prisma-query` | When writing or reviewing any Prisma query |
+| `add-decorator` | When adding a new custom NestJS decorator |
+| `write-script` | When writing a one-off script that needs Prisma outside NestJS |
+| `remove-endpoint` | When deleting a route and cleaning up all associated artifacts |
+| `security` | After implementing any endpoint — run before committing |
 
 ## Dev Log
 

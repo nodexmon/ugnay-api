@@ -63,4 +63,24 @@ export class AdminAssertions {
     }
     return credential;
   }
+
+  async findPendingNoShowReport(reportId: string) {
+    const report = await this.prisma.noShowReport.findUnique({
+      where: { id: reportId },
+      include: {
+        booking: {
+          select: {
+            id: true,
+            workerId: true,
+            worker: { select: { userId: true } },
+          },
+        },
+      },
+    });
+    if (!report) throw new NotFoundException('No-show report not found.');
+    if (report.confirmed !== null) {
+      throw new ConflictException('This report has already been resolved.');
+    }
+    return report;
+  }
 }

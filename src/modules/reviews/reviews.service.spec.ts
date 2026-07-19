@@ -19,7 +19,7 @@ describe('ReviewsService', () => {
   const prisma = {
     customerProfile: { findUnique: jest.fn() },
     workerProfile: { findUnique: jest.fn() },
-    review: { findMany: jest.fn() },
+    review: { findMany: jest.fn(), count: jest.fn() },
     $transaction: jest.fn(),
   };
 
@@ -94,14 +94,22 @@ describe('ReviewsService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('queries reviews by workerId', async () => {
+  it('queries reviews by workerId and returns paginated result', async () => {
     mockAssertions.assertWorkerProfileExists.mockResolvedValue(undefined);
     prisma.review.findMany.mockResolvedValue([]);
+    prisma.review.count.mockResolvedValue(0);
+    prisma.$transaction.mockImplementation((queries: Promise<unknown>[]) =>
+      Promise.all(queries),
+    );
 
-    await service.findAllByWorkerId('profile-id', { skip: 0, take: 20 });
+    const result = await service.findAllByWorkerId('profile-id', {
+      skip: 0,
+      take: 20,
+    });
 
     expect(prisma.review.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { workerId: 'profile-id' } }),
     );
+    expect(result).toEqual({ items: [], total: 0, skip: 0, take: 20 });
   });
 });
