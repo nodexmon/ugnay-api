@@ -461,3 +461,15 @@ Tests (write-tests.md):
 - Added notifications.controller.spec.ts: 3 tests (registerToken, removeToken)
 - Test count: 236 → 254 (all passing)
 
+---
+
+July 19, 2026 — naming skill and codebase audit
+
+- Created .claude/commands/naming.md: new skill enforcing unambiguous identifiers across
+  variables, functions, classes, types, and constants; includes ✅/❌ code examples and
+  quick-reference anti-pattern table
+- Added naming skill to CLAUDE.md skills table
+- Applied naming audit across entire src/: one violation found and fixed —
+  BookingsService.handleWorkerCancellationPenalty → applyWorkerCancellationStrike
+  ('handle' was a vague verb; 'apply' names the concrete action)
+
