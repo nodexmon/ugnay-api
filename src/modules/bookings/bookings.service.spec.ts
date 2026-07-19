@@ -7,6 +7,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import {
   BookingStatus,
   CancellationActor,
+  NoShowReportType,
   Role,
   StrikeReason,
   UserStatus,
@@ -394,7 +395,7 @@ describe('BookingsService', () => {
   // ─── reportNoShow ─────────────────────────────────────────────────────────────
 
   describe('reportNoShow', () => {
-    it('creates a no-show report', async () => {
+    it('creates a no-show report with WORKER type', async () => {
       assertions.findBooking.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
@@ -408,6 +409,13 @@ describe('BookingsService', () => {
       );
 
       expect(result).toMatchObject({ id: 'report-id' });
+      expect(prisma.noShowReport.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            reportType: NoShowReportType.WORKER,
+          }),
+        }),
+      );
     });
 
     it('throws ForbiddenException when a report already exists for the booking', async () => {
@@ -437,6 +445,69 @@ describe('BookingsService', () => {
 
       await expect(
         service.reportNoShow('booking-id', customerJwt),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  // ─── reportCustomerNoShow ─────────────────────────────────────────────────────
+
+  describe('reportCustomerNoShow', () => {
+    it('creates a no-show report with CUSTOMER type', async () => {
+      assertions.findBooking.mockResolvedValue({
+        ...pendingBooking,
+        status: BookingStatus.ACCEPTED,
+      });
+      assertions.resolveProfileId.mockResolvedValue('worker-profile-id');
+      usersAssertions.findActiveUser.mockResolvedValue(workerUser);
+      prisma.noShowReport.create.mockResolvedValue({ id: 'report-id' });
+
+      const result = await service.reportCustomerNoShow(
+        'booking-id',
+        workerJwt,
+        'Customer did not open the door',
+      );
+
+      expect(result).toMatchObject({ id: 'report-id' });
+      expect(prisma.noShowReport.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            reportType: NoShowReportType.CUSTOMER,
+          }),
+        }),
+      );
+    });
+
+    it('throws ForbiddenException when a report already exists', async () => {
+      assertions.findBooking.mockResolvedValue({
+        ...pendingBooking,
+        status: BookingStatus.ACCEPTED,
+      });
+      assertions.resolveProfileId.mockResolvedValue('worker-profile-id');
+      usersAssertions.findActiveUser.mockResolvedValue(workerUser);
+      assertions.assertNoReportExists.mockRejectedValueOnce(
+        new ForbiddenException(
+          'A no-show report already exists for this booking.',
+        ),
+      );
+
+      await expect(
+        service.reportCustomerNoShow('booking-id', workerJwt),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('throws ForbiddenException when the worker does not own the booking', async () => {
+      assertions.findBooking.mockResolvedValue({
+        ...pendingBooking,
+        status: BookingStatus.ACCEPTED,
+      });
+      assertions.resolveProfileId.mockResolvedValue('worker-profile-id');
+      usersAssertions.findActiveUser.mockResolvedValue(workerUser);
+      assertions.assertOwnership.mockImplementationOnce(() => {
+        throw new ForbiddenException('Insufficient permissions.');
+      });
+
+      await expect(
+        service.reportCustomerNoShow('booking-id', workerJwt),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });

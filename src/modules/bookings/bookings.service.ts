@@ -9,6 +9,7 @@ import { CreateBookingDto } from './dto/create-booking.dto';
 import {
   BookingStatus,
   CancellationActor,
+  NoShowReportType,
   Role,
   StrikeReason,
 } from '@/generated/prisma/enums';
@@ -342,7 +343,37 @@ export class BookingsService {
     await this.assertions.assertNoReportExists(booking.id);
 
     return this.prisma.noShowReport.create({
-      data: { bookingId, reportedBy: activeUser.id, description },
+      data: {
+        bookingId,
+        reportedBy: activeUser.id,
+        description,
+        reportType: NoShowReportType.WORKER,
+      },
+    });
+  }
+
+  async reportCustomerNoShow(
+    bookingId: string,
+    user: AuthJwtPayload,
+    description?: string,
+  ) {
+    const { activeUser, booking, profileId } = await this.prepareBookingAction(
+      user.sub,
+      user.role,
+      bookingId,
+      BookingStatus.ACCEPTED,
+      BookingStatus.IN_PROGRESS,
+    );
+    this.assertions.assertOwnership(booking.workerId, profileId);
+    await this.assertions.assertNoReportExists(booking.id);
+
+    return this.prisma.noShowReport.create({
+      data: {
+        bookingId,
+        reportedBy: activeUser.id,
+        description,
+        reportType: NoShowReportType.CUSTOMER,
+      },
     });
   }
 
