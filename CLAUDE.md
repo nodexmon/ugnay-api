@@ -170,6 +170,7 @@ Always invoke the project skills defined in `.claude/commands/` for the relevant
 | `soft-delete` | When adding soft-delete to a model or querying a soft-deleteable model |
 | `fix-migration` | When a migration fails, needs rollback, or schema/DB have drifted |
 | `add-index` | When adding a performance index to speed up a query or cron job |
+| `add-transaction` | When wrapping multiple Prisma writes in a transaction |
 
 ## Dev Log
 
