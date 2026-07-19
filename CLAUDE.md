@@ -175,6 +175,9 @@ Always invoke the project skills defined in `.claude/commands/` for the relevant
 | `handle-error` | When deciding which exception type to throw |
 | `add-enum` | When adding a new Prisma enum to the schema |
 | `typescript` | Apply to every TypeScript file written or modified |
+| `prisma-query` | When writing or reviewing any Prisma query |
+| `add-decorator` | When adding a new custom NestJS decorator |
+| `write-script` | When writing a one-off script that needs Prisma outside NestJS |
 
 ## Dev Log
 
