@@ -501,3 +501,14 @@ July 20, 2026 — error-message second-pass audit
   avatar messages missing capitalisation, period, and "file" noun;
   admin.assertions "User does not exist." → "User not found."
 
+---
+
+July 20, 2026 — naming skill second-pass audit
+
+- Re-scanned entire src/ for naming violations
+- Fixed 6 generic `result` variables in bookings.service.ts and auth.service.ts:
+  all were updateMany/revoke return values only used for their .count property;
+  destructured to { count } and aliased per operation
+  (acceptCount, rejectCount, startCount, completeCount, cancelCount) so each
+  guard clause is self-documenting
+
