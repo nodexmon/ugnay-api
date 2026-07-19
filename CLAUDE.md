@@ -178,6 +178,8 @@ Always invoke the project skills defined in `.claude/commands/` for the relevant
 | `prisma-query` | When writing or reviewing any Prisma query |
 | `add-decorator` | When adding a new custom NestJS decorator |
 | `write-script` | When writing a one-off script that needs Prisma outside NestJS |
+| `remove-endpoint` | When deleting a route and cleaning up all associated artifacts |
+| `security` | After implementing any endpoint — run before committing |
 
 ## Dev Log
 
