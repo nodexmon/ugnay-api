@@ -289,7 +289,7 @@ export class BookingsService {
 
     await this.prisma.$transaction(async (tx: TransactionClient) => {
       if (user.role === Role.WORKER) {
-        await this.handleWorkerCancellationPenalty(tx, profileId);
+        await this.applyWorkerCancellationStrike(tx, profileId);
       }
 
       const result = await tx.booking.updateMany({
@@ -361,7 +361,7 @@ export class BookingsService {
     return { activeUser, booking, profileId };
   }
 
-  private async handleWorkerCancellationPenalty(
+  private async applyWorkerCancellationStrike(
     tx: TransactionClient,
     workerProfileId: string,
   ): Promise<void> {
