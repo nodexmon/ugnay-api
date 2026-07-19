@@ -35,7 +35,7 @@ export class AdminAssertions {
 
   async assertUserExists(userId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException('User does not exist.');
+    if (!user) throw new NotFoundException('User not found.');
   }
 
   async findPendingVerification(docId: string) {
