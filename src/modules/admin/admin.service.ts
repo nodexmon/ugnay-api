@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import {
   BookingStatus,
+  NoShowReportType,
   StrikeReason,
   UserStatus,
   VerificationStatus,
@@ -20,6 +21,7 @@ import {
   ADMIN_WORKER_INCLUDE,
   WORKER_INCLUDE,
 } from '@/common/constants/worker-includes';
+import { FindReviewsAdminQueryDto } from './dto/find-reviews-admin-query.dto';
 import { AdminAssertions } from './admin.assertions';
 import { BarangaySyncService } from '@/modules/barangays/barangay-sync.service';
 import { applyStrike } from '@/common/utils/strike.util';
@@ -172,7 +174,7 @@ export class AdminService {
   }
 
   async findPendingNoShows(query: PaginationDto) {
-    const where = { confirmed: null };
+    const where = { confirmed: null, reportType: NoShowReportType.WORKER };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.noShowReport.findMany({
         where,
@@ -199,6 +201,60 @@ export class AdminService {
       this.prisma.noShowReport.count({ where }),
     ]);
     return { items, total, skip: query.skip, take: query.take };
+  }
+
+  async findPendingCustomerNoShows(query: PaginationDto) {
+    const where = { confirmed: null, reportType: NoShowReportType.CUSTOMER };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.noShowReport.findMany({
+        where,
+        include: {
+          booking: {
+            include: {
+              worker: { select: { id: true, firstName: true, lastName: true } },
+              customer: {
+                select: { firstName: true, lastName: true, userId: true },
+              },
+              category: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+        skip: query.skip,
+        take: query.take,
+      }),
+      this.prisma.noShowReport.count({ where }),
+    ]);
+    return { items, total, skip: query.skip, take: query.take };
+  }
+
+  async resolveCustomerNoShow(
+    reportId: string,
+    user: AuthJwtPayload,
+    dto: ResolveNoShowDto,
+  ) {
+    const report =
+      await this.assertions.findPendingCustomerNoShowReport(reportId);
+
+    return this.prisma.$transaction(async (tx: TransactionClient) => {
+      await tx.noShowReport.update({
+        where: { id: reportId },
+        data: {
+          confirmed: dto.confirmed,
+          resolvedBy: user.sub,
+          resolvedAt: new Date(),
+        },
+      });
+
+      if (dto.confirmed) {
+        await tx.booking.update({
+          where: { id: report.bookingId },
+          data: { status: BookingStatus.CUSTOMER_NO_SHOW },
+        });
+      }
+
+      return { resolved: true, confirmed: dto.confirmed };
+    });
   }
 
   async resolveNoShow(
@@ -394,5 +450,50 @@ export class AdminService {
           .catch(() => {});
         return result;
       });
+  }
+
+  async findAllReviews(query: FindReviewsAdminQueryDto) {
+    const where = { ...(query.workerId && { workerId: query.workerId }) };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.review.findMany({
+        where,
+        include: {
+          worker: { select: { firstName: true, lastName: true } },
+          customer: { select: { firstName: true, lastName: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: query.skip,
+        take: query.take,
+      }),
+      this.prisma.review.count({ where }),
+    ]);
+    return { items, total, skip: query.skip, take: query.take };
+  }
+
+  async deleteReview(reviewId: string) {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+    });
+    if (!review) throw new NotFoundException('Review not found.');
+
+    return this.prisma.$transaction(async (tx: TransactionClient) => {
+      await tx.review.delete({ where: { id: reviewId } });
+
+      const { _avg, _count } = await tx.review.aggregate({
+        where: { workerId: review.workerId },
+        _avg: { rating: true },
+        _count: true,
+      });
+
+      await tx.workerProfile.update({
+        where: { id: review.workerId },
+        data: {
+          averageRating: _avg.rating ?? 0,
+          totalReviews: _count,
+        },
+      });
+
+      return { deleted: true };
+    });
   }
 }

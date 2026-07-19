@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import {
   BookingStatus,
   CredentialType,
+  NoShowReportType,
   Role,
   StrikeReason,
   UserStatus,
@@ -28,6 +29,7 @@ describe('AdminService', () => {
     strike: { create: jest.fn(), findUnique: jest.fn() },
     noShowReport: { update: jest.fn() },
     booking: { update: jest.fn() },
+    review: { delete: jest.fn(), aggregate: jest.fn() },
   };
 
   const prisma = {
@@ -59,6 +61,11 @@ describe('AdminService', () => {
       findUnique: jest.fn(),
       count: jest.fn(),
     },
+    review: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      count: jest.fn(),
+    },
     $transaction: jest.fn(),
   };
 
@@ -70,6 +77,7 @@ describe('AdminService', () => {
     findPendingVerification: jest.fn(),
     findPendingCredential: jest.fn(),
     findPendingNoShowReport: jest.fn(),
+    findPendingCustomerNoShowReport: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -375,6 +383,192 @@ describe('AdminService', () => {
       });
 
       expect(result).toEqual({ items: bookings, total: 5, skip: 0, take: 10 });
+    });
+
+    it('findPendingNoShows filters by WORKER report type', async () => {
+      prisma.noShowReport.findMany.mockResolvedValue([]);
+      prisma.noShowReport.count.mockResolvedValue(0);
+
+      await service.findPendingNoShows({ skip: 0, take: 10 });
+
+      expect(prisma.noShowReport.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            reportType: NoShowReportType.WORKER,
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── findPendingCustomerNoShows ───────────────────────────────────────────────
+
+  describe('findPendingCustomerNoShows', () => {
+    it('returns paginated customer no-show reports', async () => {
+      const reports = [
+        { id: 'report-id', reportType: NoShowReportType.CUSTOMER },
+      ];
+      prisma.noShowReport.findMany.mockResolvedValue(reports);
+      prisma.noShowReport.count.mockResolvedValue(1);
+
+      const result = await service.findPendingCustomerNoShows({
+        skip: 0,
+        take: 10,
+      });
+
+      expect(result).toEqual({ items: reports, total: 1, skip: 0, take: 10 });
+      expect(prisma.noShowReport.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            reportType: NoShowReportType.CUSTOMER,
+            confirmed: null,
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── resolveCustomerNoShow ────────────────────────────────────────────────────
+
+  describe('resolveCustomerNoShow', () => {
+    const customerReport = {
+      id: 'report-id',
+      bookingId: 'booking-id',
+      confirmed: null,
+      booking: { id: 'booking-id', customerId: 'customer-profile-id' },
+    };
+
+    it('confirms a customer no-show and marks booking as CUSTOMER_NO_SHOW', async () => {
+      assertions.findPendingCustomerNoShowReport.mockResolvedValue(
+        customerReport,
+      );
+      tx.noShowReport.update.mockResolvedValue({ confirmed: true });
+      tx.booking.update.mockResolvedValue({
+        id: 'booking-id',
+        status: BookingStatus.CUSTOMER_NO_SHOW,
+      });
+
+      const result = await service.resolveCustomerNoShow(
+        'report-id',
+        adminUser,
+        { confirmed: true },
+      );
+
+      expect(result).toEqual({ resolved: true, confirmed: true });
+      expect(tx.booking.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { status: BookingStatus.CUSTOMER_NO_SHOW },
+        }),
+      );
+    });
+
+    it('dismisses a customer no-show without changing booking status', async () => {
+      assertions.findPendingCustomerNoShowReport.mockResolvedValue(
+        customerReport,
+      );
+
+      await service.resolveCustomerNoShow('report-id', adminUser, {
+        confirmed: false,
+      });
+
+      expect(tx.booking.update).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when report does not exist', async () => {
+      assertions.findPendingCustomerNoShowReport.mockRejectedValue(
+        new NotFoundException('No-show report not found.'),
+      );
+
+      await expect(
+        service.resolveCustomerNoShow('report-id', adminUser, {
+          confirmed: true,
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  // ─── review moderation ────────────────────────────────────────────────────────
+
+  describe('findAllReviews', () => {
+    it('returns paginated reviews with optional workerId filter', async () => {
+      const reviews = [{ id: 'review-id', rating: 5 }];
+      prisma.review.findMany.mockResolvedValue(reviews);
+      prisma.review.count.mockResolvedValue(1);
+
+      const result = await service.findAllReviews({
+        skip: 0,
+        take: 10,
+        workerId: 'worker-id',
+      });
+
+      expect(result).toEqual({ items: reviews, total: 1, skip: 0, take: 10 });
+      expect(prisma.review.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { workerId: 'worker-id' },
+        }),
+      );
+    });
+
+    it('returns all reviews when no workerId is provided', async () => {
+      prisma.review.findMany.mockResolvedValue([]);
+      prisma.review.count.mockResolvedValue(0);
+
+      await service.findAllReviews({ skip: 0, take: 10 });
+
+      expect(prisma.review.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+    });
+  });
+
+  describe('deleteReview', () => {
+    const review = {
+      id: 'review-id',
+      workerId: 'worker-profile-id',
+      rating: 4,
+    };
+
+    it('deletes the review and recalculates the worker rating', async () => {
+      prisma.review.findUnique.mockResolvedValue(review);
+      tx.review.aggregate.mockResolvedValue({
+        _avg: { rating: 3.5 },
+        _count: 2,
+      });
+      tx.workerProfile.update.mockResolvedValue({ id: 'worker-profile-id' });
+
+      const result = await service.deleteReview('review-id');
+
+      expect(result).toEqual({ deleted: true });
+      expect(tx.workerProfile.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { averageRating: 3.5, totalReviews: 2 },
+        }),
+      );
+    });
+
+    it('sets averageRating to 0 when no reviews remain after deletion', async () => {
+      prisma.review.findUnique.mockResolvedValue(review);
+      tx.review.aggregate.mockResolvedValue({
+        _avg: { rating: null },
+        _count: 0,
+      });
+      tx.workerProfile.update.mockResolvedValue({ id: 'worker-profile-id' });
+
+      await service.deleteReview('review-id');
+
+      expect(tx.workerProfile.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { averageRating: 0, totalReviews: 0 },
+        }),
+      );
+    });
+
+    it('throws NotFoundException when the review does not exist', async () => {
+      prisma.review.findUnique.mockResolvedValue(null);
+
+      await expect(service.deleteReview('review-id')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 });

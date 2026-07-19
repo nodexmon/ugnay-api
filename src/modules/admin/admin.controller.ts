@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Post,
   Param,
@@ -21,6 +22,7 @@ import { ResolveNoShowDto } from './dto/resolve-no-show.dto';
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
 import { FindWorkersQueryDto } from './dto/find-workers-query.dto';
 import { FindBookingsQueryDto } from './dto/find-bookings-query.dto';
+import { FindReviewsAdminQueryDto } from './dto/find-reviews-admin-query.dto';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 
 @ApiTags('admin')
@@ -122,5 +124,29 @@ export class AdminController {
     @Body() dto: ResolveNoShowDto,
   ) {
     return this.adminService.resolveNoShow(id, user, dto);
+  }
+
+  @Get('customer-no-shows')
+  listPendingCustomerNoShows(@Query() query: PaginationDto) {
+    return this.adminService.findPendingCustomerNoShows(query);
+  }
+
+  @Patch('customer-no-shows/:id/resolve')
+  resolveCustomerNoShow(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ResolveNoShowDto,
+  ) {
+    return this.adminService.resolveCustomerNoShow(id, user, dto);
+  }
+
+  @Get('reviews')
+  listReviews(@Query() query: FindReviewsAdminQueryDto) {
+    return this.adminService.findAllReviews(query);
+  }
+
+  @Delete('reviews/:id')
+  deleteReview(@Param('id', ParseUUIDPipe) id: string) {
+    return this.adminService.deleteReview(id);
   }
 }
