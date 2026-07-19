@@ -22,6 +22,7 @@
 11. [Notifications (Push Tokens)](#11-notifications-push-tokens)
 12. [Booking Lifecycle — State Machine](#12-booking-lifecycle--state-machine)
 13. [Typical App Flows](#13-typical-app-flows)
+14. [Admin Endpoints](#14-admin-endpoints)
 
 ---
 
@@ -107,7 +108,8 @@ IN_PROGRESS — worker marked arrival on-site
 COMPLETED   — job done; review prompt sent to customer
 CANCELLED   — cancelled by customer (pre-accept) or worker (post-accept = strike)
 EXPIRED     — worker did not respond within 30 minutes
-NO_SHOW     — admin-confirmed no-show; strike issued
+NO_SHOW          — admin-confirmed worker no-show; strike issued
+CUSTOMER_NO_SHOW — admin-confirmed customer no-show; no strike
 ```
 
 ### BookingType
@@ -792,6 +794,30 @@ selfie    File   Selfie photo (JPEG/PNG, max 5 MB)
 
 ---
 
+### GET `/workers/verification` — `PROTECTED (WORKER)`
+Get the authenticated worker's most recent verification document submission.
+
+**Response `200`:** The latest `VerificationDoc` object (same shape as the item inside `verificationDocs` on `GET /workers/profile`), or `null` if no submission exists yet.
+
+```json
+{
+  "id": "70000000-0000-4000-8000-000000000001",
+  "workerId": "50000000-0000-4000-8000-000000000001",
+  "idPhotoUrl": "/uploads/workers/50000000.../id-photo-abc123.jpg",
+  "selfieUrl": "/uploads/workers/50000000.../selfie-def456.jpg",
+  "status": "APPROVED",
+  "rejectionReason": null,
+  "reviewedBy": "30000000-0000-4000-8000-000000000001",
+  "reviewedAt": "2026-07-12T10:00:00.000Z",
+  "createdAt": "2026-07-12T08:00:00.000Z",
+  "updatedAt": "2026-07-12T10:00:00.000Z"
+}
+```
+
+> Use `status` to determine what to show: `PENDING` = under review, `APPROVED` = verified, `REJECTED` = show rejection reason and allow resubmission.
+
+---
+
 ### POST `/workers/credentials` — `PROTECTED (WORKER)`
 Upload a professional credential. Uses `multipart/form-data`.
 
@@ -818,6 +844,32 @@ type   string   One of: LICENSE | CERTIFICATION | TRAINING
   "updatedAt": "2026-07-12T08:00:00.000Z"
 }
 ```
+
+---
+
+### GET `/workers/strikes` — `PROTECTED (WORKER)`
+Get the authenticated worker's strike history and total strike count.
+
+**Response `200`:**
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "workerId": "50000000-0000-4000-8000-000000000001",
+      "bookingId": "60000000-0000-4000-8000-000000000001",
+      "reason": "POST_ACCEPT_CANCELLATION",
+      "notes": null,
+      "issuedBy": "30000000-0000-4000-8000-000000000001",
+      "createdAt": "2026-07-10T09:00:00.000Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+> `total` mirrors `workerProfile.strikeCount`. At 3 strikes the account is suspended.
+> `reason` is one of: `POST_ACCEPT_CANCELLATION | NO_SHOW | CUSTOMER_COMPLAINT`.
 
 ---
 
@@ -898,7 +950,7 @@ take     integer                 Records to return (default 10, max 50)
 ```
 
 > `active` includes: `PENDING`, `ACCEPTED`, `IN_PROGRESS`
-> `history` includes: `COMPLETED`, `CANCELLED`, `REJECTED`, `EXPIRED`, `NO_SHOW`
+> `history` includes: `COMPLETED`, `CANCELLED`, `REJECTED`, `EXPIRED`, `NO_SHOW`, `CUSTOMER_NO_SHOW`
 > Omit `status` to return all bookings.
 
 **Response `200` (customer view):** Plain array where each item includes a `worker` snippet:
@@ -1031,7 +1083,7 @@ Get a single booking's full details. Only accessible to the customer or worker i
 
 ---
 
-### PATCH `/bookings/:id/update` — `PROTECTED (CUSTOMER)`
+### PATCH `/bookings/:id` — `PROTECTED (CUSTOMER)`
 Update a `PENDING` booking before the worker responds.
 
 **Request body:** (all fields optional, same types as create)
@@ -1129,6 +1181,38 @@ Report a worker no-show. Can only be filed when the booking is in `ACCEPTED` or 
 ```
 
 > `confirmed: null` = pending admin review. `true` = strike issued. `false` = dismissed.
+
+---
+
+### PATCH `/bookings/:id/report-customer-no-show` — `PROTECTED (WORKER)`
+Report that the customer did not show up at the agreed location. Can only be filed when the booking is `ACCEPTED` or `IN_PROGRESS`. Worker must own the booking. Admin will review and confirm or dismiss.
+
+**Request body:**
+```json
+{
+  "description": "Customer did not arrive and is not answering."
+}
+```
+
+> `description` is optional, max 500 chars.
+
+**Response `200`:**
+```json
+{
+  "id": "91000000-0000-4000-8000-000000000002",
+  "bookingId": "60000000-0000-4000-8000-000000000008",
+  "reportedBy": "30000000-0000-4000-8000-000000000005",
+  "description": "Customer did not arrive and is not answering.",
+  "resolvedBy": null,
+  "resolvedAt": null,
+  "confirmed": null,
+  "createdAt": "2026-07-12T09:00:00.000Z",
+  "updatedAt": "2026-07-12T09:00:00.000Z"
+}
+```
+
+> `confirmed: null` = pending admin review. `true` = booking set to `CUSTOMER_NO_SHOW`. `false` = dismissed.
+> Only one pending report per booking is allowed.
 
 ---
 
@@ -1353,6 +1437,14 @@ Remove the device's push token on logout.
 ┌─────────────┐
 │   NO_SHOW   │ ← admin confirms → strike issued; admin dismisses → booking stays COMPLETED
 └─────────────┘
+
+       ↑
+  (worker reports customer no-show while ACCEPTED or IN_PROGRESS)
+       │
+       ▼
+┌──────────────────┐
+│ CUSTOMER_NO_SHOW │ ← admin confirms → booking closed; no strike. Admin dismisses → booking stays as-is.
+└──────────────────┘
 ```
 
 *No-show can be reported while booking is still `ACCEPTED` or `IN_PROGRESS` — not after `COMPLETED`.
@@ -1465,6 +1557,79 @@ On any 401 response:
 
 ---
 
+## 14. Admin Endpoints
+
+All admin endpoints require `ADMIN` role. These are for the internal dashboard, not the consumer mobile app.
+
+### GET `/admin/no-shows` — `PROTECTED (ADMIN)`
+List pending worker no-show reports (filed by customers against workers) awaiting admin review.
+
+**Query params:** `skip`, `take` (default 0 / 10)
+
+**Response `200`:** Paginated `{ items, total, skip, take }`.
+
+---
+
+### PATCH `/admin/no-shows/:id/resolve` — `PROTECTED (ADMIN)`
+Confirm or dismiss a worker no-show report.
+
+**Request body:**
+```json
+{ "confirmed": true, "notes": "Verified via call logs." }
+```
+
+> `confirmed: true` → issues a strike to the worker and sets booking to `NO_SHOW`.
+> `confirmed: false` → dismisses the report; booking stays as-is.
+
+**Response `200`:** `{ "resolved": true, "confirmed": true }`
+
+---
+
+### GET `/admin/customer-no-shows` — `PROTECTED (ADMIN)`
+List pending customer no-show reports (filed by workers against customers) awaiting admin review.
+
+**Query params:** `skip`, `take` (default 0 / 10)
+
+**Response `200`:** Paginated `{ items, total, skip, take }`.
+
+---
+
+### PATCH `/admin/customer-no-shows/:id/resolve` — `PROTECTED (ADMIN)`
+Confirm or dismiss a customer no-show report.
+
+**Request body:**
+```json
+{ "confirmed": true }
+```
+
+> `confirmed: true` → sets booking to `CUSTOMER_NO_SHOW`. No strike is issued.
+> `confirmed: false` → dismisses the report; booking stays as-is.
+
+**Response `200`:** `{ "resolved": true, "confirmed": true }`
+
+---
+
+### GET `/admin/reviews` — `PROTECTED (ADMIN)`
+List all reviews with optional worker filter.
+
+**Query params:**
+```
+workerId   UUID      Filter by worker profile ID (optional)
+skip       integer   Records to skip (default 0)
+take       integer   Records to return (default 10, max 50)
+```
+
+**Response `200`:** Paginated `{ items, total, skip, take }` where each item includes `worker` and `customer` name snippets.
+
+---
+
+### DELETE `/admin/reviews/:id` — `PROTECTED (ADMIN)`
+Delete a review. Atomically recalculates the worker's `averageRating` and `totalReviews`.
+
+**Response `200`:** `{ "deleted": true }`
+
+---
+
 ## Notes for the Mobile Team
 
 - **Phone format:** Always E.164: `+63` + 10 digits (e.g., `+639171234567`). No spaces or dashes.
@@ -1478,7 +1643,7 @@ On any 401 response:
 - **Push tokens:** Register immediately after every login (the token may change between app launches). Remove on logout.
 - **Multipart uploads:** Verification and credential uploads use `multipart/form-data`. Set the correct `Content-Type` boundary — most HTTP clients handle this automatically when you append files to a `FormData` object.
 - **Rate limits:** OTP request is throttled at 3/15 min. Show a countdown UI after the first send to prevent user frustration.
-- **Empty responses:** `PATCH /bookings/:id/accept|reject|start|complete|cancel|update` and `POST|DELETE /notifications/push-token` all return HTTP `200` with an **empty body** — do not try to parse a JSON response.
+- **Empty responses:** `PATCH /bookings/:id/accept|reject|start|complete|cancel` (the update endpoint `PATCH /bookings/:id` also returns `null`) and `POST|DELETE /notifications/push-token` all return HTTP `200` with an **empty body** — do not try to parse a JSON response.
 
 ---
 

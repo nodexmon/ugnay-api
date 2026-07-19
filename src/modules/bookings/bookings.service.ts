@@ -99,6 +99,7 @@ export class BookingsService {
       BookingStatus.REJECTED,
       BookingStatus.EXPIRED,
       BookingStatus.NO_SHOW,
+      BookingStatus.CUSTOMER_NO_SHOW,
     ];
     const isCustomer = user.role === Role.CUSTOMER;
 
