@@ -377,3 +377,28 @@ July 18, 2026 — documentation and skills maintenance
   assertions specs mock PrismaService directly)
 - Removed hardcoded "50 tests" from write-tests.md
 
+---
+
+July 19, 2026 — skills expansion, hooks, and DX hardening
+
+Skills (grew from 12 to 25):
+- Committed previously pending skills: debug, dto, migrate, pr, seed
+- Added add-endpoint: DTO → controller → service → assertions → spec → handout checklist
+- Added add-module: file creation order, DI wiring, spec scaffolding
+- Added add-config: registerAs + Zod factory, env var documentation, module constant vs env var decision
+- Added e2e-test: createTestApp/resetDb setup, mintToken auth, fixture factories, what to assert
+- Added add-permission: Action enum → Subject union → factory grant → test matrix → controller decorator
+- Added add-cron: batch cap, status-safe updateMany, per-item .catch(), 3 required test cases
+- Added paginate: $transaction([findMany, count]) pattern, { items, total, skip, take } response shape
+- Added add-notification: 3 fire-and-forget patterns (direct, named-private-method, transaction.then)
+- Added add-relation: onDelete policy table, one-to-many/one-to-one/many-to-many syntax, FK index rules
+- Added document-endpoint: @ApiOperation/@ApiResponse minimum, @ApiQuery/@ApiParam, @ApiProperty on new DTOs
+- Added soft-delete: isActive pattern, public vs admin filter rules, validate FK before writing
+- Added fix-migration: 5 rollback/repair scenarios, db push vs migrate dev decision table
+- Added add-index: single vs composite decision, most-selective-first ordering, 5 signals that warrant an index
+
+Hooks (.claude/settings.json):
+- PostToolUse(Edit|Write): auto-runs pnpm eslint --fix on edited .ts files; also runs pnpm jest on .spec.ts edits
+- Stop: prints dev log reminder at end of every session
+- File path read from stdin JSON (tool_input.file_path); CLAUDE_PROJECT_DIR used for project root
+
