@@ -152,6 +152,15 @@ Always invoke the project skills defined in `.claude/commands/` for the relevant
 | `write-tests` | When writing or fixing spec files |
 | `clean-code` | Apply clean coding principles to everything written or modified |
 | `architecture` | Apply architectural rules to keep the codebase modular and layered |
+| `migrate` | When changing `prisma/schema.prisma` — schema edit → migrate → generate → update code |
+| `pr` | Before opening or marking a PR ready — pre-flight checklist |
+| `debug` | When diagnosing a failing test, runtime error, or unexpected behavior |
+| `dto` | When writing or modifying any DTO file |
+| `seed` | When adding or modifying seed data in `prisma/seed.ts` |
+| `add-endpoint` | When adding a new route to an existing controller |
+| `add-module` | When creating a brand-new domain module from scratch |
+| `add-config` | When adding a new env var or replacing a hardcoded value |
+| `e2e-test` | When writing or extending end-to-end tests |
 
 ## Dev Log
 
