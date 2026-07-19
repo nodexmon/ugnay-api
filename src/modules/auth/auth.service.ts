@@ -125,12 +125,12 @@ export class AuthService {
   }
 
   async revokeSession(userId: string, tokenId: string): Promise<void> {
-    const result = await this.revokeTokensWhere({
+    const { count } = await this.revokeTokensWhere({
       id: tokenId,
       userId,
       revokedAt: null,
     });
-    if (result.count === 0) {
+    if (count === 0) {
       throw new NotFoundException('Session not found or already revoked.');
     }
   }

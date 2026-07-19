@@ -185,11 +185,11 @@ export class BookingsService {
       BookingStatus.PENDING,
     );
     this.assertions.assertOwnership(booking.workerId, profileId);
-    const result = await this.prisma.booking.updateMany({
+    const { count: acceptCount } = await this.prisma.booking.updateMany({
       where: { id: bookingId, status: BookingStatus.PENDING },
       data: { status: BookingStatus.ACCEPTED, acceptedAt: new Date() },
     });
-    if (result.count === 0)
+    if (acceptCount === 0)
       throw new ConflictException('Booking is no longer pending.');
     void this.notifyBookingParty(bookingId, 'customer', {
       title: 'Booking accepted',
@@ -205,11 +205,11 @@ export class BookingsService {
       BookingStatus.PENDING,
     );
     this.assertions.assertOwnership(booking.workerId, profileId);
-    const result = await this.prisma.booking.updateMany({
+    const { count: rejectCount } = await this.prisma.booking.updateMany({
       where: { id: bookingId, status: BookingStatus.PENDING },
       data: { status: BookingStatus.REJECTED, rejectedAt: new Date() },
     });
-    if (result.count === 0)
+    if (rejectCount === 0)
       throw new ConflictException('Booking is no longer pending.');
     void this.notifyBookingParty(bookingId, 'customer', {
       title: 'Booking declined',
@@ -225,11 +225,11 @@ export class BookingsService {
       BookingStatus.ACCEPTED,
     );
     this.assertions.assertOwnership(booking.workerId, profileId);
-    const result = await this.prisma.booking.updateMany({
+    const { count: startCount } = await this.prisma.booking.updateMany({
       where: { id: bookingId, status: BookingStatus.ACCEPTED },
       data: { status: BookingStatus.IN_PROGRESS, startedAt: new Date() },
     });
-    if (result.count === 0)
+    if (startCount === 0)
       throw new ConflictException('Booking is no longer accepted.');
   }
 
@@ -241,11 +241,11 @@ export class BookingsService {
       BookingStatus.IN_PROGRESS,
     );
     this.assertions.assertOwnership(booking.workerId, profileId);
-    const result = await this.prisma.booking.updateMany({
+    const { count: completeCount } = await this.prisma.booking.updateMany({
       where: { id: bookingId, status: BookingStatus.IN_PROGRESS },
       data: { status: BookingStatus.COMPLETED, completedAt: new Date() },
     });
-    if (result.count === 0)
+    if (completeCount === 0)
       throw new ConflictException('Booking is no longer in progress.');
     void this.notifyBookingParty(bookingId, 'customer', {
       title: 'Job complete',
@@ -295,7 +295,7 @@ export class BookingsService {
         });
       }
 
-      const result = await tx.booking.updateMany({
+      const { count: cancelCount } = await tx.booking.updateMany({
         where: { id: bookingId, status: { in: expectedStatuses } },
         data: {
           status: BookingStatus.CANCELLED,
@@ -308,7 +308,7 @@ export class BookingsService {
         },
       });
 
-      if (result.count === 0) {
+      if (cancelCount === 0) {
         throw new ConflictException('Booking status has changed.');
       }
     });
