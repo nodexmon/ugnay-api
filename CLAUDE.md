@@ -164,6 +164,9 @@ Always invoke the project skills defined in `.claude/commands/` for the relevant
 | `add-permission` | When adding a new CASL action, subject, or role grant |
 | `add-cron` | When adding a new scheduled background job |
 | `paginate` | When implementing a list endpoint that returns `{ items, total, skip, take }` |
+| `add-notification` | When sending a push notification from a service method |
+| `add-relation` | When adding a new Prisma relation between models |
+| `document-endpoint` | When adding Swagger docs to a new endpoint |
 
 ## Dev Log
 
