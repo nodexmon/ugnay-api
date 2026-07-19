@@ -514,6 +514,29 @@ July 20, 2026 — naming skill second-pass audit
 
 ---
 
+July 20, 2026 — BRD v1.3 gap closure (branch: feat/brd-gap-closure)
+
+- Added schema migration: NoShowReportType enum (WORKER | CUSTOMER), CUSTOMER_NO_SHOW to BookingStatus,
+  reportType field on no_show_reports (default WORKER); updated composite index to (confirmed, reportType)
+- Added Action.ReportCustomerNoShow to CASL; granted workers Read on VerificationDoc and
+  ReportCustomerNoShow on Booking in CaslAbilityFactory
+- Added GET /workers/verification — worker's own latest verification doc and status
+- Added GET /workers/strikes — worker's own strike list and total count
+- Added PATCH /bookings/:id/report-customer-no-show — worker reports customer no-show (BKG-08);
+  creates NoShowReport with reportType: CUSTOMER
+- Updated existing reportNoShow to pass reportType: WORKER on create
+- Renamed PATCH /bookings/:id/update → PATCH /bookings/:id to match BRD spec
+- Updated admin.service.findPendingNoShows to filter by reportType: WORKER (separates the two queues)
+- Added GET /admin/customer-no-shows and PATCH /admin/customer-no-shows/:id/resolve (BKG-08 admin flow);
+  confirms by marking booking as CUSTOMER_NO_SHOW; no auto-strike per BRD
+- Added GET /admin/reviews (paginated, optional ?workerId filter) and DELETE /admin/reviews/:id
+  (deletes review and recalculates worker averageRating and totalReviews)
+- Added FindReviewsAdminQueryDto with optional workerId filter
+- Added findPendingCustomerNoShowReport to AdminAssertions
+- Test count: 236 → 253 (all passing); 17 new tests across workers, bookings, admin specs
+
+---
+
 July 20, 2026 — BRD gap analysis and v1.3 update
 
 - Conducted full BRD review against implementation; identified ~30 gaps across
