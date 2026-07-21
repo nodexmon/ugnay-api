@@ -83,4 +83,31 @@ export class AdminAssertions {
     }
     return report;
   }
+
+  async findSuspendedWorker(userId: string) {
+    const worker = await this.prisma.workerProfile.findFirst({
+      where: { userId, status: WorkerStatus.SUSPENDED },
+    });
+    if (!worker) throw new NotFoundException('Suspended worker not found.');
+    return worker;
+  }
+
+  async findPendingCustomerNoShowReport(reportId: string) {
+    const report = await this.prisma.noShowReport.findUnique({
+      where: { id: reportId },
+      include: {
+        booking: {
+          select: {
+            id: true,
+            customerId: true,
+          },
+        },
+      },
+    });
+    if (!report) throw new NotFoundException('No-show report not found.');
+    if (report.confirmed !== null) {
+      throw new ConflictException('This report has already been resolved.');
+    }
+    return report;
+  }
 }

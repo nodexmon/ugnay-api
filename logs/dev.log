@@ -514,6 +514,29 @@ July 20, 2026 — naming skill second-pass audit
 
 ---
 
+July 20, 2026 — BRD v1.3 gap closure (branch: feat/brd-gap-closure)
+
+- Added schema migration: NoShowReportType enum (WORKER | CUSTOMER), CUSTOMER_NO_SHOW to BookingStatus,
+  reportType field on no_show_reports (default WORKER); updated composite index to (confirmed, reportType)
+- Added Action.ReportCustomerNoShow to CASL; granted workers Read on VerificationDoc and
+  ReportCustomerNoShow on Booking in CaslAbilityFactory
+- Added GET /workers/verification — worker's own latest verification doc and status
+- Added GET /workers/strikes — worker's own strike list and total count
+- Added PATCH /bookings/:id/report-customer-no-show — worker reports customer no-show (BKG-08);
+  creates NoShowReport with reportType: CUSTOMER
+- Updated existing reportNoShow to pass reportType: WORKER on create
+- Renamed PATCH /bookings/:id/update → PATCH /bookings/:id to match BRD spec
+- Updated admin.service.findPendingNoShows to filter by reportType: WORKER (separates the two queues)
+- Added GET /admin/customer-no-shows and PATCH /admin/customer-no-shows/:id/resolve (BKG-08 admin flow);
+  confirms by marking booking as CUSTOMER_NO_SHOW; no auto-strike per BRD
+- Added GET /admin/reviews (paginated, optional ?workerId filter) and DELETE /admin/reviews/:id
+  (deletes review and recalculates worker averageRating and totalReviews)
+- Added FindReviewsAdminQueryDto with optional workerId filter
+- Added findPendingCustomerNoShowReport to AdminAssertions
+- Test count: 236 → 253 (all passing); 17 new tests across workers, bookings, admin specs
+
+---
+
 July 20, 2026 — BRD gap analysis and v1.3 update
 
 - Conducted full BRD review against implementation; identified ~30 gaps across
@@ -552,4 +575,52 @@ July 20, 2026 — BRD gap analysis and v1.3 update
   - Risk register: 6 new risks — VPS disk failure for uploaded files, booking
     race condition, customer no-shows, permanent ban admin error, worker with
     no push token, fake reviews via multiple accounts
+
+---
+
+July 20, 2026 — BRD v1.3 gap-closure audit and handout sync
+
+- Fixed bug: BookingStatus.CUSTOMER_NO_SHOW was missing from historyStatuses in
+  bookings.service.ts; bookings with that status were invisible to GET /bookings?status=history
+- Updated docs/UGNAY_API_HANDOUT.md:
+  - Added CUSTOMER_NO_SHOW to BookingStatus enum reference and history filter group docs
+  - Fixed PATCH /bookings/:id/update → PATCH /bookings/:id throughout handout
+  - Added GET /workers/verification endpoint documentation
+  - Added GET /workers/strikes endpoint documentation
+  - Added PATCH /bookings/:id/report-customer-no-show endpoint documentation
+  - Added new Section 14 (Admin Endpoints) documenting: GET /admin/no-shows,
+    PATCH /admin/no-shows/:id/resolve, GET /admin/customer-no-shows,
+    PATCH /admin/customer-no-shows/:id/resolve, GET /admin/reviews, DELETE /admin/reviews/:id
+  - Updated booking state machine diagram to show CUSTOMER_NO_SHOW terminal state
+  - Fixed Notes section empty-response list (removed /update suffix reference)
+- Test count: 253 (unchanged — logic bug fix only)
+
+---
+
+July 20, 2026 — BRD v1.3 audit round 2: 13-gap closure (branch: feat/brd-gap-closure, continued)
+
+- Fixed phone reveal bug (BR-02): replaced CONTACT_REVEAL_STATUSES set check with
+  `booking.acceptedAt !== null`; phones now stay visible after acceptance even when
+  booking is CANCELLED, COMPLETED, NO_SHOW, or CUSTOMER_NO_SHOW
+- Added PST past-date guard to assertScheduledDateIsValid (BKG-01): throws 422 when
+  scheduledDate is before today in PST (UTC+8 offset arithmetic, server-timezone-agnostic)
+- Auto-set bookingType to IMMEDIATE when scheduledDate is today in PST (BKG-01)
+- Added ACCEPTED to customer cancel allowed statuses (BKG-05); updated expectedStatuses array
+- Added mandatory cancellationReason guard for worker cancellations at top of cancel() (BR-14)
+- Added PENDING to assertWorkerIsAvailable active-booking check (BKG-10); changed busy-worker
+  exception from ForbiddenException to UnprocessableEntityException (HTTP 422) (BKG-10)
+- Added assertNoShowWindowOpen: calculates deadline as timeWindow end + 2h in PST; called in
+  both reportNoShow and reportCustomerNoShow (BKG-06/08)
+- Added PST_OFFSET_MS, NO_SHOW_DEADLINE_EXTRA_MS, TIME_WINDOW_END_HOUR_PST to bookings.constants.ts
+- Fixed setUserSuspension(false) to restore WorkerProfile.status to VERIFIED in else branch (BR-06)
+- Added reinstateWorker to AdminService: resets strikeCount to 0, requires auditNote, logs audit
+  note via Logger (WRK-05/BR-06); new ReinstateWorkerDto with required auditNote field
+- Added findSuspendedWorker to AdminAssertions
+- Added PATCH /admin/workers/:id/reinstate controller endpoint
+- Added per-phone OTP hourly rate limit (5 max) inside createOtp $transaction (AUTH-05);
+  throws HTTP 429 when limit exceeded
+- Added OTP_HOURLY_LIMIT = 5 to otp.constants.ts
+- Added @Matches(/^\+63\d{10}$/) to SendOtpDto and VerifyOtpDto phone fields (AUTH-06)
+- Updated bookings.assertions.spec.ts: busy-worker test now expects UnprocessableEntityException
+- Test count: 253 → 262 (9 new tests across bookings, admin, otp specs)
 

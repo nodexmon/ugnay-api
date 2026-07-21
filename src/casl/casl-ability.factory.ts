@@ -26,6 +26,7 @@ export class CaslAbilityFactory {
 
         // Verification Doc
         can(Action.Create, 'VerificationDoc');
+        can(Action.Read, 'VerificationDoc');
 
         // Worker Credential
         can(Action.Create, 'WorkerCredential');
@@ -37,6 +38,7 @@ export class CaslAbilityFactory {
         can(Action.Start, 'Booking');
         can(Action.Complete, 'Booking');
         can(Action.Cancel, 'Booking');
+        can(Action.ReportCustomerNoShow, 'Booking');
 
         // Service Category
         can(Action.Read, 'ServiceCategory');

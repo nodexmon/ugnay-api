@@ -51,7 +51,7 @@ export class BookingsController {
   }
 
   @CheckAbility(Action.Update, 'Booking')
-  @Patch(':id/update')
+  @Patch(':id')
   update(
     @CurrentUser() user: AuthJwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -114,5 +114,15 @@ export class BookingsController {
     @Body() dto: ReportNoShowDto,
   ) {
     return this.bookingsService.reportNoShow(id, user, dto.description);
+  }
+
+  @CheckAbility(Action.ReportCustomerNoShow, 'Booking')
+  @Patch(':id/report-customer-no-show')
+  reportCustomerNoShow(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReportNoShowDto,
+  ) {
+    return this.bookingsService.reportCustomerNoShow(id, user, dto.description);
   }
 }

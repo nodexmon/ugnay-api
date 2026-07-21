@@ -75,6 +75,31 @@ export class WorkersService {
     return worker;
   }
 
+  async findOwnVerification(userId: string) {
+    const worker = await this.prisma.workerProfile.findUnique({
+      where: { userId },
+    });
+    if (!worker) throw new NotFoundException('Worker profile not found.');
+
+    return this.prisma.verificationDoc.findFirst({
+      where: { workerId: worker.id },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findOwnStrikes(userId: string) {
+    const worker = await this.prisma.workerProfile.findUnique({
+      where: { userId },
+    });
+    if (!worker) throw new NotFoundException('Worker profile not found.');
+
+    const strikes = await this.prisma.strike.findMany({
+      where: { workerId: worker.id },
+      orderBy: { createdAt: 'desc' },
+    });
+    return { items: strikes, total: worker.strikeCount };
+  }
+
   async findPublicProfile(id: string) {
     const worker = await this.prisma.workerProfile.findUnique({
       where: {

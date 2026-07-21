@@ -1,4 +1,8 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { BookingStatus, WorkerStatus } from '@/generated/prisma/enums';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -141,7 +145,7 @@ describe('BookingsAssertions', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
-    it('throws ForbiddenException when worker has an active booking', async () => {
+    it('throws UnprocessableEntityException when worker has an active booking', async () => {
       prisma.workerProfile.findUnique.mockResolvedValue(availableWorker);
       prisma.booking.findFirst.mockResolvedValue({
         id: 'booking-id',
@@ -149,7 +153,7 @@ describe('BookingsAssertions', () => {
       });
       await expect(
         assertions.assertWorkerIsAvailable('worker-id'),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
     });
   });
 });

@@ -1,5 +1,6 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -8,7 +9,9 @@ import {
 import { CreateBookingDto } from './dto/create-booking.dto';
 import {
   BookingStatus,
+  BookingType,
   CancellationActor,
+  NoShowReportType,
   Role,
   StrikeReason,
 } from '@/generated/prisma/enums';
@@ -18,10 +21,7 @@ import { Booking, User } from '@/generated/prisma/client';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { FindBookingsQueryDto } from './dto/find-bookings-query.dto';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
-import {
-  BOOKING_PENDING_EXPIRY_MS,
-  CONTACT_REVEAL_STATUSES,
-} from './bookings.constants';
+import { BOOKING_PENDING_EXPIRY_MS, PST_OFFSET_MS } from './bookings.constants';
 import { BookingsAssertions } from './bookings.assertions';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { UsersAssertions } from '../users/users.assertions';
@@ -74,7 +74,7 @@ export class BookingsService {
 
     if (!booking) throw new NotFoundException('Booking not found.');
 
-    const revealContact = CONTACT_REVEAL_STATUSES.has(booking.status);
+    const revealContact = booking.acceptedAt !== null;
     const { worker, customer, ...rest } = booking;
     return {
       ...rest,
@@ -98,6 +98,7 @@ export class BookingsService {
       BookingStatus.REJECTED,
       BookingStatus.EXPIRED,
       BookingStatus.NO_SHOW,
+      BookingStatus.CUSTOMER_NO_SHOW,
     ];
     const isCustomer = user.role === Role.CUSTOMER;
 
@@ -149,12 +150,22 @@ export class BookingsService {
     await this.assertions.assertWorkerIsAvailable(dto.workerId);
     this.assertions.assertScheduledDateIsValid(dto.scheduledDate);
 
+    const toDayMs = (d: Date) => {
+      const p = new Date(d.getTime() + PST_OFFSET_MS);
+      return Date.UTC(p.getUTCFullYear(), p.getUTCMonth(), p.getUTCDate());
+    };
+    const bookingType =
+      toDayMs(dto.scheduledDate) === toDayMs(new Date())
+        ? BookingType.IMMEDIATE
+        : dto.bookingType;
+
     const booking = await this.prisma.booking.create({
       data: {
         customerId,
         status: BookingStatus.PENDING,
         expiresAt: new Date(Date.now() + BOOKING_PENDING_EXPIRY_MS),
         ...dto,
+        bookingType,
       },
     });
 
@@ -258,6 +269,10 @@ export class BookingsService {
       throw new ForbiddenException('Insufficient permissions.');
     }
 
+    if (user.role === Role.WORKER && !dto.cancellationReason) {
+      throw new BadRequestException('Cancellation reason is required.');
+    }
+
     await this.usersAssertions.findActiveUser(user.sub);
     const booking = await this.assertions.findBooking(bookingId);
     const profileId = await this.assertions.resolveProfileId(
@@ -270,6 +285,7 @@ export class BookingsService {
       this.assertions.assertBookingInStatus(
         booking.status,
         BookingStatus.PENDING,
+        BookingStatus.ACCEPTED,
       );
     }
 
@@ -284,7 +300,7 @@ export class BookingsService {
 
     const expectedStatuses =
       user.role === Role.CUSTOMER
-        ? [BookingStatus.PENDING]
+        ? [BookingStatus.PENDING, BookingStatus.ACCEPTED]
         : [BookingStatus.ACCEPTED, BookingStatus.IN_PROGRESS];
 
     await this.prisma.$transaction(async (tx: TransactionClient) => {
@@ -339,10 +355,42 @@ export class BookingsService {
       BookingStatus.IN_PROGRESS,
     );
     this.assertions.assertOwnership(booking.customerId, profileId);
+    this.assertions.assertNoShowWindowOpen(booking);
     await this.assertions.assertNoReportExists(booking.id);
 
     return this.prisma.noShowReport.create({
-      data: { bookingId, reportedBy: activeUser.id, description },
+      data: {
+        bookingId,
+        reportedBy: activeUser.id,
+        description,
+        reportType: NoShowReportType.WORKER,
+      },
+    });
+  }
+
+  async reportCustomerNoShow(
+    bookingId: string,
+    user: AuthJwtPayload,
+    description?: string,
+  ) {
+    const { activeUser, booking, profileId } = await this.prepareBookingAction(
+      user.sub,
+      user.role,
+      bookingId,
+      BookingStatus.ACCEPTED,
+      BookingStatus.IN_PROGRESS,
+    );
+    this.assertions.assertOwnership(booking.workerId, profileId);
+    this.assertions.assertNoShowWindowOpen(booking);
+    await this.assertions.assertNoReportExists(booking.id);
+
+    return this.prisma.noShowReport.create({
+      data: {
+        bookingId,
+        reportedBy: activeUser.id,
+        description,
+        reportType: NoShowReportType.CUSTOMER,
+      },
     });
   }
 

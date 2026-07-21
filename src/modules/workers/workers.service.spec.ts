@@ -56,6 +56,9 @@ describe('WorkersService', () => {
       count: jest.fn(),
       create: jest.fn(),
     },
+    strike: {
+      findMany: jest.fn(),
+    },
     $transaction: jest.fn(),
   };
 
@@ -253,6 +256,61 @@ describe('WorkersService', () => {
       await expect(
         service.uploadCredential('user-id', CredentialType.LICENSE, file),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  // ─── findOwnVerification ─────────────────────────────────────────────────────
+
+  describe('findOwnVerification', () => {
+    it('returns the latest verification doc for the worker', async () => {
+      const workerProfile = { id: 'worker-profile-id' };
+      const verificationDoc = {
+        id: 'doc-id',
+        status: VerificationStatus.PENDING,
+      };
+      prisma.workerProfile.findUnique.mockResolvedValue(workerProfile);
+      prisma.verificationDoc.findFirst.mockResolvedValue(verificationDoc);
+
+      const result = await service.findOwnVerification('user-id');
+
+      expect(result).toEqual(verificationDoc);
+      expect(prisma.verificationDoc.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { workerId: 'worker-profile-id' },
+          orderBy: { createdAt: 'desc' },
+        }),
+      );
+    });
+
+    it('throws NotFoundException when the worker has no profile', async () => {
+      prisma.workerProfile.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.findOwnVerification('user-id'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  // ─── findOwnStrikes ──────────────────────────────────────────────────────────
+
+  describe('findOwnStrikes', () => {
+    it('returns the strike list and total count', async () => {
+      const workerProfile = { id: 'worker-profile-id', strikeCount: 1 };
+      const strikes = [{ id: 'strike-id', reason: 'NO_SHOW' }];
+      prisma.workerProfile.findUnique.mockResolvedValue(workerProfile);
+      prisma.strike.findMany.mockResolvedValue(strikes);
+
+      const result = await service.findOwnStrikes('user-id');
+
+      expect(result).toEqual({ items: strikes, total: 1 });
+    });
+
+    it('throws NotFoundException when the worker has no profile', async () => {
+      prisma.workerProfile.findUnique.mockResolvedValue(null);
+
+      await expect(service.findOwnStrikes('user-id')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 });

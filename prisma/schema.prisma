@@ -44,6 +44,7 @@ enum BookingStatus {
   CANCELLED // Cancelled by customer (pre-accept) or worker (post-accept = strike)
   EXPIRED // Worker did not respond within 30 minutes
   NO_SHOW // Admin-confirmed worker no-show
+  CUSTOMER_NO_SHOW // Admin-confirmed customer no-show
 }
 
 enum TimeWindow {
@@ -84,6 +85,11 @@ enum CancellationActor {
   CUSTOMER
   WORKER
   SYSTEM // Auto-expiry or admin action
+}
+
+enum NoShowReportType {
+  WORKER // Customer reported worker no-show (BKG-06)
+  CUSTOMER // Worker reported customer no-show (BKG-08)
 }
 
 // =============================================================================
@@ -392,19 +398,20 @@ model Review {
 // =============================================================================
 
 model NoShowReport {
-  id          String    @id @default(uuid()) @db.Uuid
-  bookingId   String    @unique @db.Uuid
-  reportedBy  String    @db.Uuid // Customer user ID
-  description String?   @db.VarChar(500)
-  resolvedBy  String?   @db.Uuid // Admin user ID
+  id          String           @id @default(uuid()) @db.Uuid
+  bookingId   String           @unique @db.Uuid
+  reportedBy  String           @db.Uuid // User ID of reporter (customer or worker)
+  reportType  NoShowReportType @default(WORKER) // Who was reported: WORKER (by customer) or CUSTOMER (by worker)
+  description String?          @db.VarChar(500)
+  resolvedBy  String?          @db.Uuid // Admin user ID
   resolvedAt  DateTime?
-  confirmed   Boolean? // Admin verdict: true = strike issued, false = dismissed
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  confirmed   Boolean? // Admin verdict: true = confirmed, false = dismissed
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
-  @@index([confirmed])
+  @@index([confirmed, reportType])
   @@map("no_show_reports")
 }
 

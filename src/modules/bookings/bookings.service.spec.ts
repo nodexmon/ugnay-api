@@ -6,7 +6,9 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   BookingStatus,
+  BookingType,
   CancellationActor,
+  NoShowReportType,
   Role,
   StrikeReason,
   UserStatus,
@@ -58,6 +60,7 @@ describe('BookingsService', () => {
     assertNoReportExists: jest.fn(),
     assertWorkerIsAvailable: jest.fn(),
     assertScheduledDateIsValid: jest.fn(),
+    assertNoShowWindowOpen: jest.fn(),
     resolveProfileId: jest.fn(),
   };
 
@@ -135,6 +138,26 @@ describe('BookingsService', () => {
 
       await expect(service.create(customerJwt, dto)).rejects.toBeInstanceOf(
         ForbiddenException,
+      );
+    });
+
+    it('overrides bookingType to IMMEDIATE when scheduledDate is today (PST)', async () => {
+      const sameDayDto = {
+        ...dto,
+        scheduledDate: new Date(),
+        bookingType: BookingType.SCHEDULED,
+      };
+      prisma.booking.create.mockResolvedValue({
+        id: 'booking-id',
+        ...sameDayDto,
+      });
+
+      await service.create(customerJwt, sameDayDto);
+
+      expect(prisma.booking.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ bookingType: BookingType.IMMEDIATE }),
+        }),
       );
     });
 
@@ -356,6 +379,37 @@ describe('BookingsService', () => {
       );
     });
 
+    it('lets a customer cancel an ACCEPTED booking', async () => {
+      assertions.findBooking.mockResolvedValue({
+        ...pendingBooking,
+        status: BookingStatus.ACCEPTED,
+      });
+
+      await service.cancel('booking-id', customerJwt, cancelDto);
+
+      expect(tx.booking.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: BookingStatus.CANCELLED,
+            cancellationActor: CancellationActor.CUSTOMER,
+          }),
+        }),
+      );
+    });
+
+    it('throws BadRequestException when a worker cancels without a reason', async () => {
+      usersAssertions.findActiveUser.mockResolvedValue(workerUser);
+      assertions.findBooking.mockResolvedValue({
+        ...pendingBooking,
+        status: BookingStatus.ACCEPTED,
+      });
+      assertions.resolveProfileId.mockResolvedValueOnce('worker-profile-id');
+
+      await expect(
+        service.cancel('booking-id', workerJwt, {}),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
     it('throws ForbiddenException when caller is not CUSTOMER or WORKER', async () => {
       await expect(
         service.cancel(
@@ -394,7 +448,7 @@ describe('BookingsService', () => {
   // ─── reportNoShow ─────────────────────────────────────────────────────────────
 
   describe('reportNoShow', () => {
-    it('creates a no-show report', async () => {
+    it('creates a no-show report with WORKER type', async () => {
       assertions.findBooking.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
@@ -408,6 +462,25 @@ describe('BookingsService', () => {
       );
 
       expect(result).toMatchObject({ id: 'report-id' });
+      expect(prisma.noShowReport.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            reportType: NoShowReportType.WORKER,
+          }),
+        }),
+      );
+    });
+
+    it('calls assertNoShowWindowOpen before creating a report', async () => {
+      assertions.findBooking.mockResolvedValue({
+        ...pendingBooking,
+        status: BookingStatus.ACCEPTED,
+      });
+      prisma.noShowReport.create.mockResolvedValue({ id: 'report-id' });
+
+      await service.reportNoShow('booking-id', customerJwt);
+
+      expect(assertions.assertNoShowWindowOpen).toHaveBeenCalled();
     });
 
     it('throws ForbiddenException when a report already exists for the booking', async () => {
@@ -437,6 +510,83 @@ describe('BookingsService', () => {
 
       await expect(
         service.reportNoShow('booking-id', customerJwt),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  // ─── reportCustomerNoShow ─────────────────────────────────────────────────────
+
+  describe('reportCustomerNoShow', () => {
+    it('creates a no-show report with CUSTOMER type', async () => {
+      assertions.findBooking.mockResolvedValue({
+        ...pendingBooking,
+        status: BookingStatus.ACCEPTED,
+      });
+      assertions.resolveProfileId.mockResolvedValue('worker-profile-id');
+      usersAssertions.findActiveUser.mockResolvedValue(workerUser);
+      prisma.noShowReport.create.mockResolvedValue({ id: 'report-id' });
+
+      const result = await service.reportCustomerNoShow(
+        'booking-id',
+        workerJwt,
+        'Customer did not open the door',
+      );
+
+      expect(result).toMatchObject({ id: 'report-id' });
+      expect(prisma.noShowReport.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            reportType: NoShowReportType.CUSTOMER,
+          }),
+        }),
+      );
+    });
+
+    it('calls assertNoShowWindowOpen before creating a report', async () => {
+      assertions.findBooking.mockResolvedValue({
+        ...pendingBooking,
+        status: BookingStatus.ACCEPTED,
+      });
+      assertions.resolveProfileId.mockResolvedValue('worker-profile-id');
+      usersAssertions.findActiveUser.mockResolvedValue(workerUser);
+      prisma.noShowReport.create.mockResolvedValue({ id: 'report-id' });
+
+      await service.reportCustomerNoShow('booking-id', workerJwt);
+
+      expect(assertions.assertNoShowWindowOpen).toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when a report already exists', async () => {
+      assertions.findBooking.mockResolvedValue({
+        ...pendingBooking,
+        status: BookingStatus.ACCEPTED,
+      });
+      assertions.resolveProfileId.mockResolvedValue('worker-profile-id');
+      usersAssertions.findActiveUser.mockResolvedValue(workerUser);
+      assertions.assertNoReportExists.mockRejectedValueOnce(
+        new ForbiddenException(
+          'A no-show report already exists for this booking.',
+        ),
+      );
+
+      await expect(
+        service.reportCustomerNoShow('booking-id', workerJwt),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('throws ForbiddenException when the worker does not own the booking', async () => {
+      assertions.findBooking.mockResolvedValue({
+        ...pendingBooking,
+        status: BookingStatus.ACCEPTED,
+      });
+      assertions.resolveProfileId.mockResolvedValue('worker-profile-id');
+      usersAssertions.findActiveUser.mockResolvedValue(workerUser);
+      assertions.assertOwnership.mockImplementationOnce(() => {
+        throw new ForbiddenException('Insufficient permissions.');
+      });
+
+      await expect(
+        service.reportCustomerNoShow('booking-id', workerJwt),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
