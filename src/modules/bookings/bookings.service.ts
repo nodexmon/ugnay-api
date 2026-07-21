@@ -40,6 +40,39 @@ export class BookingsService {
   // ─── Public API ──────────────────────────────────────────────────────────────
 
   async findOne(bookingId: string, user: AuthJwtPayload) {
+    const bookingInclude = {
+      worker: {
+        select: {
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+          averageRating: true,
+          baseRate: true,
+          user: { select: { phone: true } },
+        },
+      },
+      customer: {
+        select: {
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+          user: { select: { phone: true } },
+        },
+      },
+      category: { select: { name: true, iconUrl: true } },
+      barangay: { select: { name: true } },
+      review: true,
+    };
+
+    if (user.role === Role.ADMIN) {
+      const booking = await this.prisma.booking.findFirst({
+        where: { id: bookingId },
+        include: bookingInclude,
+      });
+      if (!booking) throw new NotFoundException('Booking not found.');
+      return booking;
+    }
+
     const ownershipWhere =
       user.role === Role.CUSTOMER
         ? { customer: { userId: user.sub } }
@@ -47,29 +80,7 @@ export class BookingsService {
 
     const booking = await this.prisma.booking.findFirst({
       where: { id: bookingId, ...ownershipWhere },
-      include: {
-        worker: {
-          select: {
-            firstName: true,
-            lastName: true,
-            avatarUrl: true,
-            averageRating: true,
-            baseRate: true,
-            user: { select: { phone: true } },
-          },
-        },
-        customer: {
-          select: {
-            firstName: true,
-            lastName: true,
-            avatarUrl: true,
-            user: { select: { phone: true } },
-          },
-        },
-        category: { select: { name: true, iconUrl: true } },
-        barangay: { select: { name: true } },
-        review: true,
-      },
+      include: bookingInclude,
     });
 
     if (!booking) throw new NotFoundException('Booking not found.');
@@ -149,6 +160,14 @@ export class BookingsService {
 
     await this.assertions.assertWorkerIsAvailable(dto.workerId);
     this.assertions.assertScheduledDateIsValid(dto.scheduledDate);
+    await this.assertions.assertWorkerServesBarangay(
+      dto.workerId,
+      dto.barangayId,
+    );
+    const agreedRate = await this.assertions.findWorkerCategoryRate(
+      dto.workerId,
+      dto.categoryId,
+    );
 
     const toDayMs = (d: Date) => {
       const p = new Date(d.getTime() + PST_OFFSET_MS);
@@ -166,6 +185,7 @@ export class BookingsService {
         expiresAt: new Date(Date.now() + BOOKING_PENDING_EXPIRY_MS),
         ...dto,
         bookingType,
+        agreedRate,
       },
     });
 
@@ -185,6 +205,9 @@ export class BookingsService {
       BookingStatus.PENDING,
     );
     this.assertions.assertOwnership(booking.customerId, profileId);
+    if (dto.scheduledDate) {
+      this.assertions.assertScheduledDateIsValid(dto.scheduledDate);
+    }
     await this.prisma.booking.update({ where: { id: bookingId }, data: dto });
   }
 
@@ -252,12 +275,18 @@ export class BookingsService {
       BookingStatus.IN_PROGRESS,
     );
     this.assertions.assertOwnership(booking.workerId, profileId);
-    const { count: completeCount } = await this.prisma.booking.updateMany({
-      where: { id: bookingId, status: BookingStatus.IN_PROGRESS },
-      data: { status: BookingStatus.COMPLETED, completedAt: new Date() },
+    await this.prisma.$transaction(async (tx: TransactionClient) => {
+      const { count: completeCount } = await tx.booking.updateMany({
+        where: { id: bookingId, status: BookingStatus.IN_PROGRESS },
+        data: { status: BookingStatus.COMPLETED, completedAt: new Date() },
+      });
+      if (completeCount === 0)
+        throw new ConflictException('Booking is no longer in progress.');
+      await tx.workerProfile.update({
+        where: { id: booking.workerId },
+        data: { totalJobsCompleted: { increment: 1 } },
+      });
     });
-    if (completeCount === 0)
-      throw new ConflictException('Booking is no longer in progress.');
     void this.notifyBookingParty(bookingId, 'customer', {
       title: 'Job complete',
       body: 'The job is done. Leave a review for your worker!',

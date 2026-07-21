@@ -4,7 +4,12 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { BookingStatus, WorkerStatus } from '@/generated/prisma/enums';
+import {
+  BookingStatus,
+  TimeWindow,
+  UserStatus,
+  WorkerStatus,
+} from '@/generated/prisma/enums';
 import { PrismaService } from '@/prisma/prisma.service';
 import { BookingsAssertions } from './bookings.assertions';
 
@@ -17,9 +22,15 @@ describe('BookingsAssertions', () => {
     booking: { findUnique: jest.fn(), findFirst: jest.fn() },
     noShowReport: { findUnique: jest.fn() },
     workerProfile: { findUnique: jest.fn() },
+    workerCategory: { findUnique: jest.fn() },
+    workerServiceArea: { findUnique: jest.fn() },
   };
 
-  const availableWorker = { isOnline: true, status: WorkerStatus.VERIFIED };
+  const availableWorker = {
+    isOnline: true,
+    status: WorkerStatus.VERIFIED,
+    user: { status: UserStatus.ACTIVE },
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -129,6 +140,7 @@ describe('BookingsAssertions', () => {
       prisma.workerProfile.findUnique.mockResolvedValue({
         isOnline: false,
         status: WorkerStatus.VERIFIED,
+        user: { status: UserStatus.ACTIVE },
       });
       await expect(
         assertions.assertWorkerIsAvailable('worker-id'),
@@ -139,6 +151,18 @@ describe('BookingsAssertions', () => {
       prisma.workerProfile.findUnique.mockResolvedValue({
         isOnline: true,
         status: WorkerStatus.PENDING,
+        user: { status: UserStatus.ACTIVE },
+      });
+      await expect(
+        assertions.assertWorkerIsAvailable('worker-id'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('throws ForbiddenException when the worker user account is suspended', async () => {
+      prisma.workerProfile.findUnique.mockResolvedValue({
+        isOnline: true,
+        status: WorkerStatus.VERIFIED,
+        user: { status: UserStatus.SUSPENDED },
       });
       await expect(
         assertions.assertWorkerIsAvailable('worker-id'),
@@ -153,6 +177,82 @@ describe('BookingsAssertions', () => {
       });
       await expect(
         assertions.assertWorkerIsAvailable('worker-id'),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    });
+  });
+
+  describe('assertNoShowWindowOpen', () => {
+    // scheduledDate = 2026-01-01T00:00:00Z, MORNING window ends 12:00 PST = 04:00 UTC
+    const scheduledDate = new Date('2026-01-01T00:00:00Z');
+    const booking = { scheduledDate, timeWindow: TimeWindow.MORNING };
+    const windowEndUTC = new Date('2026-01-01T04:00:00Z').getTime();
+    const deadlineUTC = new Date('2026-01-01T06:00:00Z').getTime();
+
+    afterEach(() => jest.restoreAllMocks());
+
+    it('throws UnprocessableEntityException before the time window ends', () => {
+      jest.spyOn(Date, 'now').mockReturnValue(windowEndUTC - 60_000);
+      expect(() => assertions.assertNoShowWindowOpen(booking)).toThrow(
+        UnprocessableEntityException,
+      );
+    });
+
+    it('does not throw when within the 2-hour no-show window', () => {
+      jest.spyOn(Date, 'now').mockReturnValue(windowEndUTC + 30 * 60_000);
+      expect(() => assertions.assertNoShowWindowOpen(booking)).not.toThrow();
+    });
+
+    it('throws ForbiddenException after the 2-hour no-show deadline', () => {
+      jest.spyOn(Date, 'now').mockReturnValue(deadlineUTC + 60_000);
+      expect(() => assertions.assertNoShowWindowOpen(booking)).toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  describe('findWorkerCategoryRate', () => {
+    it('returns rateOverride when set', async () => {
+      const rateOverride = 500 as never;
+      prisma.workerCategory.findUnique.mockResolvedValue({
+        rateOverride,
+        worker: { baseRate: 300 as never },
+      });
+
+      const result = await assertions.findWorkerCategoryRate('w1', 'c1');
+      expect(result).toBe(rateOverride);
+    });
+
+    it('falls back to worker baseRate when rateOverride is null', async () => {
+      const baseRate = 300 as never;
+      prisma.workerCategory.findUnique.mockResolvedValue({
+        rateOverride: null,
+        worker: { baseRate },
+      });
+
+      const result = await assertions.findWorkerCategoryRate('w1', 'c1');
+      expect(result).toBe(baseRate);
+    });
+
+    it('throws UnprocessableEntityException when worker does not offer the category', async () => {
+      prisma.workerCategory.findUnique.mockResolvedValue(null);
+      await expect(
+        assertions.findWorkerCategoryRate('w1', 'unknown-cat'),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    });
+  });
+
+  describe('assertWorkerServesBarangay', () => {
+    it('does not throw when the worker serves the barangay', async () => {
+      prisma.workerServiceArea.findUnique.mockResolvedValue({ id: 'area-id' });
+      await expect(
+        assertions.assertWorkerServesBarangay('w1', 'b1'),
+      ).resolves.not.toThrow();
+    });
+
+    it('throws UnprocessableEntityException when the worker does not serve the barangay', async () => {
+      prisma.workerServiceArea.findUnique.mockResolvedValue(null);
+      await expect(
+        assertions.assertWorkerServesBarangay('w1', 'unknown-b'),
       ).rejects.toBeInstanceOf(UnprocessableEntityException);
     });
   });

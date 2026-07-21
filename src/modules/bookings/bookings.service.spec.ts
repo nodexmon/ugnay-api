@@ -61,6 +61,8 @@ describe('BookingsService', () => {
     assertWorkerIsAvailable: jest.fn(),
     assertScheduledDateIsValid: jest.fn(),
     assertNoShowWindowOpen: jest.fn(),
+    assertWorkerServesBarangay: jest.fn(),
+    findWorkerCategoryRate: jest.fn(),
     resolveProfileId: jest.fn(),
   };
 
@@ -75,6 +77,7 @@ describe('BookingsService', () => {
     );
     assertions.findBooking.mockResolvedValue(pendingBooking);
     assertions.resolveProfileId.mockResolvedValue('customer-profile-id');
+    assertions.findWorkerCategoryRate.mockResolvedValue(250 as never);
     usersAssertions.findActiveUser.mockResolvedValue(customerUser);
     prisma.booking.updateMany.mockResolvedValue({ count: 1 });
     tx.booking.updateMany.mockResolvedValue({ count: 1 });
@@ -273,7 +276,7 @@ describe('BookingsService', () => {
   // ─── complete ─────────────────────────────────────────────────────────────────
 
   describe('complete', () => {
-    it('transitions booking to COMPLETED', async () => {
+    it('transitions booking to COMPLETED and increments totalJobsCompleted', async () => {
       usersAssertions.findActiveUser.mockResolvedValue(workerUser);
       assertions.findBooking.mockResolvedValue({
         ...pendingBooking,
@@ -283,10 +286,16 @@ describe('BookingsService', () => {
 
       await service.complete('booking-id', workerJwt);
 
-      expect(prisma.booking.updateMany).toHaveBeenCalledWith(
+      expect(tx.booking.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ status: BookingStatus.IN_PROGRESS }),
           data: expect.objectContaining({ status: BookingStatus.COMPLETED }),
+        }),
+      );
+      expect(tx.workerProfile.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'worker-profile-id' },
+          data: { totalJobsCompleted: { increment: 1 } },
         }),
       );
     });
@@ -600,8 +609,26 @@ describe('BookingsService', () => {
       });
 
       await expect(
-        service.update('booking-id', customerJwt, { description: 'updated' }),
+        service.update('booking-id', customerJwt, { notes: 'updated' }),
       ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('calls assertScheduledDateIsValid when scheduledDate is provided', async () => {
+      const futureDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+
+      await service.update('booking-id', customerJwt, {
+        scheduledDate: futureDate,
+      });
+
+      expect(assertions.assertScheduledDateIsValid).toHaveBeenCalledWith(
+        futureDate,
+      );
+    });
+
+    it('does not call assertScheduledDateIsValid when scheduledDate is absent', async () => {
+      await service.update('booking-id', customerJwt, { notes: 'updated' });
+
+      expect(assertions.assertScheduledDateIsValid).not.toHaveBeenCalled();
     });
   });
 });

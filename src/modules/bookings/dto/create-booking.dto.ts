@@ -10,7 +10,6 @@ import {
   Max,
   MaxLength,
   IsEnum,
-  MinDate,
 } from 'class-validator';
 
 export class CreateBookingDto {
@@ -27,7 +26,6 @@ export class CreateBookingDto {
   bookingType: BookingType;
 
   @IsDate()
-  @MinDate(new Date())
   @Type(() => Date)
   scheduledDate: Date;
 
@@ -53,9 +51,4 @@ export class CreateBookingDto {
   @IsString()
   @MaxLength(500)
   notes: string;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  agreedRate: number;
 }

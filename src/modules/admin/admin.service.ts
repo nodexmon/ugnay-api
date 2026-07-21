@@ -154,12 +154,10 @@ export class AdminService {
           where: { userId: workerId },
           data: { status: WorkerStatus.SUSPENDED, isOnline: false },
         });
-      } else {
-        await tx.workerProfile.updateMany({
-          where: { userId: workerId },
-          data: { status: WorkerStatus.VERIFIED },
-        });
       }
+      // On unsuspend: WorkerProfile.status is intentionally NOT restored to VERIFIED.
+      // Use PATCH /admin/workers/:id/reinstate (with auditNote) to return a worker
+      // to VERIFIED — that is the correct path per WRK-05 / BR-06.
 
       return updatedUser;
     });
