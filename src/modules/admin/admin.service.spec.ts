@@ -160,7 +160,7 @@ describe('AdminService', () => {
     });
   });
 
-  it('restores WorkerProfile to VERIFIED when unsuspending a user', async () => {
+  it('does not change WorkerProfile status when unsuspending a user', async () => {
     prisma.user.findUnique.mockResolvedValue({
       id: 'user-id',
       status: UserStatus.SUSPENDED,
@@ -172,10 +172,7 @@ describe('AdminService', () => {
 
     await service.setUserSuspension('user-id', false);
 
-    expect(tx.workerProfile.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'user-id' },
-      data: { status: WorkerStatus.VERIFIED },
-    });
+    expect(tx.workerProfile.updateMany).not.toHaveBeenCalled();
   });
 
   describe('reinstateWorker', () => {
@@ -191,10 +188,14 @@ describe('AdminService', () => {
         id: 'user-id',
         status: UserStatus.ACTIVE,
       });
-      tx.workerProfile.updateMany.mockResolvedValue({ count: 1 });
+      tx.workerProfile.update.mockResolvedValue({
+        id: 'worker-profile-id',
+        status: WorkerStatus.VERIFIED,
+        strikeCount: 0,
+      });
 
       await service.reinstateWorker(
-        'user-id',
+        'worker-profile-id',
         { auditNote: 'Reviewed and cleared' },
         adminUser,
       );
@@ -203,8 +204,8 @@ describe('AdminService', () => {
         where: { id: 'user-id' },
         data: { status: UserStatus.ACTIVE },
       });
-      expect(tx.workerProfile.updateMany).toHaveBeenCalledWith({
-        where: { userId: 'user-id' },
+      expect(tx.workerProfile.update).toHaveBeenCalledWith({
+        where: { id: 'worker-profile-id' },
         data: { status: WorkerStatus.VERIFIED, strikeCount: 0 },
       });
     });
@@ -215,7 +216,11 @@ describe('AdminService', () => {
       );
 
       await expect(
-        service.reinstateWorker('user-id', { auditNote: 'note' }, adminUser),
+        service.reinstateWorker(
+          'worker-profile-id',
+          { auditNote: 'note' },
+          adminUser,
+        ),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });

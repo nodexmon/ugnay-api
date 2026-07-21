@@ -44,7 +44,13 @@ export class WorkersService {
       serviceAreas: barangayId ? { some: { barangayId } } : undefined,
       bookings: {
         none: {
-          status: { in: [BookingStatus.ACCEPTED, BookingStatus.IN_PROGRESS] },
+          status: {
+            in: [
+              BookingStatus.PENDING,
+              BookingStatus.ACCEPTED,
+              BookingStatus.IN_PROGRESS,
+            ],
+          },
         },
       },
     };
@@ -63,7 +69,15 @@ export class WorkersService {
       }),
       this.prisma.workerProfile.count({ where }),
     ]);
-    return { items, total, skip, take };
+    return {
+      items: items.map((w) => ({
+        ...w,
+        averageRating: w.totalReviews >= 3 ? w.averageRating : null,
+      })),
+      total,
+      skip,
+      take,
+    };
   }
 
   async findOwnProfile(userId: string) {

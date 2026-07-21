@@ -154,33 +154,31 @@ export class AdminService {
           where: { userId: workerId },
           data: { status: WorkerStatus.SUSPENDED, isOnline: false },
         });
-      } else {
-        await tx.workerProfile.updateMany({
-          where: { userId: workerId },
-          data: { status: WorkerStatus.VERIFIED },
-        });
       }
+      // On unsuspend: WorkerProfile.status is intentionally NOT restored to VERIFIED.
+      // Use PATCH /admin/workers/:id/reinstate (with auditNote) to return a worker
+      // to VERIFIED — that is the correct path per WRK-05 / BR-06.
 
       return updatedUser;
     });
   }
 
   async reinstateWorker(
-    userId: string,
+    workerProfileId: string,
     dto: ReinstateWorkerDto,
     admin: AuthJwtPayload,
   ) {
-    await this.assertions.findSuspendedWorker(userId);
+    const worker = await this.assertions.findSuspendedWorker(workerProfileId);
     this.logger.log(
-      `Worker ${userId} reinstated by ${admin.sub}. Note: ${dto.auditNote}`,
+      `Worker ${worker.id} reinstated by ${admin.sub}. Note: ${dto.auditNote}`,
     );
     return this.prisma.$transaction(async (tx: TransactionClient) => {
       await tx.user.update({
-        where: { id: userId },
+        where: { id: worker.userId },
         data: { status: UserStatus.ACTIVE },
       });
-      return tx.workerProfile.updateMany({
-        where: { userId },
+      return tx.workerProfile.update({
+        where: { id: worker.id },
         data: { status: WorkerStatus.VERIFIED, strikeCount: 0 },
       });
     });

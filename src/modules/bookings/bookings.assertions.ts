@@ -11,6 +11,7 @@ import {
   BookingStatus,
   Role,
   TimeWindow,
+  UserStatus,
   WorkerStatus,
 } from '@/generated/prisma/enums';
 import {
@@ -63,13 +64,18 @@ export class BookingsAssertions {
   async assertWorkerIsAvailable(workerId: string): Promise<void> {
     const worker = await this.prisma.workerProfile.findUnique({
       where: { id: workerId },
-      select: { isOnline: true, status: true },
+      select: {
+        isOnline: true,
+        status: true,
+        user: { select: { status: true } },
+      },
     });
 
     if (
       !worker ||
       !worker.isOnline ||
-      worker.status !== WorkerStatus.VERIFIED
+      worker.status !== WorkerStatus.VERIFIED ||
+      worker.user.status !== UserStatus.ACTIVE
     ) {
       throw new ForbiddenException('Worker is not available.');
     }
@@ -115,17 +121,50 @@ export class BookingsAssertions {
   }): void {
     const scheduled = new Date(booking.scheduledDate.getTime() + PST_OFFSET_MS);
     const endHour = TIME_WINDOW_END_HOUR_PST[booking.timeWindow];
-    const deadlineUTC =
+    const windowEndUTC =
       Date.UTC(
         scheduled.getUTCFullYear(),
         scheduled.getUTCMonth(),
         scheduled.getUTCDate(),
       ) -
       PST_OFFSET_MS +
-      endHour * 60 * 60 * 1000 +
-      NO_SHOW_DEADLINE_EXTRA_MS;
+      endHour * 60 * 60 * 1000;
+    const deadlineUTC = windowEndUTC + NO_SHOW_DEADLINE_EXTRA_MS;
+    if (Date.now() < windowEndUTC) {
+      throw new UnprocessableEntityException(
+        'No-show report can only be submitted after the booking window has ended.',
+      );
+    }
     if (Date.now() > deadlineUTC) {
       throw new ForbiddenException('No-show report window has closed.');
+    }
+  }
+
+  async findWorkerCategoryRate(workerId: string, categoryId: string) {
+    const wc = await this.prisma.workerCategory.findUnique({
+      where: { workerId_categoryId: { workerId, categoryId } },
+      select: { rateOverride: true, worker: { select: { baseRate: true } } },
+    });
+    if (!wc) {
+      throw new UnprocessableEntityException(
+        'Worker does not offer the requested service category.',
+      );
+    }
+    return wc.rateOverride ?? wc.worker.baseRate;
+  }
+
+  async assertWorkerServesBarangay(
+    workerId: string,
+    barangayId: string,
+  ): Promise<void> {
+    const area = await this.prisma.workerServiceArea.findUnique({
+      where: { workerId_barangayId: { workerId, barangayId } },
+      select: { id: true },
+    });
+    if (!area) {
+      throw new UnprocessableEntityException(
+        'Worker does not serve the requested barangay.',
+      );
     }
   }
 

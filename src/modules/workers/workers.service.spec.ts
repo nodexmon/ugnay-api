@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
+  BookingStatus,
   CredentialType,
   UserStatus,
   VerificationStatus,
@@ -133,6 +134,51 @@ describe('WorkersService', () => {
         }),
       }),
     );
+  });
+
+  it('excludes workers with PENDING bookings from search results', async () => {
+    prisma.workerProfile.findMany.mockResolvedValue([]);
+    prisma.workerProfile.count.mockResolvedValue(0);
+
+    await service.search({});
+
+    expect(prisma.workerProfile.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          bookings: {
+            none: {
+              status: {
+                in: expect.arrayContaining([
+                  BookingStatus.PENDING,
+                  BookingStatus.ACCEPTED,
+                  BookingStatus.IN_PROGRESS,
+                ]),
+              },
+            },
+          },
+        }),
+      }),
+    );
+  });
+
+  it('masks averageRating as null when worker has fewer than 3 reviews', async () => {
+    const worker = { id: 'w1', totalReviews: 2, averageRating: 4.5 };
+    prisma.workerProfile.findMany.mockResolvedValue([worker]);
+    prisma.workerProfile.count.mockResolvedValue(1);
+
+    const result = await service.search({});
+
+    expect(result.items[0].averageRating).toBeNull();
+  });
+
+  it('returns raw averageRating when worker has 3 or more reviews', async () => {
+    const worker = { id: 'w1', totalReviews: 3, averageRating: 4.5 };
+    prisma.workerProfile.findMany.mockResolvedValue([worker]);
+    prisma.workerProfile.count.mockResolvedValue(1);
+
+    const result = await service.search({});
+
+    expect(result.items[0].averageRating).toBe(4.5);
   });
 
   it('rejects duplicate worker categories during profile creation', async () => {

@@ -6,6 +6,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@/generated/prisma/client';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import {
   BookingStatus,
@@ -40,6 +41,39 @@ export class BookingsService {
   // ─── Public API ──────────────────────────────────────────────────────────────
 
   async findOne(bookingId: string, user: AuthJwtPayload) {
+    const bookingInclude = {
+      worker: {
+        select: {
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+          averageRating: true,
+          baseRate: true,
+          user: { select: { phone: true } },
+        },
+      },
+      customer: {
+        select: {
+          firstName: true,
+          lastName: true,
+          avatarUrl: true,
+          user: { select: { phone: true } },
+        },
+      },
+      category: { select: { name: true, iconUrl: true } },
+      barangay: { select: { name: true } },
+      review: true,
+    };
+
+    if (user.role === Role.ADMIN) {
+      const booking = await this.prisma.booking.findFirst({
+        where: { id: bookingId },
+        include: bookingInclude,
+      });
+      if (!booking) throw new NotFoundException('Booking not found.');
+      return booking;
+    }
+
     const ownershipWhere =
       user.role === Role.CUSTOMER
         ? { customer: { userId: user.sub } }
@@ -47,29 +81,7 @@ export class BookingsService {
 
     const booking = await this.prisma.booking.findFirst({
       where: { id: bookingId, ...ownershipWhere },
-      include: {
-        worker: {
-          select: {
-            firstName: true,
-            lastName: true,
-            avatarUrl: true,
-            averageRating: true,
-            baseRate: true,
-            user: { select: { phone: true } },
-          },
-        },
-        customer: {
-          select: {
-            firstName: true,
-            lastName: true,
-            avatarUrl: true,
-            user: { select: { phone: true } },
-          },
-        },
-        category: { select: { name: true, iconUrl: true } },
-        barangay: { select: { name: true } },
-        review: true,
-      },
+      include: bookingInclude,
     });
 
     if (!booking) throw new NotFoundException('Booking not found.');
@@ -149,6 +161,14 @@ export class BookingsService {
 
     await this.assertions.assertWorkerIsAvailable(dto.workerId);
     this.assertions.assertScheduledDateIsValid(dto.scheduledDate);
+    await this.assertions.assertWorkerServesBarangay(
+      dto.workerId,
+      dto.barangayId,
+    );
+    const agreedRate = await this.assertions.findWorkerCategoryRate(
+      dto.workerId,
+      dto.categoryId,
+    );
 
     const toDayMs = (d: Date) => {
       const p = new Date(d.getTime() + PST_OFFSET_MS);
@@ -159,15 +179,27 @@ export class BookingsService {
         ? BookingType.IMMEDIATE
         : dto.bookingType;
 
-    const booking = await this.prisma.booking.create({
-      data: {
-        customerId,
-        status: BookingStatus.PENDING,
-        expiresAt: new Date(Date.now() + BOOKING_PENDING_EXPIRY_MS),
-        ...dto,
-        bookingType,
-      },
-    });
+    let booking;
+    try {
+      booking = await this.prisma.booking.create({
+        data: {
+          customerId,
+          status: BookingStatus.PENDING,
+          expiresAt: new Date(Date.now() + BOOKING_PENDING_EXPIRY_MS),
+          ...dto,
+          bookingType,
+          agreedRate,
+        },
+      });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new ConflictException('Worker already has an active booking.');
+      }
+      throw e;
+    }
 
     void this.notifyBookingParty(booking.id, 'worker', {
       title: 'New booking request',
@@ -185,6 +217,9 @@ export class BookingsService {
       BookingStatus.PENDING,
     );
     this.assertions.assertOwnership(booking.customerId, profileId);
+    if (dto.scheduledDate) {
+      this.assertions.assertScheduledDateIsValid(dto.scheduledDate);
+    }
     await this.prisma.booking.update({ where: { id: bookingId }, data: dto });
   }
 
@@ -252,12 +287,18 @@ export class BookingsService {
       BookingStatus.IN_PROGRESS,
     );
     this.assertions.assertOwnership(booking.workerId, profileId);
-    const { count: completeCount } = await this.prisma.booking.updateMany({
-      where: { id: bookingId, status: BookingStatus.IN_PROGRESS },
-      data: { status: BookingStatus.COMPLETED, completedAt: new Date() },
+    await this.prisma.$transaction(async (tx: TransactionClient) => {
+      const { count: completeCount } = await tx.booking.updateMany({
+        where: { id: bookingId, status: BookingStatus.IN_PROGRESS },
+        data: { status: BookingStatus.COMPLETED, completedAt: new Date() },
+      });
+      if (completeCount === 0)
+        throw new ConflictException('Booking is no longer in progress.');
+      await tx.workerProfile.update({
+        where: { id: booking.workerId },
+        data: { totalJobsCompleted: { increment: 1 } },
+      });
     });
-    if (completeCount === 0)
-      throw new ConflictException('Booking is no longer in progress.');
     void this.notifyBookingParty(bookingId, 'customer', {
       title: 'Job complete',
       body: 'The job is done. Leave a review for your worker!',
@@ -267,10 +308,6 @@ export class BookingsService {
   async cancel(bookingId: string, user: AuthJwtPayload, dto: CancelBookingDto) {
     if (user.role !== Role.CUSTOMER && user.role !== Role.WORKER) {
       throw new ForbiddenException('Insufficient permissions.');
-    }
-
-    if (user.role === Role.WORKER && !dto.cancellationReason) {
-      throw new BadRequestException('Cancellation reason is required.');
     }
 
     await this.usersAssertions.findActiveUser(user.sub);
@@ -296,6 +333,9 @@ export class BookingsService {
         BookingStatus.ACCEPTED,
         BookingStatus.IN_PROGRESS,
       );
+      if (!dto.cancellationReason) {
+        throw new BadRequestException('Cancellation reason is required.');
+      }
     }
 
     const expectedStatuses =
@@ -306,6 +346,7 @@ export class BookingsService {
     await this.prisma.$transaction(async (tx: TransactionClient) => {
       if (user.role === Role.WORKER) {
         await applyStrike(tx, profileId, {
+          bookingId,
           reason: StrikeReason.POST_ACCEPT_CANCELLATION,
           issuedBy: 'SYSTEM',
         });

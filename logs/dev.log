@@ -624,3 +624,78 @@ July 20, 2026 — BRD v1.3 audit round 2: 13-gap closure (branch: feat/brd-gap-c
 - Updated bookings.assertions.spec.ts: busy-worker test now expects UnprocessableEntityException
 - Test count: 253 → 262 (9 new tests across bookings, admin, otp specs)
 
+---
+
+July 21, 2026 — BRD v1.3 gap closure round 3 (branch: fix/brd-gap-closure-round3)
+
+- Fixed agreedRate (BR-13): removed agreedRate from CreateBookingDto; bookings.service.create()
+  now queries WorkerCategory.rateOverride falling back to WorkerProfile.baseRate via new
+  findWorkerCategoryRate assertion; client can no longer supply or override this value
+- Added category validation: booking creation now throws 422 if the worker does not offer the
+  requested categoryId (findWorkerCategoryRate validates the WorkerCategory record exists)
+- Added barangay validation: booking creation now throws 422 if the requested barangayId is not
+  in the worker's service areas (new assertWorkerServesBarangay assertion)
+- Fixed assertWorkerIsAvailable: now also checks worker user.status === ACTIVE; a suspended user
+  whose WorkerProfile is VERIFIED could previously still receive booking requests
+- Fixed assertNoShowWindowOpen lower bound (BKG-06/08): added guard that throws 422 if the
+  report is submitted before the time window ends; previously only the upper bound (2h deadline)
+  was enforced
+- Replaced UpdateBookingDto PartialType with dedicated DTO (BRD 9.3): exposes only
+  scheduledDate, timeWindow, notes, locationAddress; prevents client from mutating
+  workerId, categoryId, barangayId, agreedRate, bookingType via PATCH /bookings/:id
+- Fixed update() scheduledDate validation: assertScheduledDateIsValid is now called when
+  scheduledDate is present in the update payload
+- Fixed complete() totalJobsCompleted (denorm counter): wrapped IN_PROGRESS → COMPLETED
+  transition in a transaction and added WorkerProfile.totalJobsCompleted { increment: 1 }
+  inside the same transaction
+- Fixed findOne() admin bypass: ADMIN role now queries by id only (no ownership filter);
+  previously admin calls incorrectly applied the worker ownership filter
+- Fixed setUserSuspension(false) (WRK-05/BR-06): removed the else branch that set
+  WorkerProfile.status = VERIFIED on unsuspend; reinstateWorker() is now the only path
+  that restores a worker to VERIFIED (requires explicit auditNote)
+- Removed @MinDate(new Date()) from CreateBookingDto (static decorator captured module-load
+  time; assertScheduledDateIsValid handles this correctly at runtime using PST arithmetic)
+- Updated specs: added tests for findWorkerCategoryRate (rate from override, fallback to
+  baseRate, 422 if category not found), assertWorkerServesBarangay (found, 422 if not found),
+  assertNoShowWindowOpen lower bound, assertWorkerIsAvailable suspended-user case, complete()
+  totalJobsCompleted increment, update() scheduledDate assertion, admin unsuspend no-op
+- Test count: 262 → 273 (11 new tests)
+
+---
+
+July 21, 2026 — hook fix and dev log reinforcement
+
+- Fixed .claude/settings.json PostToolUse hook: command was written in PowerShell syntax
+  but Claude Code invokes hooks via /usr/bin/bash; wrapped with
+  `powershell -NoProfile -Command "..."` so bash hands off to PowerShell correctly;
+  eslint --fix and jest auto-run on .ts edits now work as intended
+
+---
+
+July 21, 2026 — BRD v1.3 gap closure round 4 (branch: fix/brd-gap-closure-round4)
+
+- Added User.deletedAt DateTime? to schema (BRD §8.3 data retention); applied migration
+- Added partial unique index one_active_booking_per_worker on bookings(workerId) WHERE status
+  IN (PENDING, ACCEPTED, IN_PROGRESS) via manual migration SQL (DB-level TOCTOU guard)
+- bookings.service.create(): wrapped prisma.booking.create in try/catch; P2002 unique
+  constraint violation → ConflictException('Worker already has an active booking.')
+- bookings.service.cancel(): passed bookingId to applyStrike for audit traceability and
+  Strike.bookingId deduplication guard
+- bookings.service.cancel(): moved cancellationReason check AFTER assertBookingInStatus so
+  workers hitting a wrong-status booking get the status error, not a reason-required error
+- workers.service.search(): added PENDING to booking exclusion filter (was only ACCEPTED,
+  IN_PROGRESS); workers with pending bookings now disappear from search immediately
+- workers.service.search(): applied averageRating masking (null when totalReviews < 3)
+  consistent with findPublicProfile() — REV-04 now enforced on both public-facing endpoints
+- admin.assertions.findSuspendedWorker(): fixed to query by WorkerProfile.id (was User.id);
+  route param :id matches WorkerProfile.id returned by GET /admin/workers
+- admin.service.reinstateWorker(): uses worker.userId for user update, worker.id for profile
+  update; changed workerProfile.updateMany → workerProfile.update (exact id now known)
+- test/prisma-client.mock.ts: added PrismaClientKnownRequestError class to Prisma export so
+  P2002 path can be tested without hitting a real DB
+- bookings.service.spec.ts: 3 new tests (P2002 → ConflictException; bookingId on strike;
+  cancel validation order); added tx.strike.findUnique mock (required by applyStrike)
+- admin.service.spec.ts: updated reinstateWorker test — input is WorkerProfile.id, assertions
+  verify tx.workerProfile.update (not updateMany) and correct userId derivation
+- workers.service.spec.ts: 3 new tests (PENDING exclusion; averageRating masked; unmasked)
+- Test count: 273 → 278 (all passing)
