@@ -669,3 +669,33 @@ July 21, 2026 — hook fix and dev log reinforcement
   but Claude Code invokes hooks via /usr/bin/bash; wrapped with
   `powershell -NoProfile -Command "..."` so bash hands off to PowerShell correctly;
   eslint --fix and jest auto-run on .ts edits now work as intended
+
+---
+
+July 21, 2026 — BRD v1.3 gap closure round 4 (branch: fix/brd-gap-closure-round4)
+
+- Added User.deletedAt DateTime? to schema (BRD §8.3 data retention); applied migration
+- Added partial unique index one_active_booking_per_worker on bookings(workerId) WHERE status
+  IN (PENDING, ACCEPTED, IN_PROGRESS) via manual migration SQL (DB-level TOCTOU guard)
+- bookings.service.create(): wrapped prisma.booking.create in try/catch; P2002 unique
+  constraint violation → ConflictException('Worker already has an active booking.')
+- bookings.service.cancel(): passed bookingId to applyStrike for audit traceability and
+  Strike.bookingId deduplication guard
+- bookings.service.cancel(): moved cancellationReason check AFTER assertBookingInStatus so
+  workers hitting a wrong-status booking get the status error, not a reason-required error
+- workers.service.search(): added PENDING to booking exclusion filter (was only ACCEPTED,
+  IN_PROGRESS); workers with pending bookings now disappear from search immediately
+- workers.service.search(): applied averageRating masking (null when totalReviews < 3)
+  consistent with findPublicProfile() — REV-04 now enforced on both public-facing endpoints
+- admin.assertions.findSuspendedWorker(): fixed to query by WorkerProfile.id (was User.id);
+  route param :id matches WorkerProfile.id returned by GET /admin/workers
+- admin.service.reinstateWorker(): uses worker.userId for user update, worker.id for profile
+  update; changed workerProfile.updateMany → workerProfile.update (exact id now known)
+- test/prisma-client.mock.ts: added PrismaClientKnownRequestError class to Prisma export so
+  P2002 path can be tested without hitting a real DB
+- bookings.service.spec.ts: 3 new tests (P2002 → ConflictException; bookingId on strike;
+  cancel validation order); added tx.strike.findUnique mock (required by applyStrike)
+- admin.service.spec.ts: updated reinstateWorker test — input is WorkerProfile.id, assertions
+  verify tx.workerProfile.update (not updateMany) and correct userId derivation
+- workers.service.spec.ts: 3 new tests (PENDING exclusion; averageRating masked; unmasked)
+- Test count: 273 → 278 (all passing)
