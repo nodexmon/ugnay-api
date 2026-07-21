@@ -1,9 +1,11 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { Prisma } from '@/generated/prisma/client';
 import {
   BookingStatus,
   BookingType,
@@ -38,7 +40,7 @@ describe('BookingsService', () => {
   const tx = {
     booking: { updateMany: jest.fn() },
     workerProfile: { update: jest.fn() },
-    strike: { create: jest.fn() },
+    strike: { create: jest.fn(), findUnique: jest.fn() },
   };
 
   const prisma = {
@@ -81,6 +83,7 @@ describe('BookingsService', () => {
     usersAssertions.findActiveUser.mockResolvedValue(customerUser);
     prisma.booking.updateMany.mockResolvedValue({ count: 1 });
     tx.booking.updateMany.mockResolvedValue({ count: 1 });
+    tx.strike.findUnique.mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -177,6 +180,18 @@ describe('BookingsService', () => {
       };
       await expect(service.create(customerJwt, farDto)).rejects.toBeInstanceOf(
         BadRequestException,
+      );
+    });
+
+    it('throws ConflictException when the worker already has an active booking (DB constraint)', async () => {
+      const p2002 = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed',
+        { code: 'P2002', clientVersion: '7.0.0', meta: {} },
+      );
+      prisma.booking.create.mockRejectedValueOnce(p2002);
+
+      await expect(service.create(customerJwt, dto)).rejects.toBeInstanceOf(
+        ConflictException,
       );
     });
   });
@@ -348,6 +363,7 @@ describe('BookingsService', () => {
       expect(tx.strike.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
+            bookingId: 'booking-id',
             reason: StrikeReason.POST_ACCEPT_CANCELLATION,
             issuedBy: 'SYSTEM',
           }),
@@ -450,6 +466,24 @@ describe('BookingsService', () => {
 
       await expect(
         service.cancel('booking-id', workerJwt, cancelDto),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('returns status error (not reason error) when a worker cancels a COMPLETED booking without a reason', async () => {
+      usersAssertions.findActiveUser.mockResolvedValue(workerUser);
+      assertions.findBooking.mockResolvedValue({
+        ...pendingBooking,
+        status: BookingStatus.COMPLETED,
+      });
+      assertions.resolveProfileId.mockResolvedValueOnce('worker-profile-id');
+      assertions.assertBookingInStatus.mockImplementationOnce(() => {
+        throw new ForbiddenException(
+          'Booking must be in status: ACCEPTED, IN_PROGRESS',
+        );
+      });
+
+      await expect(
+        service.cancel('booking-id', workerJwt, {}),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
