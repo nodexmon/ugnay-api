@@ -476,7 +476,7 @@ Update the customer profile. All fields are optional.
 ### GET `/workers/search` — `PUBLIC`
 Search VERIFIED, active workers. Returns a plain array ordered by `averageRating DESC`, `totalReviews DESC`, `createdAt DESC`.
 
-> Workers with an active `ACCEPTED` or `IN_PROGRESS` booking are excluded from results — they are already busy.
+> Workers with a `PENDING`, `ACCEPTED`, or `IN_PROGRESS` booking are excluded from results — they are unavailable for new bookings.
 
 **Query params:**
 ```
@@ -561,6 +561,7 @@ take          integer   Records to return (default 10, max 50)
 
 > `credentials` — only `APPROVED` credentials are returned from search, and only the `type` field. No file URLs.
 > `baseRate`, `rateOverride`, `averageRating` are **Decimal strings** — parse before arithmetic.
+> **`averageRating` is `null`** when `totalReviews < 3`. This is enforced server-side — do not compute or display client-side.
 > Worker phone numbers are **never** returned from search. Only revealed on booking acceptance.
 > There is **no total count** in this response. Use `skip`/`take` to paginate client-side.
 
@@ -890,19 +891,21 @@ Create a new booking request. The worker has 30 minutes to respond.
   "locationLat": 14.6001,
   "locationLng": 120.9845,
   "locationAddress": "12 Mabini Street, Canubing I",
-  "notes": "Outlet sparks when the rice cooker is plugged in.",
-  "agreedRate": 700
+  "notes": "Outlet sparks when the rice cooker is plugged in."
 }
 ```
 
 > `bookingType`: `IMMEDIATE` (same-day) or `SCHEDULED` (up to 7 days ahead).
-> `scheduledDate`: must be in the future; max 7 days from now.
+> `scheduledDate`: must be in the future (PST); max 7 days from now. Same-day dates are forced to `IMMEDIATE` regardless of `bookingType`.
 > `locationAddress`: optional, max 300 chars.
 > `notes`: optional, max 500 chars.
-> `agreedRate`: optional pre-negotiated rate. Omit to use the worker's `baseRate`.
+> **`agreedRate` is not sent by the client.** The server snapshots the rate automatically from the worker's category-specific `rateOverride`, falling back to their `baseRate`. This value is locked at booking creation and never changes.
 > Returns `403` if the customer has no profile yet.
-> Returns `403` if the worker is not online, not `VERIFIED`, or not found.
-> Returns `403` if the targeted worker is currently busy (`ACCEPTED` or `IN_PROGRESS` booking).
+> Returns `403` if the worker is not online, not `VERIFIED`, or their user account is not `ACTIVE`.
+> Returns `422` if the targeted worker already has a `PENDING`, `ACCEPTED`, or `IN_PROGRESS` booking.
+> Returns `422` if the worker does not offer the requested `categoryId`.
+> Returns `422` if the worker does not serve the requested `barangayId`.
+> Returns `409` if two requests race to book the same worker simultaneously (DB-level guard).
 
 **Response `201`:**
 ```json
@@ -1137,7 +1140,7 @@ Mark an `IN_PROGRESS` booking as `COMPLETED`. Triggers a review-prompt push noti
 
 ### PATCH `/bookings/:id/cancel` — `PROTECTED`
 Cancel a booking. Server enforces the following rules:
-- **Customer** can cancel a `PENDING` booking freely (no penalty).
+- **Customer** can cancel a `PENDING` or `ACCEPTED` booking freely (no penalty).
 - **Worker** can cancel an `ACCEPTED` or `IN_PROGRESS` booking — an automatic strike is issued and the count is incremented. If `strikeCount` reaches 3, the worker is suspended.
 
 **Request body:**
@@ -1147,7 +1150,9 @@ Cancel a booking. Server enforces the following rules:
 }
 ```
 
-> `cancellationReason` is optional, max 300 chars.
+> `cancellationReason` is **required for workers**, optional for customers. Max 300 chars.
+> Returns `403` if the booking is in a status that does not allow cancellation for the caller's role.
+> Returns `400` if the caller is a worker and `cancellationReason` is missing.
 
 **Response `200`:** Empty body.
 
@@ -1412,14 +1417,14 @@ Remove the device's push token on logout.
         │ ACCEPTED │     │ REJECTED │     │ EXPIRED │      │ CANCELLED │
         └────┬─────┘     └──────────┘     └─────────┘      └───────────┘
              │
-      ┌──────┴──────────────────┐
-      │                         │
-   (start)                  (worker
-      │                      cancels*)
-      ▼                         ▼
-┌─────────────┐           ┌───────────┐
-│ IN_PROGRESS │           │ CANCELLED │ ← *strike auto-issued
-└──────┬──────┘           └───────────┘
+      ┌──────┴────────────────────────────┐
+      │                         │         │
+   (start)                  (worker    (customer
+      │                      cancels*)   cancels)
+      ▼                         ▼         ▼
+┌─────────────┐           ┌───────────────────┐
+│ IN_PROGRESS │           │     CANCELLED     │ ← worker cancel: *strike auto-issued
+└──────┬──────┘           └───────────────────┘
        │
     (complete)
        │
@@ -1450,9 +1455,9 @@ Remove the device's push token on logout.
 *No-show can be reported while booking is still `ACCEPTED` or `IN_PROGRESS` — not after `COMPLETED`.
 
 **Rules summary:**
-- Customer can cancel `PENDING` freely (no penalty).
-- Worker cancellation of `ACCEPTED`/`IN_PROGRESS` → automatic `CANCELLED` + 1 strike. At 3 strikes → `SUSPENDED`.
-- `PENDING` auto-expires after 30 minutes (server cron job, no action needed client-side).
+- Customer can cancel `PENDING` or `ACCEPTED` freely (no penalty, no reason required).
+- Worker cancellation of `ACCEPTED`/`IN_PROGRESS` → automatic `CANCELLED` + 1 strike + cancellation reason required. At 3 strikes → `SUSPENDED`.
+- `PENDING` auto-expires after 30 minutes (server cron job, no action needed client-side). Customer receives a push notification on expiry.
 - `NO_SHOW` is admin-set after reviewing a customer report — the booking status changes to `NO_SHOW`.
 
 ---
@@ -1560,6 +1565,21 @@ On any 401 response:
 ## 14. Admin Endpoints
 
 All admin endpoints require `ADMIN` role. These are for the internal dashboard, not the consumer mobile app.
+
+### PATCH `/admin/workers/:id/reinstate` — `PROTECTED (ADMIN)`
+Reinstate a `SUSPENDED` worker. Resets `strikeCount` to 0 and sets `WorkerProfile.status` back to `VERIFIED`. Requires a written audit note. The `:id` is the **`WorkerProfile.id`** (not `userId`) — use the `id` returned by `GET /admin/workers`.
+
+**Request body:**
+```json
+{ "auditNote": "Reviewed strikes with worker, all resolved. Cleared to return." }
+```
+
+> Returns `404` if no suspended worker exists with that profile ID.
+> After reinstatement the worker must toggle online manually via `PATCH /workers/availability`.
+
+**Response `200`:** Updated `WorkerProfile` object with `status: "VERIFIED"` and `strikeCount: 0`.
+
+---
 
 ### GET `/admin/no-shows` — `PROTECTED (ADMIN)`
 List pending worker no-show reports (filed by customers against workers) awaiting admin review.
