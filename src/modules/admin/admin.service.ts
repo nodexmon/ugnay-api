@@ -164,21 +164,21 @@ export class AdminService {
   }
 
   async reinstateWorker(
-    userId: string,
+    workerProfileId: string,
     dto: ReinstateWorkerDto,
     admin: AuthJwtPayload,
   ) {
-    await this.assertions.findSuspendedWorker(userId);
+    const worker = await this.assertions.findSuspendedWorker(workerProfileId);
     this.logger.log(
-      `Worker ${userId} reinstated by ${admin.sub}. Note: ${dto.auditNote}`,
+      `Worker ${worker.id} reinstated by ${admin.sub}. Note: ${dto.auditNote}`,
     );
     return this.prisma.$transaction(async (tx: TransactionClient) => {
       await tx.user.update({
-        where: { id: userId },
+        where: { id: worker.userId },
         data: { status: UserStatus.ACTIVE },
       });
-      return tx.workerProfile.updateMany({
-        where: { userId },
+      return tx.workerProfile.update({
+        where: { id: worker.id },
         data: { status: WorkerStatus.VERIFIED, strikeCount: 0 },
       });
     });

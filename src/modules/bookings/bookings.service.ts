@@ -6,6 +6,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@/generated/prisma/client';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import {
   BookingStatus,
@@ -178,16 +179,27 @@ export class BookingsService {
         ? BookingType.IMMEDIATE
         : dto.bookingType;
 
-    const booking = await this.prisma.booking.create({
-      data: {
-        customerId,
-        status: BookingStatus.PENDING,
-        expiresAt: new Date(Date.now() + BOOKING_PENDING_EXPIRY_MS),
-        ...dto,
-        bookingType,
-        agreedRate,
-      },
-    });
+    let booking;
+    try {
+      booking = await this.prisma.booking.create({
+        data: {
+          customerId,
+          status: BookingStatus.PENDING,
+          expiresAt: new Date(Date.now() + BOOKING_PENDING_EXPIRY_MS),
+          ...dto,
+          bookingType,
+          agreedRate,
+        },
+      });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new ConflictException('Worker already has an active booking.');
+      }
+      throw e;
+    }
 
     void this.notifyBookingParty(booking.id, 'worker', {
       title: 'New booking request',
@@ -298,10 +310,6 @@ export class BookingsService {
       throw new ForbiddenException('Insufficient permissions.');
     }
 
-    if (user.role === Role.WORKER && !dto.cancellationReason) {
-      throw new BadRequestException('Cancellation reason is required.');
-    }
-
     await this.usersAssertions.findActiveUser(user.sub);
     const booking = await this.assertions.findBooking(bookingId);
     const profileId = await this.assertions.resolveProfileId(
@@ -325,6 +333,9 @@ export class BookingsService {
         BookingStatus.ACCEPTED,
         BookingStatus.IN_PROGRESS,
       );
+      if (!dto.cancellationReason) {
+        throw new BadRequestException('Cancellation reason is required.');
+      }
     }
 
     const expectedStatuses =
@@ -335,6 +346,7 @@ export class BookingsService {
     await this.prisma.$transaction(async (tx: TransactionClient) => {
       if (user.role === Role.WORKER) {
         await applyStrike(tx, profileId, {
+          bookingId,
           reason: StrikeReason.POST_ACCEPT_CANCELLATION,
           issuedBy: 'SYSTEM',
         });

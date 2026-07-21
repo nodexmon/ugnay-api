@@ -84,9 +84,9 @@ export class AdminAssertions {
     return report;
   }
 
-  async findSuspendedWorker(userId: string) {
+  async findSuspendedWorker(workerProfileId: string) {
     const worker = await this.prisma.workerProfile.findFirst({
-      where: { userId, status: WorkerStatus.SUSPENDED },
+      where: { id: workerProfileId, status: WorkerStatus.SUSPENDED },
     });
     if (!worker) throw new NotFoundException('Suspended worker not found.');
     return worker;
