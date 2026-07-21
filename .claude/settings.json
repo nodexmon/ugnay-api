@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$data = [Console]::In.ReadToEnd() | ConvertFrom-Json; $f = $data.tool_input.file_path; if ($f -match '\\.ts$' -and $f -notmatch 'generated') { Set-Location $env:CLAUDE_PROJECT_DIR; pnpm eslint --fix $f; if ($f -match '\\.spec\\.ts$') { pnpm jest $f --passWithNoTests } }",
+            "command": "powershell -NoProfile -Command \"$data = [Console]::In.ReadToEnd() | ConvertFrom-Json; $f = $data.tool_input.file_path; if ($f -match '\\.ts$' -and $f -notmatch 'generated') { Set-Location $env:CLAUDE_PROJECT_DIR; pnpm eslint --fix $f; if ($f -match '\\.spec\\.ts$') { pnpm jest $f --passWithNoTests } }\"",
             "timeout": 60,
             "statusMessage": "Linting..."
           }
