@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { unlink } from 'fs/promises';
 import { PrismaService } from '@/prisma/prisma.service';
 import {
   BookingStatus,
@@ -284,26 +285,34 @@ export class WorkersService {
       this.fileStorage.write(selfiePath, selfie),
     ]);
 
-    return this.prisma.$transaction(async (tx: TransactionClient) => {
-      await this.assertions.assertNoPendingVerification(worker.id, tx);
-      await this.assertions.assertVerificationReapplicationAllowed(
-        worker.id,
-        tx,
-      );
+    try {
+      return await this.prisma.$transaction(async (tx: TransactionClient) => {
+        await this.assertions.assertNoPendingVerification(worker.id, tx);
+        await this.assertions.assertVerificationReapplicationAllowed(
+          worker.id,
+          tx,
+        );
 
-      await tx.workerProfile.update({
-        where: { id: worker.id },
-        data: { status: WorkerStatus.PENDING },
-      });
+        await tx.workerProfile.update({
+          where: { id: worker.id },
+          data: { status: WorkerStatus.PENDING },
+        });
 
-      return tx.verificationDoc.create({
-        data: {
-          workerId: worker.id,
-          idPhotoUrl: idPhotoPath.relative,
-          selfieUrl: selfiePath.relative,
-        },
+        return tx.verificationDoc.create({
+          data: {
+            workerId: worker.id,
+            idPhotoUrl: idPhotoPath.relative,
+            selfieUrl: selfiePath.relative,
+          },
+        });
       });
-    });
+    } catch (err) {
+      await Promise.allSettled([
+        unlink(idPhotoPath.absolute).catch(() => {}),
+        unlink(selfiePath.absolute).catch(() => {}),
+      ]);
+      throw err;
+    }
   }
 
   async uploadCredential(
@@ -322,13 +331,18 @@ export class WorkersService {
 
     await this.fileStorage.write(credentialPath, file);
 
-    return this.prisma.$transaction(async (tx: TransactionClient) => {
-      await this.assertions.assertActiveCredentialCountUnder(worker.id, tx);
+    try {
+      return await this.prisma.$transaction(async (tx: TransactionClient) => {
+        await this.assertions.assertActiveCredentialCountUnder(worker.id, tx);
 
-      return tx.workerCredential.create({
-        data: { workerId: worker.id, type, fileUrl: credentialPath.relative },
+        return tx.workerCredential.create({
+          data: { workerId: worker.id, type, fileUrl: credentialPath.relative },
+        });
       });
-    });
+    } catch (err) {
+      await unlink(credentialPath.absolute).catch(() => {});
+      throw err;
+    }
   }
 
   // ─── Private: business logic ─────────────────────────────────────────────────
