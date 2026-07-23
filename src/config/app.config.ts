@@ -7,6 +7,7 @@ const schema = z.object({
     .default('development'),
   PORT: z.coerce.number().default(3000),
   SMS_API_KEY: z.string().min(1),
+  CORS_ORIGIN: z.string().optional(),
 });
 
 export const appConfig = registerAs('app', () => {
