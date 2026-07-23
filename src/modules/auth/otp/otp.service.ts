@@ -57,7 +57,7 @@ export class OtpService {
     return { id: otp.id, code };
   }
 
-  async verifyOtp(phone: string, code: string): Promise<boolean> {
+  async verifyOtp(phone: string, code: string): Promise<string> {
     const otp = await this.prisma.otpRequest.findFirst({
       where: {
         phone,
@@ -93,7 +93,22 @@ export class OtpService {
       throw new UnauthorizedException('Invalid or expired OTP.');
     }
 
-    return true;
+    return otp.id;
+  }
+
+  async consumeForRegistration(
+    otpId: string,
+    tx: TransactionClient,
+  ): Promise<void> {
+    const { count } = await tx.otpRequest.updateMany({
+      where: { id: otpId, verified: true, expiresAt: { gt: new Date() } },
+      data: { expiresAt: new Date() },
+    });
+    if (count === 0) {
+      throw new UnauthorizedException(
+        'Registration session has expired or already been used.',
+      );
+    }
   }
 
   async deleteOtp(id: string): Promise<void> {

@@ -38,11 +38,11 @@ export class SmsService {
         ),
       );
 
-      this.logger.debug({ phone }, 'SMS sent successfully');
+      this.logger.debug('SMS sent successfully');
       return response.data as { status: string; messageId: string };
     } catch (err: unknown) {
       this.logger.error(
-        { phone, err },
+        { err },
         'Failed to send SMS — provider outage or timeout',
       );
       throw new ServiceUnavailableException(

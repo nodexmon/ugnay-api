@@ -29,16 +29,20 @@ export class AuthJwtService {
     return {
       accessToken: this.jwt.sign(payload, {
         expiresIn: this.config.JWT_ACCESS_EXPIRES_IN,
+        audience: 'access',
       }),
       refreshToken: this.jwt.sign(refreshPayload, {
         expiresIn: this.config.JWT_REFRESH_EXPIRES_IN,
+        audience: 'refresh',
       }),
     };
   }
 
   async verifyRefreshToken(refreshToken: string): Promise<RefreshTokenPayload> {
     try {
-      const payload = await this.jwt.verifyAsync<AuthJwtPayload>(refreshToken);
+      const payload = await this.jwt.verifyAsync<AuthJwtPayload>(refreshToken, {
+        audience: 'refresh',
+      });
 
       if (!payload.tokenId)
         throw new UnauthorizedException('Invalid refresh token.');
@@ -49,10 +53,13 @@ export class AuthJwtService {
     }
   }
 
-  signRegistrationToken(phone: string): string {
+  signRegistrationToken(phone: string, otpId: string): string {
     return this.jwt.sign(
-      { sub: phone, purpose: 'registration' },
-      { expiresIn: this.config.JWT_REGISTRATION_EXPIRES_IN },
+      { sub: phone, purpose: 'registration', otpId },
+      {
+        expiresIn: this.config.JWT_REGISTRATION_EXPIRES_IN,
+        audience: 'registration',
+      },
     );
   }
 
@@ -60,8 +67,10 @@ export class AuthJwtService {
     token: string,
   ): Promise<RegistrationTokenPayload> {
     try {
-      const payload =
-        await this.jwt.verifyAsync<RegistrationTokenPayload>(token);
+      const payload = await this.jwt.verifyAsync<RegistrationTokenPayload>(
+        token,
+        { audience: 'registration' },
+      );
 
       if (payload.purpose !== 'registration') {
         throw new UnauthorizedException('Invalid registration token.');

@@ -71,12 +71,12 @@ describe('OtpService', () => {
       expiresAt: new Date(Date.now() + 60_000),
     };
 
-    it('marks a matching unexpired OTP as verified', async () => {
+    it('marks a matching unexpired OTP as verified and returns its id', async () => {
       prisma.otpRequest.findFirst.mockResolvedValue(activeOtp);
       prisma.otpRequest.updateMany.mockResolvedValue({ count: 1 });
 
       await expect(service.verifyOtp('+639171234567', '123456')).resolves.toBe(
-        true,
+        'otp-id',
       );
       expect(prisma.otpRequest.updateMany).toHaveBeenCalledWith({
         where: {
@@ -124,6 +124,32 @@ describe('OtpService', () => {
 
       await expect(
         service.verifyOtp('+639171234567', '123456'),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+  });
+
+  describe('consumeForRegistration', () => {
+    it('expires the verified OTP row so the token cannot be replayed', async () => {
+      prisma.otpRequest.updateMany.mockResolvedValue({ count: 1 });
+
+      await expect(
+        service.consumeForRegistration('otp-id', prisma as any),
+      ).resolves.toBeUndefined();
+      expect(prisma.otpRequest.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'otp-id',
+          verified: true,
+          expiresAt: { gt: expect.any(Date) },
+        },
+        data: { expiresAt: expect.any(Date) },
+      });
+    });
+
+    it('throws UnauthorizedException when the OTP was already consumed', async () => {
+      prisma.otpRequest.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.consumeForRegistration('otp-id', prisma as any),
       ).rejects.toBeInstanceOf(UnauthorizedException);
     });
   });

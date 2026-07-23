@@ -55,7 +55,7 @@ export class AuthService {
   }
 
   async verifyOtp(phone: string, code: string): Promise<VerifyOtpResult> {
-    await this.otpService.verifyOtp(phone, code);
+    const otpId = await this.otpService.verifyOtp(phone, code);
 
     const existingUser = await this.prisma.user.findUnique({
       where: { phone },
@@ -71,21 +71,31 @@ export class AuthService {
       return { type: 'login', ...tokens };
     }
 
-    const registrationToken = this.jwtService.signRegistrationToken(phone);
+    const registrationToken = this.jwtService.signRegistrationToken(
+      phone,
+      otpId,
+    );
     return { type: 'registration', registrationToken };
   }
 
   async register(registrationToken: string, role: Role) {
     const payload =
       await this.jwtService.verifyRegistrationToken(registrationToken);
-    const phone = payload.sub;
+    const { sub: phone, otpId } = payload;
 
-    const existing = await this.prisma.user.findUnique({ where: { phone } });
-    if (existing) {
-      throw new ConflictException('Phone number already registered.');
-    }
+    const user = await this.prisma.$transaction(
+      async (tx: TransactionClient) => {
+        await this.otpService.consumeForRegistration(otpId, tx);
 
-    const user = await this.prisma.user.create({ data: { phone, role } });
+        const existing = await tx.user.findUnique({ where: { phone } });
+        if (existing) {
+          throw new ConflictException('Phone number already registered.');
+        }
+
+        return tx.user.create({ data: { phone, role } });
+      },
+    );
+
     return this.issueTokens(user.id, user.phone, user.role);
   }
 

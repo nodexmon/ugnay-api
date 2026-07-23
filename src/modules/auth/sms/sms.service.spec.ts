@@ -54,10 +54,7 @@ describe('SmsService', () => {
         { recipients: ['+639171234567'], message: 'Your OTP is 123456' },
         { headers: { 'x-api-key': 'api-key' } },
       );
-      expect(logger.debug).toHaveBeenCalledWith(
-        { phone: '+639171234567' },
-        'SMS sent successfully',
-      );
+      expect(logger.debug).toHaveBeenCalledWith('SMS sent successfully');
       expect(result).toEqual(responseData);
     });
 

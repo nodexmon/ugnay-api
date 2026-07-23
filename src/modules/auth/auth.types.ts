@@ -21,6 +21,7 @@ export type RefreshTokenPayload = AuthJwtPayload & {
 export interface RegistrationTokenPayload {
   sub: string;
   purpose: 'registration';
+  otpId: string;
   iat?: number;
   exp?: number;
 }

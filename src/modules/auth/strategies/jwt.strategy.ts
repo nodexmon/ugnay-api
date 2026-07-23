@@ -14,11 +14,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: config.JWT_SECRET,
+      audience: 'access',
     });
   }
 
   validate(payload: AuthJwtPayload) {
-    if (payload.tokenId) throw new UnauthorizedException('Invalid token type.');
+    if (payload.tokenId || payload.purpose)
+      throw new UnauthorizedException('Invalid token type.');
     return {
       sub: payload.sub,
       phone: payload.phone,
