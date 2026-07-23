@@ -24,6 +24,7 @@
 13. [Typical App Flows](#13-typical-app-flows)
 14. [Admin Endpoints](#14-admin-endpoints)
 15. [Upload Endpoints](#15-upload-endpoints)
+16. [Health / Ops Endpoints](#16-health--ops-endpoints)
 
 ---
 
@@ -107,7 +108,7 @@ ACCEPTED    — worker accepted; contact details revealed
 REJECTED    — worker rejected; customer may rebook
 IN_PROGRESS — worker marked arrival on-site
 COMPLETED   — job done; review prompt sent to customer
-CANCELLED   — cancelled by customer (pre-accept) or worker (post-accept = strike)
+CANCELLED   — cancelled by customer (pre-accept) or worker (post-accept = strike) or system (stale accepted auto-cancel, no strike)
 EXPIRED     — worker did not respond within 30 minutes
 NO_SHOW          — admin-confirmed worker no-show; strike issued
 CUSTOMER_NO_SHOW — admin-confirmed customer no-show; no strike
@@ -175,6 +176,8 @@ Send a one-time password to a Philippine phone number.
 ```
 
 > The message includes the phone number to confirm delivery target.
+>
+> **SMS outage:** If the SMS gateway is temporarily unavailable, the API returns HTTP **503** (`'SMS service is temporarily unavailable. Please try again later.'`). The OTP quota is **not** consumed — the user can retry without waiting for their hourly limit to reset.
 
 ---
 
@@ -212,6 +215,8 @@ Verify the OTP. Returns different shapes depending on whether the phone is alrea
 > - `"login"` → store tokens and proceed to home. Call `GET /users/me` to check if a profile still needs to be created.
 > - `"registration"` → show the role picker, then call `POST /auth/register`.
 > The `registrationToken` expires in **15 minutes**. Do not store it beyond the registration screen.
+>
+> **Wrong code / lockout:** All failures (wrong code, expired OTP, or exceeded attempt cap) return the same HTTP **401** (`'Invalid or expired OTP.'`). After **5 consecutive wrong attempts** the OTP is permanently locked — a new OTP must be requested via `POST /auth/request-otp`. The app should prompt the user to request a new OTP after receiving 401 rather than retrying indefinitely.
 
 ---
 
@@ -265,6 +270,8 @@ Exchange a refresh token for a new token pair. The old refresh token is immediat
 ```
 
 > Both tokens rotate on every refresh. Always store the new `refreshToken` — the old one is dead.
+>
+> **Reuse detection:** If a previously revoked refresh token is replayed (e.g., from a cloned device or stolen token), the API revokes **all** active sessions for that user and returns HTTP **401**. The user must log in again from scratch. This protects against token theft — if your app receives 401 on a refresh that should be valid, force the user to re-authenticate.
 
 ---
 
@@ -1723,6 +1730,32 @@ Serve a verification or credential file. Allowed only for the worker the file be
 - **Multipart uploads:** Verification and credential uploads use `multipart/form-data`. Set the correct `Content-Type` boundary — most HTTP clients handle this automatically when you append files to a `FormData` object.
 - **Rate limits:** OTP request is throttled at 3/15 min. Show a countdown UI after the first send to prevent user frustration.
 - **Empty responses:** `PATCH /bookings/:id/accept|reject|start|complete|cancel` (the update endpoint `PATCH /bookings/:id` also returns `null`) and `POST|DELETE /notifications/push-token` all return HTTP `200` with an **empty body** — do not try to parse a JSON response.
+
+---
+
+## 16. Health / Ops Endpoints
+
+### GET `/health` — `PUBLIC`
+Returns the API and database health status. No authentication required.
+
+**Response `200` — healthy:**
+```json
+{
+  "status": "ok",
+  "db": "up"
+}
+```
+
+**Response `503` — database unreachable:**
+```json
+{
+  "statusCode": 503,
+  "message": "Database is unreachable.",
+  "error": "Service Unavailable"
+}
+```
+
+> Use this endpoint for uptime monitoring and load-balancer health checks. Poll it before displaying the app's main content if you want to show a graceful "service unavailable" screen.
 
 ---
 

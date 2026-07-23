@@ -7,7 +7,7 @@
 
 | Field | Value |
 |---|---|
-| **Version** | 1.4 — MVP (Gap-resolution pass round 5, 2026-07-23) |
+| **Version** | 1.5 — MVP (System hardening pass, 2026-07-23) |
 | **Status** | Current |
 | **Date** | July 2026 |
 | **Scope** | Single municipality — Phase 1 validation |
@@ -155,11 +155,13 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | AUTH-02 | Role assignment | Users are assigned one role at registration: CUSTOMER, WORKER, or ADMIN. |
 | AUTH-03 | Token refresh | Access token valid 15 minutes. Refresh token valid 7 days (configurable via `JWT_REFRESH_EXPIRES_IN`). |
 | AUTH-04 | Worker gating | Worker app features locked until account status is VERIFIED. |
-| AUTH-05 | OTP rate limiting | A phone number may request at most 5 OTPs per hour. Requests beyond this limit return HTTP 429. Prevents SMS cost abuse and brute-force attacks. |
+| AUTH-05 | OTP rate limiting | A phone number may request at most 5 OTPs per hour. Requests beyond this limit return HTTP 429. Prevents SMS cost abuse and brute-force attacks. OTP codes are stored as SHA-256 hashes — plaintext is never persisted. |
 | AUTH-06 | Phone number format | The API accepts only valid Philippine mobile numbers in E.164 format (`+63XXXXXXXXXX`). Non-conforming numbers are rejected at the validation layer. |
 | AUTH-07 | Suspended session behaviour | When a user account is suspended, existing JWTs remain valid until expiry (max 15 minutes). The refresh endpoint checks account status and immediately rejects refresh requests from suspended accounts. |
 | AUTH-08 | Admin account provisioning | The initial admin account is seeded by `pnpm db:seed` from the `ADMIN_PHONE` env var (the seed skips this step with a warning when the variable is unset). Additional admins are created by an existing admin via `POST /admin/admins`. Admins authenticate through the standard OTP flow. No self-registration path exists for the ADMIN role — `POST /auth/register` accepts only CUSTOMER and WORKER. |
 | AUTH-09 | Two-step registration | `POST /auth/verify-otp` returns access + refresh tokens for existing users. For an unknown phone number it instead returns a single-use `registrationToken` (JWT with `purpose: 'registration'`, 15-minute expiry via `JWT_REGISTRATION_EXPIRES_IN`). `POST /auth/register` exchanges that token plus a role (CUSTOMER or WORKER) for access + refresh tokens. |
+| AUTH-10 | OTP attempt cap | Verification is capped at 5 wrong attempts per OTP request. On the 5th wrong attempt the OTP is permanently locked — a new OTP must be requested. All failure paths return the same generic HTTP 401 (`'Invalid or expired OTP.'`) to prevent oracle enumeration. The 5-attempt cap is enforced at the DB layer and survives concurrent requests. |
+| AUTH-11 | Refresh-token reuse detection | If a previously revoked refresh token is replayed, all active sessions for that user are immediately revoked (family revocation). The API returns the same generic HTTP 401 — no oracle distinguishes reuse from expiry. A warning is logged server-side for incident review. |
 
 ### 4.2 Worker Onboarding & Verification
 
@@ -191,6 +193,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | BKG-08 | Customer no-show report | A worker may report a customer no-show within 2 hours of the **end** of the booking's time window. The report is allowed only while the booking is ACCEPTED or IN_PROGRESS, and at most one no-show report exists per booking (see BR-15). The report enters the admin review queue. On confirmation, the booking is marked `CUSTOMER_NO_SHOW` and the event is logged. No automated penalty is applied to the customer at MVP — admin may suspend the account manually using the existing suspension flow. |
 | BKG-09 | Expiry notification | When a PENDING booking expires (30-minute timeout), the customer receives a push notification informing them the request has expired and they may rebook. |
 | BKG-10 | Concurrent booking guard | The server enforces that a worker cannot have more than one booking in PENDING, ACCEPTED, or IN_PROGRESS state simultaneously. A booking request targeting an already-active worker is rejected at the application layer (HTTP 422) before any DB write. |
+| BKG-11 | System auto-cancel of stale ACCEPTED bookings | If an ACCEPTED booking has not been marked IN_PROGRESS within 24 hours of the end of its scheduled time window, the server automatically cancels it (`status → CANCELLED`, `cancellationActor → SYSTEM`, `cancellationReason: 'Booking was automatically cancelled because it was never started.'`). Both parties receive push notifications. No strike is issued — the system cannot determine fault without evidence. Bookings under active no-show review are skipped; admin resolves those. |
 
 ### 4.4 Ratings & Reviews
 
@@ -199,7 +202,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | REV-01 | Review eligibility | Only customers with a COMPLETED booking for that worker may leave a review. |
 | REV-02 | Rating scale | 1–5 star rating (integer) plus optional written review up to 500 characters. |
 | REV-03 | One review per booking | A customer may submit exactly one review per completed booking. Reviews cannot be edited by the customer. Admin may delete any review (e.g., abusive content, confirmed fake). Deletion triggers a recalculation of the worker's `averageRating` and `totalReviews`. |
-| REV-04 | Worker rating display | Worker profile shows average rating and total review count. Minimum 3 reviews before average is displayed publicly. The server returns `null` for `averageRating` on public endpoints when `totalReviews < 3`. The own-profile endpoint always returns the raw value. |
+| REV-04 | Worker rating display | Worker profile shows average rating and total review count. Minimum 3 reviews before average is displayed publicly. The server returns `null` for `averageRating` on public endpoints when `totalReviews < 3`. The own-profile endpoint always returns the raw value. Worker search ordering uses a denormalized `rankingScore` column (equal to `averageRating` when `totalReviews ≥ 3`, zero otherwise) to ensure workers with fewer than 3 reviews sort consistently behind fully-rated workers without exposing the masked value in the sort key. |
 | REV-05 | Worker-to-customer reviews | Workers cannot review customers at MVP. Acknowledged as a known gap — supply-side accountability via reviews is post-MVP. Admin suspension is the current path for problematic customers. |
 | REV-06 | Review bombing | No automated detection at MVP. Admin monitors review velocity manually. Accounts exhibiting suspicious patterns may be suspended under the existing admin suspension flow. |
 
@@ -215,10 +218,11 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | Data Privacy | Worker address stored as barangay only | No GPS coordinates stored permanently |
 | Scalability | Not a priority for MVP | Single VPS, monolithic architecture is intentional |
 | Mobile | iOS and Android support | React Native + Expo handles both platforms |
-| Notifications | Push via Expo Push API | Booking events require < 30-second delivery |
+| Notifications | Push via Expo Push API | Booking events require < 30-second delivery. Push tickets are persisted and receipts are polled every 15 minutes (per Expo guidance). `DeviceNotRegistered` errors prune the stale token immediately. Tickets older than 24 hours are aged out. |
 | Admin Access | Web-based admin dashboard | Simple React or NestJS admin UI — not mobile |
 | File Upload Security | MIME type validated server-side | Extension alone is not trusted; max 5 MB per file |
-| File Access Control | Verification and credential files are auth-gated | ID photos, selfies, and credential files are served only to the owning worker or an admin (JWT + ownership check). Avatars are public. All file serving is path-traversal-guarded. |
+| File Access Control | Verification and credential files are auth-gated | ID photos, selfies, and credential files are served only to the owning worker or an admin (JWT + ownership check). Authorization is derived from the database record that owns the file URL — not from the URL path layout. Avatars are public. All file serving is path-traversal-guarded. |
+| Data Retention | Automated purge of short-lived auth records | OTP records are purged 24 hours after creation. Revoked or expired refresh tokens are purged 30 days after they become inactive. Both purges run in a daily off-peak cron job (02:00 Asia/Manila). |
 
 ---
 
@@ -289,7 +293,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | Entity | Key Fields | Notes |
 |---|---|---|
 | users | id, phone, role, status, deletedAt | Base entity. Roles: CUSTOMER, WORKER, ADMIN. Status: ACTIVE, SUSPENDED, DELETED. |
-| worker_profiles | user_id, bio, base_rate, barangay_id, verification_status | 1:1 with users. Status: PENDING, VERIFIED, REJECTED, SUSPENDED. |
+| worker_profiles | user_id, bio, base_rate, barangay_id, verification_status, ranking_score | 1:1 with users. Status: PENDING, VERIFIED, REJECTED, SUSPENDED. `rankingScore` is a denormalized Decimal(3,2) updated on every review write/delete — see REV-04. |
 | worker_categories | worker_id, category_id, rate_override | Many-to-many. At least 1, up to 3 categories. Rate override per category optional. |
 | worker_service_areas | worker_id, barangay_id | Up to 5 barangays a worker is willing to serve. Updatable post-verification. |
 | service_categories | id, name, icon_url, is_active | Admin-managed. Seeded at launch: 8 categories. |
@@ -311,7 +315,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | REJECTED | Worker rejected. Customer may rebook. |
 | IN_PROGRESS | Worker marked arrival. Job is underway. |
 | COMPLETED | Worker marked job complete. Review prompt sent to customer. |
-| CANCELLED | Cancelled by customer (pre- or post-acceptance) or by worker (strike issued on post-acceptance). |
+| CANCELLED | Cancelled by customer (pre- or post-acceptance), by worker (strike issued on post-acceptance), or by the system (BKG-11 stale ACCEPTED auto-cancel — no strike). |
 | EXPIRED | Worker did not respond within 30 minutes. Customer notified by push. |
 | NO_SHOW | Admin-confirmed worker no-show. Strike issued. |
 | CUSTOMER_NO_SHOW | Admin-confirmed customer no-show. No automated penalty at MVP — admin may suspend account manually. |
@@ -427,14 +431,20 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | **DELETE** | /admin/reviews/:id | Delete a review; triggers worker rating recalculation |
 | **POST** | /admin/barangays/sync | Sync barangay list from PSGC data source |
 
-### 9.8 Notification Endpoints
+### 9.8 Operations Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| **GET** | /health | Returns `{ status: 'ok', db: 'up' }` (HTTP 200) when the API and database are reachable. Returns HTTP 503 when the database is unreachable. No authentication required. |
+
+### 9.9 Notification Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
 | **POST** | /notifications/push-token | Register an Expo push token for the authenticated user |
 | **DELETE** | /notifications/push-token | Remove an Expo push token |
 
-### 9.9 Upload Endpoints
+### 9.10 Upload Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -490,7 +500,9 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | Admin verification bottleneck | **High** | **Medium** | Commit to 24-hour SLA. Batch reviews daily. |
 | Low review volume reduces trust signals | **High** | **Medium** | Hide average until 3 reviews. Prompt review after every job. |
 | VPS downtime during peak booking hours | **Low** | **Medium** | Daily backups. Docker restart policies. Uptime monitoring. |
-| Push notification delivery failure | **Medium** | **High** | Accepted at MVP — no in-app or SMS fallback exists (consistent with BKG-02/WRK-04). Mitigations: worker training on keeping notifications enabled, and the 30-minute auto-expiry lets customers rebook quickly. |
+| Push notification delivery failure | **Medium** | **High** | Accepted at MVP — no in-app or SMS fallback exists (consistent with BKG-02/WRK-04). Mitigations: worker training on keeping notifications enabled; the 30-minute auto-expiry lets customers rebook quickly; receipt polling (every 15 min) detects and prunes stale tokens so future sends reach fewer dead endpoints. |
+| SMS delivery failure during OTP | **Medium** | **High** | Fail-fast: if the SMS gateway returns an error, the API returns HTTP 503 immediately and the OTP quota credit is restored (the failed attempt is not counted). Users can retry once the outage clears without waiting for their quota to expire. |
+| Orphan upload files accumulate on disk | **Low** | **Low** | DB-record-based authorization (Phase 6) makes orphan files unreachable to all users — the risk is disk space only, not data exposure. A sweep utility is deferred post-MVP: the asymmetric risk of a bug deleting live ID evidence outweighs a few megabytes of disk at MVP volume. |
 | VPS disk failure destroys uploaded ID photos and selfies | **Medium** | **Critical** | Daily backup of upload directory to a separate volume or S3-compatible storage. Must be in place before launch. |
 | Race condition: two customers book the same worker simultaneously | **Medium** | **Medium** | Enforce a DB-level check (application guard + active-booking uniqueness constraint per worker) before any booking write. |
 | Customer no-shows (worker makes a wasted trip) | **Medium** | **High** | BKG-08 customer no-show report. Admin review mirrors worker no-show flow. Supply-side trust depends on this. |
