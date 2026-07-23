@@ -56,6 +56,7 @@ describe('WorkersService', () => {
     workerCredential: {
       count: jest.fn(),
       create: jest.fn(),
+      findMany: jest.fn(),
     },
     strike: {
       findMany: jest.fn(),
@@ -333,6 +334,36 @@ describe('WorkersService', () => {
 
       await expect(
         service.findOwnVerification('user-id'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  // ─── findOwnCredentials ──────────────────────────────────────────────────────
+
+  describe('findOwnCredentials', () => {
+    it('returns the credential list ordered by newest first', async () => {
+      const workerProfile = { id: 'worker-profile-id' };
+      const credentials = [
+        { id: 'cred-2', status: 'REJECTED', rejectionReason: 'Blurry scan.' },
+        { id: 'cred-1', status: 'APPROVED', rejectionReason: null },
+      ];
+      prisma.workerProfile.findUnique.mockResolvedValue(workerProfile);
+      prisma.workerCredential.findMany.mockResolvedValue(credentials);
+
+      const result = await service.findOwnCredentials('user-id');
+
+      expect(result).toEqual(credentials);
+      expect(prisma.workerCredential.findMany).toHaveBeenCalledWith({
+        where: { workerId: 'worker-profile-id' },
+        orderBy: { createdAt: 'desc' },
+      });
+    });
+
+    it('throws NotFoundException when the worker has no profile', async () => {
+      prisma.workerProfile.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.findOwnCredentials('user-id'),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });

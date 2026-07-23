@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WorkersController } from '@/modules/workers/workers.controller';
 import { WorkersService } from '@/modules/workers/workers.service';
-import { CredentialType, Role, VerificationStatus } from '@/generated/prisma/enums';
+import {
+  CredentialType,
+  Role,
+  VerificationStatus,
+} from '@/generated/prisma/enums';
 import { AuthJwtPayload } from '@/modules/auth/auth.types';
 
 describe('WorkersController', () => {
@@ -14,6 +18,7 @@ describe('WorkersController', () => {
     setAvailability: jest.Mock;
     submitVerification: jest.Mock;
     uploadCredential: jest.Mock;
+    findOwnCredentials: jest.Mock;
   };
 
   const user: AuthJwtPayload = {
@@ -31,6 +36,7 @@ describe('WorkersController', () => {
       setAvailability: jest.fn(),
       submitVerification: jest.fn(),
       uploadCredential: jest.fn(),
+      findOwnCredentials: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -114,13 +120,36 @@ describe('WorkersController', () => {
     );
   });
 
+  it('lists the authenticated worker credentials', () => {
+    const expected = [{ id: 'cred-id', status: VerificationStatus.REJECTED }];
+    workersService.findOwnCredentials.mockResolvedValue(expected);
+
+    expect(controller.getOwnCredentials(user)).resolves.toBe(expected);
+    expect(workersService.findOwnCredentials).toHaveBeenCalledWith(user.sub);
+  });
+
   it('uploads a credential file for the authenticated worker', () => {
-    const file = { originalname: 'cert.pdf', mimetype: 'application/pdf', size: 1000, buffer: Buffer.from('') };
+    const file = {
+      originalname: 'cert.pdf',
+      mimetype: 'application/pdf',
+      size: 1000,
+      buffer: Buffer.from(''),
+    };
     const dto = { type: CredentialType.CERTIFICATION };
-    const expected = { id: 'cred-id', type: CredentialType.CERTIFICATION, status: VerificationStatus.PENDING };
+    const expected = {
+      id: 'cred-id',
+      type: CredentialType.CERTIFICATION,
+      status: VerificationStatus.PENDING,
+    };
     workersService.uploadCredential.mockResolvedValue(expected);
 
-    expect(controller.uploadCredential(user, file as never, dto)).resolves.toBe(expected);
-    expect(workersService.uploadCredential).toHaveBeenCalledWith(user.sub, dto.type, file);
+    expect(controller.uploadCredential(user, file as never, dto)).resolves.toBe(
+      expected,
+    );
+    expect(workersService.uploadCredential).toHaveBeenCalledWith(
+      user.sub,
+      dto.type,
+      file,
+    );
   });
 });

@@ -114,6 +114,18 @@ export class WorkersService {
     return { items: strikes, total: worker.strikeCount };
   }
 
+  async findOwnCredentials(userId: string) {
+    const worker = await this.prisma.workerProfile.findUnique({
+      where: { userId },
+    });
+    if (!worker) throw new NotFoundException('Worker profile not found.');
+
+    return this.prisma.workerCredential.findMany({
+      where: { workerId: worker.id },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async findPublicProfile(id: string) {
     const worker = await this.prisma.workerProfile.findUnique({
       where: {

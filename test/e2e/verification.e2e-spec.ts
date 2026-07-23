@@ -10,6 +10,7 @@ import {
   resetDb,
   createBarangay,
   createWorker,
+  createCustomer,
   createAdmin,
   createVerificationDoc,
 } from './db';
@@ -147,6 +148,54 @@ describe('Worker verification (e2e)', () => {
       .patch(`/admin/verifications/${doc.id}/approve`)
       .set('Authorization', `Bearer ${token}`)
       .expect(409);
+  });
+
+  it('GET /workers/verification returns the latest doc to the worker (route not shadowed by :id)', async () => {
+    const { user, profile } = await createWorker(testApp.prisma, barangayId, {
+      status: WorkerStatus.PENDING,
+    });
+    await createVerificationDoc(testApp.prisma, profile.id);
+    const token = testApp.mintToken({ sub: user.id, role: Role.WORKER });
+
+    const res = await request(server())
+      .get('/workers/verification')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(res.body.workerId).toBe(profile.id);
+  });
+
+  it('GET /workers/credentials returns the worker own credentials with status and rejection reason', async () => {
+    const { user, profile } = await createWorker(testApp.prisma, barangayId);
+    await testApp.prisma.workerCredential.create({
+      data: {
+        workerId: profile.id,
+        type: 'LICENSE',
+        fileUrl: `uploads/credentials/${profile.id}/license-e2e.pdf`,
+        status: VerificationStatus.REJECTED,
+        rejectionReason: 'Blurry scan.',
+      },
+    });
+    const token = testApp.mintToken({ sub: user.id, role: Role.WORKER });
+
+    const res = await request(server())
+      .get('/workers/credentials')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].status).toBe(VerificationStatus.REJECTED);
+    expect(res.body[0].rejectionReason).toBe('Blurry scan.');
+  });
+
+  it('GET /workers/credentials returns 403 for a customer', async () => {
+    const { user } = await createCustomer(testApp.prisma);
+    const token = testApp.mintToken({ sub: user.id, role: Role.CUSTOMER });
+
+    await request(server())
+      .get('/workers/credentials')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(403);
   });
 
   it('returns 409 when trying to approve a doc for an already-verified worker', async () => {
