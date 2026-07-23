@@ -455,3 +455,12 @@ model PushToken {
   @@index([userId])
   @@map("push_tokens")
 }
+
+model PushTicket {
+  id        String   @id @default(uuid()) @db.Uuid
+  ticketId  String   @unique
+  token     String
+  createdAt DateTime @default(now())
+
+  @@map("push_tickets")
+}
