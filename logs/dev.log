@@ -751,4 +751,8 @@ Docs:
   Authorization-header requirement for verification/credential file URLs
 - Rescan performed per plan: route inventory diffed against BRD §9 in both directions (clean);
   behavior claims spot-checked against services/schema
+- Second full scan (behavior claims): verified JWT expiries, OTP limit, booking constants,
+  WRK-01/06/08 DTO bounds, REV-02 bounds, AUTH-07 refresh gate, BKG-04 review-prompt push,
+  reapply cap, push-token upsert — all match. Fixed 3 doc drifts: WRK-02/03 accept WebP,
+  WRK-07 credentials additionally accept PDF, push_tokens row wording (upsert on registration)
 - Test count: 278 → 303 (all passing)
