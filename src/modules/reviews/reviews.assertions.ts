@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -59,5 +60,14 @@ export class ReviewsAssertions {
       select: { id: true },
     });
     if (!worker) throw new NotFoundException('Worker profile not found.');
+  }
+
+  async assertNoExistingReview(bookingId: string): Promise<void> {
+    const existing = await this.prisma.review.findUnique({
+      where: { bookingId },
+      select: { id: true },
+    });
+    if (existing)
+      throw new ConflictException('A review already exists for this booking.');
   }
 }
