@@ -181,7 +181,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 
 | ID | Requirement | Description |
 |---|---|---|
-| BKG-01 | Booking request | Customer submits: worker ID, service type, location pin, preferred date, time window (Morning 6–12 / Afternoon 12–18 / Evening 18–21), and optional notes. The `scheduledDate` must be today or within 7 calendar days — past dates are rejected (HTTP 422). A booking whose `scheduledDate` is the current calendar day is automatically assigned `BookingType.IMMEDIATE` by the server; clients cannot override this. There is no minimum lead time for IMMEDIATE bookings. |
+| BKG-01 | Booking request | Customer submits: worker ID, service type, location pin, preferred date, time window (Morning 6–12 / Afternoon 12–18 / Evening 18–21), and optional notes. The `scheduledDate` must be today or within 7 calendar days — past dates are rejected (HTTP 422). `bookingType` is never supplied by the client — the server derives it from `scheduledDate`: current calendar day (PST) → `IMMEDIATE`, otherwise `SCHEDULED`. There is no minimum lead time for IMMEDIATE bookings. |
 | BKG-02 | Worker notification | Worker receives push notification on new request. Worker must respond within 30 minutes or the request auto-expires. If the worker has no registered push token, the booking remains PENDING until it expires — no SMS fallback is sent at MVP. |
 | BKG-03 | Accept / reject | Worker accepts (phone number revealed to customer) or rejects (customer notified, may rebook the same worker or a different one — no lockout period). |
 | BKG-04 | Job completion | Worker marks booking as IN_PROGRESS on arrival, then COMPLETED after service. Customer receives prompt to leave a review. There is no server-enforced timeout for the IN_PROGRESS state; admin may manually resolve a stale booking. |
@@ -236,7 +236,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | BR-08 | A booking request expires if the worker does not respond within 30 minutes. |
 | BR-09 | A worker with an active booking (PENDING, ACCEPTED, or IN_PROGRESS) is automatically hidden from search results. |
 | BR-10 | Reviews may only be submitted once per completed booking and cannot be edited or deleted by the customer. Admin may delete reviews. |
-| BR-11 | Scheduled bookings may be placed up to 7 calendar days in advance. A booking whose `scheduledDate` is the current calendar day is automatically assigned `BookingType.IMMEDIATE` by the server — clients cannot override this. |
+| BR-11 | Scheduled bookings may be placed up to 7 calendar days in advance. `bookingType` is derived entirely server-side from `scheduledDate` (same-day → `IMMEDIATE`, future → `SCHEDULED`) — clients cannot supply or override it. |
 | BR-12 | A worker account rejected during verification may reapply once with corrected documents. A second rejection results in a permanent suspension with no self-service reinstatement path. |
 | BR-13 | `agreedRate` is auto-populated at booking creation time by snapshotting the worker's `rateOverride` for the requested category, falling back to the worker's `baseRate` if no override exists. This rate is for reference only — actual payment is negotiated in cash between worker and customer. The field is never updated after booking creation. |
 | BR-14 | `cancellationReason` is an optional free-text field (≤ 300 chars) set by the cancelling party. For customer cancellations it captures the customer's reason. For worker post-acceptance cancellations (which issue a strike), providing a reason is required. |
@@ -300,7 +300,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | verification_docs | id, worker_id, id_photo_url, selfie_url, reviewed_by, reviewed_at | Admin review record. Stores rejection reason. |
 | worker_credentials | id, worker_id, type, file_url, status, rejection_reason | Professional credentials (LICENSE, CERTIFICATION, TRAINING). Reviewed by admin independently of identity verification. |
 | push_tokens | id, user_id, token, platform | Expo push tokens. One per device. Updated on login. |
-| no_show_reports | id, booking_id, reported_by, description, confirmed, resolved_by, resolved_at | Covers both worker no-shows (reported by customer) and customer no-shows (reported by worker). `reported_by` is a bare UUID string — not a FK relation. |
+| no_show_reports | id, booking_id, reported_by, report_type, description, confirmed, resolved_by, resolved_at | Covers both worker no-shows (`report_type = WORKER`, reported by customer) and customer no-shows (`report_type = CUSTOMER`, reported by worker). Unique on booking_id — one report per booking (BR-15). `reported_by` is a bare UUID string — not a FK relation. |
 
 ### 8.2 Booking Status Enum
 
