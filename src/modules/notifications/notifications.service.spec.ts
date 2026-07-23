@@ -1,7 +1,12 @@
+import {
+  ForbiddenException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Platform } from '@/generated/prisma/enums';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Logger } from 'nestjs-pino';
+import Expo from 'expo-server-sdk';
 import { NotificationsService } from './notifications.service';
 
 const mockToken = {
@@ -16,6 +21,7 @@ describe('NotificationsService', () => {
   const prisma = {
     pushToken: {
       findMany: jest.fn(),
+      findUnique: jest.fn(),
       upsert: jest.fn(),
       deleteMany: jest.fn(),
     },
@@ -117,7 +123,8 @@ describe('NotificationsService', () => {
   });
 
   describe('registerToken', () => {
-    it('upserts the push token for the user', async () => {
+    it('upserts the push token for the user (new token)', async () => {
+      prisma.pushToken.findUnique.mockResolvedValue(null);
       prisma.pushToken.upsert.mockResolvedValue(mockToken);
 
       await service.registerToken('user-id', mockToken.token, Platform.IOS);
@@ -125,7 +132,7 @@ describe('NotificationsService', () => {
       expect(prisma.pushToken.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { token: mockToken.token },
-          update: { userId: 'user-id', platform: Platform.IOS },
+          update: { platform: Platform.IOS },
           create: {
             userId: 'user-id',
             token: mockToken.token,
@@ -133,6 +140,45 @@ describe('NotificationsService', () => {
           },
         }),
       );
+    });
+
+    it('updates platform when re-registering an owned token', async () => {
+      prisma.pushToken.findUnique.mockResolvedValue({
+        ...mockToken,
+        userId: 'user-id',
+      });
+      prisma.pushToken.upsert.mockResolvedValue(mockToken);
+
+      await service.registerToken('user-id', mockToken.token, Platform.ANDROID);
+
+      expect(prisma.pushToken.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ update: { platform: Platform.ANDROID } }),
+      );
+    });
+
+    it('throws UnprocessableEntityException for a non-Expo token', async () => {
+      jest.spyOn(Expo, 'isExpoPushToken').mockReturnValueOnce(false);
+
+      await expect(
+        service.registerToken(
+          'user-id',
+          'not-a-valid-expo-token',
+          Platform.IOS,
+        ),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(prisma.pushToken.upsert).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when the token belongs to a different user', async () => {
+      prisma.pushToken.findUnique.mockResolvedValue({
+        ...mockToken,
+        userId: 'other-user-id',
+      });
+
+      await expect(
+        service.registerToken('user-id', mockToken.token, Platform.IOS),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.pushToken.upsert).not.toHaveBeenCalled();
     });
   });
 

@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Platform } from '@/generated/prisma/enums';
 import { Logger } from 'nestjs-pino';
@@ -83,9 +87,22 @@ export class NotificationsService {
     token: string,
     platform: Platform,
   ): Promise<void> {
+    if (!Expo.isExpoPushToken(token)) {
+      throw new UnprocessableEntityException('Invalid Expo push token.');
+    }
+
+    const existing = await this.prisma.pushToken.findUnique({
+      where: { token },
+    });
+    if (existing && existing.userId !== userId) {
+      throw new ForbiddenException(
+        'Push token is already registered to another account.',
+      );
+    }
+
     await this.prisma.pushToken.upsert({
       where: { token },
-      update: { userId, platform },
+      update: { platform },
       create: { userId, token, platform },
     });
   }
