@@ -2,6 +2,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
 import { Role, UserStatus } from '../src/generated/prisma/enums';
 import 'dotenv/config';
+import { psgcConfig } from '../src/config/psgc.config';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({
@@ -127,9 +128,8 @@ async function seedCatalog() {
 async function syncBarangaysFromPsgc(): Promise<void> {
   section('Barangays (PSGC sync)');
 
-  const apiUrl = process.env['PSGC_API_URL'] ?? 'https://psgc.gitlab.io/api';
-  const cityCode = process.env['PSGC_CALAPAN_CODE'] ?? '175205000';
-  const url = `${apiUrl}/cities-municipalities/${cityCode}/barangays.json`;
+  const { apiUrl, calapanCityCode } = psgcConfig();
+  const url = `${apiUrl}/cities-municipalities/${calapanCityCode}/barangays.json`;
 
   let fetched: { code: string; name: string }[];
   try {
