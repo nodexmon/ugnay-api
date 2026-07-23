@@ -17,6 +17,10 @@ import { FileStorageService } from '@/modules/workers/file-storage.service';
 import { WorkersAssertions } from '@/modules/workers/workers.assertions';
 import { UsersAssertions } from '@/modules/users/users.assertions';
 
+jest.mock('fs/promises', () => ({
+  unlink: jest.fn().mockResolvedValue(undefined),
+}));
+
 describe('WorkersService', () => {
   let service: WorkersService;
 
@@ -303,6 +307,21 @@ describe('WorkersService', () => {
       await expect(
         service.uploadCredential('user-id', CredentialType.LICENSE, file),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('deletes the uploaded file when the credential creation fails', async () => {
+      const { unlink } = jest.requireMock('fs/promises') as {
+        unlink: jest.Mock;
+      };
+      assertions.assertActiveCredentialCountUnder.mockRejectedValueOnce(
+        new BadRequestException('Maximum of 5 active credentials allowed.'),
+      );
+
+      await expect(
+        service.uploadCredential('user-id', CredentialType.LICENSE, file),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(unlink).toHaveBeenCalledWith(credentialPath.absolute);
     });
   });
 
