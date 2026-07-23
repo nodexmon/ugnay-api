@@ -911,7 +911,6 @@ Create a new booking request. The worker has 30 minutes to respond.
   "workerId": "50000000-0000-4000-8000-000000000001",
   "categoryId": "10000000-0000-4000-8000-000000000001",
   "barangayId": "20000000-0000-4000-8000-000000000001",
-  "bookingType": "IMMEDIATE",
   "scheduledDate": "2026-07-12T09:00:00.000Z",
   "timeWindow": "MORNING",
   "locationLat": 14.6001,
@@ -921,8 +920,8 @@ Create a new booking request. The worker has 30 minutes to respond.
 }
 ```
 
-> `bookingType`: `IMMEDIATE` (same-day) or `SCHEDULED` (up to 7 days ahead).
-> `scheduledDate`: must be in the future (PST); max 7 days from now. Same-day dates are forced to `IMMEDIATE` regardless of `bookingType`.
+> **`bookingType` is not sent by the client.** The server derives it from `scheduledDate`: same-day (PST) → `IMMEDIATE`, otherwise `SCHEDULED`.
+> `scheduledDate`: must be today or in the future (PST); max 7 days from now.
 > `locationAddress`: optional, max 300 chars.
 > `notes`: optional, max 500 chars.
 > **`agreedRate` is not sent by the client.** The server snapshots the rate automatically from the worker's category-specific `rateOverride`, falling back to their `baseRate`. This value is locked at booking creation and never changes.

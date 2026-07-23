@@ -1,4 +1,4 @@
-import request from 'supertest';
+﻿import request from 'supertest';
 import { App } from 'supertest/types';
 import { BookingStatus, Role, WorkerStatus } from '@/generated/prisma/enums';
 import { createTestApp, TestApp } from './test-app';
@@ -37,7 +37,7 @@ describe('Booking lifecycle (e2e)', () => {
 
   const server = () => testApp.app.getHttpServer() as App;
 
-  it('create → accept → start → complete happy path', async () => {
+  it('create â†’ accept â†’ start â†’ complete happy path', async () => {
     const { user: customerUser, profile: customerProfile } =
       await createCustomer(testApp.prisma);
     const { user: workerUser, profile: workerProfile } = await createWorker(
@@ -63,7 +63,7 @@ describe('Booking lifecycle (e2e)', () => {
         barangayId,
         scheduledDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         timeWindow: 'MORNING',
-        bookingType: 'ON_SITE',
+
         locationLat: 14.5,
         locationLng: 121.0,
       })
@@ -143,7 +143,7 @@ describe('Booking lifecycle (e2e)', () => {
         barangayId,
         scheduledDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         timeWindow: 'MORNING',
-        bookingType: 'ON_SITE',
+
         locationLat: 14.5,
         locationLng: 121.0,
       })
@@ -179,7 +179,7 @@ describe('Booking lifecycle (e2e)', () => {
         barangayId,
         scheduledDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         timeWindow: 'MORNING',
-        bookingType: 'ON_SITE',
+
         locationLat: 14.5,
         locationLng: 121.0,
       })
@@ -216,7 +216,7 @@ describe('Booking lifecycle (e2e)', () => {
         barangayId,
         scheduledDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         timeWindow: 'MORNING',
-        bookingType: 'ON_SITE',
+
         locationLat: 14.5,
         locationLng: 121.0,
       })

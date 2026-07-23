@@ -1,4 +1,4 @@
-import { BookingType, TimeWindow } from '@/generated/prisma/enums';
+import { TimeWindow } from '@/generated/prisma/enums';
 import { Type } from 'class-transformer';
 import {
   IsNumber,
@@ -21,9 +21,6 @@ export class CreateBookingDto {
 
   @IsUUID()
   barangayId: string;
-
-  @IsEnum(BookingType)
-  bookingType: BookingType;
 
   @IsDate()
   @Type(() => Date)

@@ -122,7 +122,7 @@ export async function createBooking(
       categoryId: opts.categoryId,
       barangayId: opts.barangayId,
       status: opts.status ?? BookingStatus.PENDING,
-      bookingType: BookingType.ON_SITE,
+      bookingType: BookingType.SCHEDULED,
       scheduledDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
       timeWindow: TimeWindow.MORNING,
       locationLat: 14.5,
