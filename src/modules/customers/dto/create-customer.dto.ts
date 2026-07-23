@@ -2,7 +2,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsUrl,
+  Matches,
   MaxLength,
 } from 'class-validator';
 
@@ -18,6 +18,7 @@ export class CreateCustomerDto {
   lastName: string;
 
   @IsOptional()
-  @IsUrl({ protocols: ['https'], require_protocol: true })
+  @Matches(/^\/?uploads\/avatars\/[a-f0-9-]+\.(jpe?g|png|webp)$/i)
+  @MaxLength(200)
   avatarUrl?: string | null;
 }

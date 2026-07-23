@@ -75,6 +75,15 @@ export class ReviewsService {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.review.findMany({
         where,
+        select: {
+          id: true,
+          workerId: true,
+          bookingId: true,
+          rating: true,
+          comment: true,
+          createdAt: true,
+          updatedAt: true,
+        },
         orderBy: { createdAt: 'desc' },
         skip: query.skip,
         take: query.take,

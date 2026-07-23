@@ -11,6 +11,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UploadsService } from './uploads.service';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Public } from '@/common/decorators/public-endpoint.decorator';
+import { SkipAbilityCheck } from '@/common/decorators/skip-ability-check.decorator';
 import { type AuthJwtPayload } from '@/modules/auth/auth.types';
 import { AvatarFilePipe } from './pipes/avatar-file.pipe';
 import { multerConfig } from '@/config/multer.config';
@@ -28,6 +29,7 @@ export class UploadsController {
     return this.uploadsService.serveAvatar(path);
   }
 
+  @SkipAbilityCheck()
   @Get('*path')
   serveProtectedFile(
     @CurrentUser() user: AuthJwtPayload,
@@ -36,6 +38,7 @@ export class UploadsController {
     return this.uploadsService.serveProtectedFile(user, path);
   }
 
+  @SkipAbilityCheck()
   @Post('avatar')
   @UseInterceptors(FileInterceptor('avatar', multerConfig))
   uploadAvatar(

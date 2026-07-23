@@ -3,6 +3,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUrl,
   MaxLength,
   Min,
   Matches,
@@ -19,7 +20,8 @@ export class CreateCategoryDto {
   slug: string;
 
   @IsOptional()
-  @IsString()
+  @IsUrl({ protocols: ['https'], require_protocol: true })
+  @MaxLength(2048)
   iconUrl?: string | null;
 
   @IsOptional()
