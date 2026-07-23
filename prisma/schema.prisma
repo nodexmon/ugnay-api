@@ -190,6 +190,7 @@ model WorkerProfile {
   totalJobsCompleted Int          @default(0)
   averageRating      Decimal      @default(0) @db.Decimal(3, 2)
   totalReviews       Int          @default(0)
+  rankingScore       Decimal      @default(0) @db.Decimal(3, 2)
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
@@ -206,7 +207,7 @@ model WorkerProfile {
 
   @@index([status, isOnline])
   @@index([homeBarangayId])
-  @@index([averageRating])
+  @@index([rankingScore])
   @@map("worker_profiles")
 }
 

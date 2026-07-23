@@ -5,6 +5,7 @@ import { FindReviewsQueryDto } from './dto/find-reviews-query.dto';
 import { AuthJwtPayload } from '@/modules/auth/auth.types';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { ReviewsAssertions } from './reviews.assertions';
+import { computeWorkerRatingUpdate } from '@/common/utils/rating.util';
 
 @Injectable()
 export class ReviewsService {
@@ -42,10 +43,7 @@ export class ReviewsService {
 
       await tx.workerProfile.update({
         where: { id: booking.workerId },
-        data: {
-          averageRating: _avg.rating ?? 0,
-          totalReviews: _count,
-        },
+        data: computeWorkerRatingUpdate(_avg.rating ?? 0, _count),
       });
 
       return review;

@@ -640,7 +640,10 @@ describe('AdminService', () => {
       expect(result).toEqual({ deleted: true });
       expect(tx.workerProfile.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: { averageRating: 3.5, totalReviews: 2 },
+          data: expect.objectContaining({
+            averageRating: 3.5,
+            totalReviews: 2,
+          }),
         }),
       );
     });
@@ -657,7 +660,7 @@ describe('AdminService', () => {
 
       expect(tx.workerProfile.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: { averageRating: 0, totalReviews: 0 },
+          data: expect.objectContaining({ averageRating: 0, totalReviews: 0 }),
         }),
       );
     });
