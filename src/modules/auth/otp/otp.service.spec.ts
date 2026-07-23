@@ -1,12 +1,14 @@
 import { HttpException, UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { createHash } from 'crypto';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '@/prisma/prisma.service';
 import { OtpService } from '@/modules/auth/otp/otp.service';
 import { OTP_MAX_VERIFY_ATTEMPTS } from './otp.constants';
 
-const sha256 = (value: string) =>
-  createHash('sha256').update(value).digest('hex');
+jest.mock('bcrypt', () => ({
+  hash: jest.fn().mockResolvedValue('$2b$10$hashedvalue'),
+  compare: jest.fn(),
+}));
 
 describe('OtpService', () => {
   let service: OtpService;
@@ -15,7 +17,6 @@ describe('OtpService', () => {
       updateMany: jest.fn(),
       create: jest.fn(),
       findFirst: jest.fn(),
-      update: jest.fn(),
       deleteMany: jest.fn(),
       count: jest.fn().mockResolvedValue(0),
     },
@@ -41,7 +42,8 @@ describe('OtpService', () => {
       );
     });
 
-    it('creates a six digit OTP and stores only its hash', async () => {
+    it('creates a six digit OTP and stores only its bcrypt hash', async () => {
+      (bcrypt.hash as jest.Mock).mockResolvedValue('$2b$10$hashedvalue');
       prisma.otpRequest.create.mockImplementation(
         ({ data }: { data: { codeHash: string } }) =>
           Promise.resolve({ id: 'otp-id', ...data }),
@@ -51,6 +53,7 @@ describe('OtpService', () => {
 
       expect(id).toBe('otp-id');
       expect(code).toMatch(/^\d{6}$/);
+      expect(bcrypt.hash).toHaveBeenCalledWith(code, expect.any(Number));
       expect(prisma.otpRequest.updateMany).toHaveBeenCalledWith({
         where: { phone: '+639171234567', verified: false },
         data: { expiresAt: expect.any(Date) },
@@ -58,7 +61,7 @@ describe('OtpService', () => {
       const createArg = prisma.otpRequest.create.mock.calls[0][0] as {
         data: { codeHash: string };
       };
-      expect(createArg.data.codeHash).toBe(sha256(code));
+      expect(createArg.data.codeHash).toBe('$2b$10$hashedvalue');
       expect(JSON.stringify(createArg)).not.toContain(code);
     });
   });
@@ -66,13 +69,14 @@ describe('OtpService', () => {
   describe('verifyOtp', () => {
     const activeOtp = {
       id: 'otp-id',
-      codeHash: sha256('123456'),
+      codeHash: '$2b$10$hashedvalue',
       attempts: 0,
       expiresAt: new Date(Date.now() + 60_000),
     };
 
     it('marks a matching unexpired OTP as verified and returns its id', async () => {
       prisma.otpRequest.findFirst.mockResolvedValue(activeOtp);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       prisma.otpRequest.updateMany.mockResolvedValue({ count: 1 });
 
       await expect(service.verifyOtp('+639171234567', '123456')).resolves.toBe(
@@ -105,21 +109,27 @@ describe('OtpService', () => {
       });
     });
 
-    it('increments attempts and rejects on a wrong code with the generic message', async () => {
+    it('increments attempts atomically and rejects on a wrong code', async () => {
       prisma.otpRequest.findFirst.mockResolvedValue(activeOtp);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+      prisma.otpRequest.updateMany.mockResolvedValue({ count: 1 });
 
       await expect(
         service.verifyOtp('+639171234567', '000000'),
       ).rejects.toThrow('Invalid or expired OTP.');
-      expect(prisma.otpRequest.update).toHaveBeenCalledWith({
-        where: { id: 'otp-id' },
+      expect(prisma.otpRequest.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'otp-id',
+          verified: false,
+          attempts: { lt: OTP_MAX_VERIFY_ATTEMPTS },
+        },
         data: { attempts: { increment: 1 } },
       });
-      expect(prisma.otpRequest.updateMany).not.toHaveBeenCalled();
     });
 
     it('rejects a correct code when the verify race is lost (count 0)', async () => {
       prisma.otpRequest.findFirst.mockResolvedValue(activeOtp);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       prisma.otpRequest.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(
