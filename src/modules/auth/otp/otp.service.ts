@@ -5,12 +5,14 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import { createHash, randomInt } from 'crypto';
+import { randomInt } from 'crypto';
+import * as bcrypt from 'bcrypt';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import {
   OTP_EXPIRY_MS,
   OTP_HOURLY_LIMIT,
   OTP_MAX_VERIFY_ATTEMPTS,
+  OTP_BCRYPT_ROUNDS,
 } from './otp.constants';
 
 @Injectable()
@@ -21,6 +23,7 @@ export class OtpService {
 
   async createOtp(phone: string): Promise<{ id: string; code: string }> {
     const code = this.generateOtp();
+    const codeHash = await bcrypt.hash(code, OTP_BCRYPT_ROUNDS);
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
 
     const otp = await this.prisma.$transaction(
@@ -45,11 +48,7 @@ export class OtpService {
         });
 
         return tx.otpRequest.create({
-          data: {
-            phone,
-            codeHash: this.hashCode(code),
-            expiresAt,
-          },
+          data: { phone, codeHash, expiresAt },
         });
       },
     );
@@ -72,11 +71,21 @@ export class OtpService {
       throw new UnauthorizedException('Invalid or expired OTP.');
     }
 
-    if (otp.codeHash !== this.hashCode(code)) {
-      await this.prisma.otpRequest.update({
-        where: { id: otp.id },
+    const isMatch = await bcrypt.compare(code, otp.codeHash);
+
+    if (!isMatch) {
+      // Atomically increment — rejects the guess if the cap was reached concurrently
+      const { count } = await this.prisma.otpRequest.updateMany({
+        where: {
+          id: otp.id,
+          verified: false,
+          attempts: { lt: OTP_MAX_VERIFY_ATTEMPTS },
+        },
         data: { attempts: { increment: 1 } },
       });
+      if (count === 0) {
+        throw new UnauthorizedException('Invalid or expired OTP.');
+      }
       throw new UnauthorizedException('Invalid or expired OTP.');
     }
 
@@ -102,11 +111,7 @@ export class OtpService {
 
   // ─── Private: business logic ─────────────────────────────────────────────────
 
-  private hashCode(code: string): string {
-    return createHash('sha256').update(code).digest('hex');
-  }
-
   private generateOtp(): string {
-    return randomInt(100_000, 999_999).toString();
+    return randomInt(100_000, 1_000_000).toString();
   }
 }
