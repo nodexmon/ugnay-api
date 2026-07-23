@@ -311,10 +311,14 @@ export class BookingsService {
     }
 
     await this.usersAssertions.findActiveUser(user.sub);
-    const booking = await this.assertions.findBooking(bookingId);
     const profileId = await this.assertions.resolveProfileId(
       user.sub,
       user.role,
+    );
+    const booking = await this.assertions.findOwnedBooking(
+      bookingId,
+      user.role,
+      profileId,
     );
 
     if (user.role === Role.CUSTOMER) {
@@ -444,11 +448,18 @@ export class BookingsService {
     ...allowedStatuses: BookingStatus[]
   ): Promise<{ activeUser: User; booking: Booking; profileId: string }> {
     const activeUser = await this.usersAssertions.findActiveUser(userId);
-    const booking = await this.assertions.findBooking(bookingId);
-
-    this.assertions.assertBookingInStatus(booking.status, ...allowedStatuses);
-
     const profileId = await this.assertions.resolveProfileId(userId, role);
+
+    if (role === Role.WORKER) {
+      await this.assertions.assertWorkerProfileActive(profileId);
+    }
+
+    const booking = await this.assertions.findOwnedBooking(
+      bookingId,
+      role,
+      profileId,
+    );
+    this.assertions.assertBookingInStatus(booking.status, ...allowedStatuses);
 
     return { activeUser, booking, profileId };
   }

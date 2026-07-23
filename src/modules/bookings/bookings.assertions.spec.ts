@@ -6,6 +6,7 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   BookingStatus,
+  Role,
   TimeWindow,
   UserStatus,
   WorkerStatus,
@@ -52,6 +53,67 @@ describe('BookingsAssertions', () => {
       expect(() => assertions.assertOwnership('abc', 'xyz')).toThrow(
         ForbiddenException,
       );
+    });
+  });
+
+  describe('findOwnedBooking', () => {
+    it('returns the booking when the customer owns it', async () => {
+      prisma.booking.findFirst.mockResolvedValue(pendingBooking);
+      const result = await assertions.findOwnedBooking(
+        'booking-id',
+        Role.CUSTOMER,
+        'customer-profile-id',
+      );
+      expect(result).toEqual(pendingBooking);
+      expect(prisma.booking.findFirst).toHaveBeenCalledWith({
+        where: { id: 'booking-id', customerId: 'customer-profile-id' },
+      });
+    });
+
+    it('returns the booking when the worker owns it', async () => {
+      prisma.booking.findFirst.mockResolvedValue(pendingBooking);
+      await assertions.findOwnedBooking(
+        'booking-id',
+        Role.WORKER,
+        'worker-profile-id',
+      );
+      expect(prisma.booking.findFirst).toHaveBeenCalledWith({
+        where: { id: 'booking-id', workerId: 'worker-profile-id' },
+      });
+    });
+
+    it('throws NotFoundException for a non-existent or non-owned booking', async () => {
+      prisma.booking.findFirst.mockResolvedValue(null);
+      await expect(
+        assertions.findOwnedBooking('other-id', Role.WORKER, 'wp-id'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('assertWorkerProfileActive', () => {
+    it('does not throw when the profile is VERIFIED', async () => {
+      prisma.workerProfile.findUnique.mockResolvedValue({
+        status: WorkerStatus.VERIFIED,
+      });
+      await expect(
+        assertions.assertWorkerProfileActive('worker-id'),
+      ).resolves.not.toThrow();
+    });
+
+    it('throws ForbiddenException when profile is SUSPENDED', async () => {
+      prisma.workerProfile.findUnique.mockResolvedValue({
+        status: WorkerStatus.SUSPENDED,
+      });
+      await expect(
+        assertions.assertWorkerProfileActive('worker-id'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('throws ForbiddenException when profile does not exist', async () => {
+      prisma.workerProfile.findUnique.mockResolvedValue(null);
+      await expect(
+        assertions.assertWorkerProfileActive('worker-id'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 
