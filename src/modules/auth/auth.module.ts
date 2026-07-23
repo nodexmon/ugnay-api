@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthService } from '@/modules/auth/auth.service';
 import { AuthAssertions } from '@/modules/auth/auth.assertions';
 import { AuthController } from '@/modules/auth/auth.controller';
+import { AuthCron } from '@/modules/auth/auth.cron';
 import { OtpService } from '@/modules/auth/otp/otp.service';
 import { AuthJwtService } from '@/modules/auth/jwt/jwt.service';
 import { SmsService } from '@/modules/auth/sms/sms.service';
@@ -33,6 +34,7 @@ import { SMS_SEND_TIMEOUT_MS } from '@/modules/auth/sms/sms.constants';
   providers: [
     AuthService,
     AuthAssertions,
+    AuthCron,
     OtpService,
     AuthJwtService,
     SmsService,
