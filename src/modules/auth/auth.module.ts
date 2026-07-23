@@ -11,6 +11,7 @@ import { JwtStrategy } from '@/modules/auth/strategies/jwt.strategy';
 import { HttpModule } from '@nestjs/axios';
 import { ConfigModule, ConfigType } from '@nestjs/config';
 import { jwtConfig } from '@/config';
+import { SMS_SEND_TIMEOUT_MS } from '@/modules/auth/sms/sms.constants';
 
 @Module({
   imports: [
@@ -25,7 +26,7 @@ import { jwtConfig } from '@/config';
       }),
     }),
     PrismaModule,
-    HttpModule,
+    HttpModule.register({ timeout: SMS_SEND_TIMEOUT_MS }),
     ConfigModule.forFeature(jwtConfig),
   ],
   controllers: [AuthController],

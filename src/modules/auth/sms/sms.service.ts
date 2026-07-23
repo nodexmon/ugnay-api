@@ -1,7 +1,7 @@
 import {
   Inject,
   Injectable,
-  InternalServerErrorException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { type ConfigType } from '@nestjs/config';
 import { Logger } from 'nestjs-pino';
@@ -41,8 +41,13 @@ export class SmsService {
       this.logger.debug({ phone }, 'SMS sent successfully');
       return response.data as { status: string; messageId: string };
     } catch (err: unknown) {
-      this.logger.error({ phone, err }, 'Failed to send SMS');
-      throw new InternalServerErrorException('Failed to send SMS.');
+      this.logger.error(
+        { phone, err },
+        'Failed to send SMS — provider outage or timeout',
+      );
+      throw new ServiceUnavailableException(
+        'SMS service is temporarily unavailable. Please try again later.',
+      );
     }
   }
 }

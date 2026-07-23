@@ -34,12 +34,18 @@ export class AuthService {
   // ─── Public API ──────────────────────────────────────────────────────────────
 
   async sendOtp(phone: string) {
-    const code = await this.otpService.createOtp(phone);
+    const { id, code } = await this.otpService.createOtp(phone);
 
-    await this.smsService.sendSms(
-      phone,
-      `Your OTP code is ${code}. Do not share this to anyone.`,
-    );
+    try {
+      await this.smsService.sendSms(
+        phone,
+        `Your OTP code is ${code}. Do not share this to anyone.`,
+      );
+    } catch (err) {
+      // The undelivered OTP must not count toward the hourly quota.
+      await this.otpService.deleteOtp(id).catch(() => {});
+      throw err;
+    }
 
     return {
       message: `OTP has been sent to ${phone}`,

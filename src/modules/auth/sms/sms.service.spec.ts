@@ -1,4 +1,4 @@
-import { InternalServerErrorException } from '@nestjs/common';
+import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { HttpService } from '@nestjs/axios';
 import { Logger } from 'nestjs-pino';
@@ -61,12 +61,12 @@ describe('SmsService', () => {
       expect(result).toEqual(responseData);
     });
 
-    it('throws InternalServerErrorException when the HTTP request fails', async () => {
+    it('throws ServiceUnavailableException when the HTTP request fails', async () => {
       http.post.mockReturnValue(throwError(() => new Error('Network error')));
 
       await expect(
         service.sendSms('+639171234567', 'Your OTP is 123456'),
-      ).rejects.toBeInstanceOf(InternalServerErrorException);
+      ).rejects.toBeInstanceOf(ServiceUnavailableException);
       expect(logger.error).toHaveBeenCalled();
     });
   });

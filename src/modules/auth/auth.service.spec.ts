@@ -1,4 +1,8 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Role, UserStatus } from '@/generated/prisma/enums';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -50,6 +54,7 @@ describe('AuthService', () => {
   const otpService = {
     createOtp: jest.fn(),
     verifyOtp: jest.fn(),
+    deleteOtp: jest.fn(),
   };
 
   const smsService = {
@@ -88,7 +93,7 @@ describe('AuthService', () => {
   });
 
   it('sends an OTP through SMS', async () => {
-    otpService.createOtp.mockResolvedValue('123456');
+    otpService.createOtp.mockResolvedValue({ id: 'otp-id', code: '123456' });
 
     await service.sendOtp('+639171234567');
 
@@ -96,6 +101,22 @@ describe('AuthService', () => {
       '+639171234567',
       'Your OTP code is 123456. Do not share this to anyone.',
     );
+    expect(otpService.deleteOtp).not.toHaveBeenCalled();
+  });
+
+  it('deletes the OTP and rethrows when the SMS send fails', async () => {
+    otpService.createOtp.mockResolvedValue({ id: 'otp-id', code: '123456' });
+    otpService.deleteOtp.mockResolvedValue(undefined);
+    smsService.sendSms.mockRejectedValue(
+      new ServiceUnavailableException(
+        'SMS service is temporarily unavailable. Please try again later.',
+      ),
+    );
+
+    await expect(service.sendOtp('+639171234567')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    expect(otpService.deleteOtp).toHaveBeenCalledWith('otp-id');
   });
 
   describe('verifyOtp', () => {
