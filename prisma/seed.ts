@@ -60,72 +60,6 @@ const categories = [
   },
 ];
 
-const barangays = [
-  { id: '20000000-0000-4000-8000-000000000001', name: 'Canubing I' },
-  { id: '20000000-0000-4000-8000-000000000002', name: 'Canubing II' },
-  { id: '20000000-0000-4000-8000-000000000003', name: 'Lalud' },
-  { id: '20000000-0000-4000-8000-000000000004', name: 'Lumang Bayan' },
-  { id: '20000000-0000-4000-8000-000000000005', name: 'Batino' },
-  { id: '20000000-0000-4000-8000-000000000006', name: 'Masipit' },
-  { id: '20000000-0000-4000-8000-000000000007', name: 'Silonay' },
-  { id: '20000000-0000-4000-8000-000000000008', name: 'Villaflor' },
-  { id: '20000000-0000-4000-8000-000000000009', name: 'Balingayan' },
-  { id: '20000000-0000-4000-8000-000000000010', name: 'Balite' },
-  { id: '20000000-0000-4000-8000-000000000011', name: 'Baruyan' },
-  { id: '20000000-0000-4000-8000-000000000012', name: 'Bayanan I' },
-  { id: '20000000-0000-4000-8000-000000000013', name: 'Bayanan II' },
-  { id: '20000000-0000-4000-8000-000000000014', name: 'Biga' },
-  { id: '20000000-0000-4000-8000-000000000015', name: 'Bondoc' },
-  { id: '20000000-0000-4000-8000-000000000016', name: 'Bucayao' },
-  { id: '20000000-0000-4000-8000-000000000017', name: 'Buhuan' },
-  { id: '20000000-0000-4000-8000-000000000018', name: 'Bulusan' },
-  { id: '20000000-0000-4000-8000-000000000019', name: 'Calero' },
-  { id: '20000000-0000-4000-8000-000000000020', name: 'Camansihan' },
-  { id: '20000000-0000-4000-8000-000000000021', name: 'Camilmil' },
-  { id: '20000000-0000-4000-8000-000000000022', name: 'Comunal' },
-  { id: '20000000-0000-4000-8000-000000000023', name: 'Guinobatan' },
-  { id: '20000000-0000-4000-8000-000000000024', name: 'Gulod' },
-  { id: '20000000-0000-4000-8000-000000000025', name: 'Gutad' },
-  { id: '20000000-0000-4000-8000-000000000026', name: 'Ibaba East' },
-  { id: '20000000-0000-4000-8000-000000000027', name: 'Ibaba West' },
-  { id: '20000000-0000-4000-8000-000000000028', name: 'Ilaya' },
-  { id: '20000000-0000-4000-8000-000000000029', name: 'Lazareto' },
-  { id: '20000000-0000-4000-8000-000000000030', name: 'Libis' },
-  { id: '20000000-0000-4000-8000-000000000031', name: 'Mahal na Pangalan' },
-  { id: '20000000-0000-4000-8000-000000000032', name: 'Maidlang' },
-  { id: '20000000-0000-4000-8000-000000000033', name: 'Malad' },
-  { id: '20000000-0000-4000-8000-000000000034', name: 'Malamig' },
-  { id: '20000000-0000-4000-8000-000000000035', name: 'Managpi' },
-  { id: '20000000-0000-4000-8000-000000000036', name: 'Nag-iba I' },
-  { id: '20000000-0000-4000-8000-000000000037', name: 'Nag-iba II' },
-  { id: '20000000-0000-4000-8000-000000000038', name: 'Navotas' },
-  { id: '20000000-0000-4000-8000-000000000039', name: 'Pachoca' },
-  { id: '20000000-0000-4000-8000-000000000040', name: 'Palhi' },
-  { id: '20000000-0000-4000-8000-000000000041', name: 'Panggalaan' },
-  { id: '20000000-0000-4000-8000-000000000042', name: 'Parang' },
-  { id: '20000000-0000-4000-8000-000000000043', name: 'Patas' },
-  { id: '20000000-0000-4000-8000-000000000044', name: 'Personas' },
-  { id: '20000000-0000-4000-8000-000000000045', name: 'Putingtubig' },
-  { id: '20000000-0000-4000-8000-000000000046', name: 'Salong' },
-  { id: '20000000-0000-4000-8000-000000000047', name: 'San Antonio' },
-  { id: '20000000-0000-4000-8000-000000000048', name: 'San Vicente Central' },
-  { id: '20000000-0000-4000-8000-000000000049', name: 'San Vicente East' },
-  { id: '20000000-0000-4000-8000-000000000050', name: 'San Vicente North' },
-  { id: '20000000-0000-4000-8000-000000000051', name: 'San Vicente South' },
-  { id: '20000000-0000-4000-8000-000000000052', name: 'San Vicente West' },
-  { id: '20000000-0000-4000-8000-000000000053', name: 'Santa Cruz' },
-  { id: '20000000-0000-4000-8000-000000000054', name: 'Santa Isabel' },
-  { id: '20000000-0000-4000-8000-000000000055', name: 'Santa Maria Village' },
-  { id: '20000000-0000-4000-8000-000000000056', name: 'Santa Rita' },
-  { id: '20000000-0000-4000-8000-000000000057', name: 'Santo Niño' },
-  { id: '20000000-0000-4000-8000-000000000058', name: 'Sapul' },
-  { id: '20000000-0000-4000-8000-000000000059', name: 'Suqui' },
-  { id: '20000000-0000-4000-8000-000000000060', name: 'Tawagan' },
-  { id: '20000000-0000-4000-8000-000000000061', name: 'Tawiran' },
-  { id: '20000000-0000-4000-8000-000000000062', name: 'Tibag' },
-  { id: '20000000-0000-4000-8000-000000000063', name: 'Wawa' },
-];
-
 const WIDTH = 44;
 const BORDER = '='.repeat(WIDTH);
 const SEP = '-'.repeat(WIDTH);
@@ -187,15 +121,62 @@ async function seedCatalog() {
     row(category.name, 'upserted');
   }
 
-  section('Barangays');
-  for (const barangay of barangays) {
-    await prisma.barangay.upsert({
-      where: { id: barangay.id },
-      update: { name: barangay.name, isActive: true },
-      create: { ...barangay, isActive: true },
-    });
-    row(barangay.name, 'upserted');
+  await syncBarangaysFromPsgc();
+}
+
+async function syncBarangaysFromPsgc(): Promise<void> {
+  section('Barangays (PSGC sync)');
+
+  const apiUrl = process.env['PSGC_API_URL'] ?? 'https://psgc.gitlab.io/api';
+  const cityCode = process.env['PSGC_CALAPAN_CODE'] ?? '175203000';
+  const url = `${apiUrl}/cities-municipalities/${cityCode}/barangays.json`;
+
+  let fetched: { code: string; name: string }[];
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    fetched = (await res.json()) as { code: string; name: string }[];
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    row('PSGC API unreachable', `skipped (${message})`);
+    return;
   }
+
+  const fetchedCodes = new Set(fetched.map((b) => b.code));
+  let created = 0;
+  let updated = 0;
+
+  for (const { code, name } of fetched) {
+    const existing = await prisma.barangay.findFirst({
+      where: { OR: [{ psgcCode: code }, { name }] },
+    });
+
+    if (existing) {
+      await prisma.barangay.update({
+        where: { id: existing.id },
+        data: { psgcCode: code, name, isActive: true },
+      });
+      updated++;
+    } else {
+      await prisma.barangay.create({
+        data: { psgcCode: code, name, isActive: true },
+      });
+      created++;
+    }
+  }
+
+  const { count: deactivated } = await prisma.barangay.updateMany({
+    where: {
+      isActive: true,
+      psgcCode: { notIn: [...fetchedCodes], not: null },
+    },
+    data: { isActive: false },
+  });
+
+  row('Created', String(created));
+  row('Updated', String(updated));
+  row('Deactivated', String(deactivated));
+  row('Total from API', String(fetched.length));
 }
 
 async function seedAdmin() {
