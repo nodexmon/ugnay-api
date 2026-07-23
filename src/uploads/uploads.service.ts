@@ -10,9 +10,11 @@ import { uploadConfig } from '@/config';
 import type { ConfigType } from '@nestjs/config';
 import { createReadStream, existsSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
-import { extname, join, normalize } from 'path';
+import { extname, join, normalize, posix } from 'path';
 import { randomUUID } from 'crypto';
 import type { AvatarFile } from './uploads.types';
+import type { AuthJwtPayload } from '@/modules/auth/auth.types';
+import { UploadsAssertions } from './uploads.assertions';
 
 const MIME_TYPES: Record<string, string> = {
   '.jpg': 'image/jpeg',
@@ -26,9 +28,12 @@ const MIME_TYPES: Record<string, string> = {
 export class UploadsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly assertions: UploadsAssertions,
     @Inject(uploadConfig.KEY)
     private readonly config: ConfigType<typeof uploadConfig>,
   ) {}
+
+  // ─── Public API ──────────────────────────────────────────────────────────────
 
   async uploadAvatar(
     userId: string,
@@ -59,21 +64,53 @@ export class UploadsService {
     return { avatarUrl };
   }
 
-  serveFile(filePath: string): StreamableFile {
+  serveAvatar(filePath: string): StreamableFile {
+    const avatarsRoot = join(process.cwd(), this.config.UPLOAD_DIR, 'avatars');
+    return this.streamFromDisk(filePath, avatarsRoot);
+  }
+
+  async serveProtectedFile(
+    user: AuthJwtPayload,
+    filePath: string,
+  ): Promise<StreamableFile> {
+    const normalized = this.normalizeRelativePath(filePath);
+    await this.assertions.assertCanReadProtectedFile(user, normalized);
+
     const uploadRoot = join(process.cwd(), this.config.UPLOAD_DIR);
-    const normalized = normalize(join(uploadRoot, filePath));
+    return this.streamFromDisk(normalized, uploadRoot);
+  }
 
-    if (!normalized.startsWith(uploadRoot)) {
+  // ─── Private: business logic ─────────────────────────────────────────────────
+
+  private normalizeRelativePath(filePath: string): string {
+    const normalized = posix.normalize(filePath.replace(/\\/g, '/'));
+
+    if (normalized.startsWith('..') || posix.isAbsolute(normalized)) {
       throw new NotFoundException('File not found.');
     }
 
-    if (!existsSync(normalized)) {
+    return normalized;
+  }
+
+  private streamFromDisk(
+    relativePath: string,
+    requiredRoot: string,
+  ): StreamableFile {
+    const absolutePath = normalize(join(requiredRoot, relativePath));
+
+    if (!absolutePath.startsWith(requiredRoot)) {
       throw new NotFoundException('File not found.');
     }
 
-    const ext = extname(normalized).toLowerCase();
+    if (!existsSync(absolutePath)) {
+      throw new NotFoundException('File not found.');
+    }
+
+    const ext = extname(absolutePath).toLowerCase();
     const mimeType = MIME_TYPES[ext] ?? 'application/octet-stream';
 
-    return new StreamableFile(createReadStream(normalized), { type: mimeType });
+    return new StreamableFile(createReadStream(absolutePath), {
+      type: mimeType,
+    });
   }
 }

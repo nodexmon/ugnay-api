@@ -23,9 +23,17 @@ export class UploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
 
   @Public()
+  @Get('avatars/*path')
+  serveAvatar(@Param('path') path: string) {
+    return this.uploadsService.serveAvatar(path);
+  }
+
   @Get('*path')
-  serveFile(@Param('path') path: string) {
-    return this.uploadsService.serveFile(path);
+  serveProtectedFile(
+    @CurrentUser() user: AuthJwtPayload,
+    @Param('path') path: string,
+  ) {
+    return this.uploadsService.serveProtectedFile(user, path);
   }
 
   @Post('avatar')
