@@ -71,27 +71,50 @@ const barangays = [
   { id: '20000000-0000-4000-8000-000000000008', name: 'Villaflor' },
 ];
 
+const WIDTH = 44;
+const BORDER = '='.repeat(WIDTH);
+const SEP = '-'.repeat(WIDTH);
+
+function row(label: string, status: string): void {
+  const dots = '.'.repeat(
+    Math.max(1, WIDTH - 2 - label.length - status.length),
+  );
+  console.log(`  ${label} ${dots} ${status}`);
+}
+
+function section(title: string): void {
+  console.log(`\n  ${title}`);
+  console.log(`  ${SEP.slice(0, WIDTH - 2)}`);
+}
+
 async function main() {
+  console.log(`\n${BORDER}`);
+  console.log(`${'UGNAY  DB  SEED'.padStart((WIDTH + 15) / 2).padEnd(WIDTH)}`);
+  console.log(BORDER);
+
   await cleanUserData();
   await seedCatalog();
   await seedAdmin();
-  console.info('Seed complete. Categories and barangays are ready.');
+
+  console.log(`\n${BORDER}`);
+  console.log('  All done.');
+  console.log(`${BORDER}\n`);
 }
 
 async function cleanUserData() {
-  // Bookings must go first — Restrict FK on worker/customerProfile prevents
-  // profile deletion while bookings exist. Cascade handles Review + NoShowReport.
-  // Strike.bookingId is set to null (SetNull) on booking deletion.
+  section('Cleaning user data');
   await prisma.booking.deleteMany();
+  row('Bookings', 'cleared');
   await prisma.strike.deleteMany();
+  row('Strikes', 'cleared');
   await prisma.otpRequest.deleteMany();
-  // Deleting users cascades: RefreshToken, PushToken, WorkerProfile
-  // (→ WorkerCategory, WorkerServiceArea, VerificationDoc, WorkerCredential),
-  // and CustomerProfile.
+  row('OTP requests', 'cleared');
   await prisma.user.deleteMany();
+  row('Users', 'cleared');
 }
 
 async function seedCatalog() {
+  section('Categories');
   for (const category of categories) {
     await prisma.serviceCategory.upsert({
       where: { slug: category.slug },
@@ -106,22 +129,26 @@ async function seedCatalog() {
         isActive: true,
       },
     });
+    row(category.name, 'upserted');
   }
 
+  section('Barangays');
   for (const barangay of barangays) {
     await prisma.barangay.upsert({
       where: { id: barangay.id },
       update: { name: barangay.name, isActive: true },
       create: { ...barangay, isActive: true },
     });
+    row(barangay.name, 'upserted');
   }
 }
 
 async function seedAdmin() {
+  section('Admin');
   const phone = process.env['ADMIN_PHONE'];
 
   if (!phone) {
-    console.warn('ADMIN_PHONE not set — skipping admin seed.');
+    row('ADMIN_PHONE not set', 'skipped');
     return;
   }
 
@@ -134,7 +161,7 @@ async function seedAdmin() {
     update: { role: Role.ADMIN, status: UserStatus.ACTIVE },
     create: { phone, role: Role.ADMIN },
   });
-  console.info(`Admin user seeded for ${phone}.`);
+  row(phone, 'seeded');
 }
 
 main()
