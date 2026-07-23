@@ -77,7 +77,9 @@ For validation errors, `message` may be an array of field-level strings:
 | 403 | Insufficient permissions for the action |
 | 404 | Resource not found |
 | 409 | Conflict (duplicate, already exists) |
+| 422 | Unprocessable — request is valid but violates a business rule |
 | 429 | Rate limit exceeded |
+| 503 | Upstream service unavailable (e.g., SMS gateway) |
 
 ---
 
@@ -452,11 +454,11 @@ Create the customer profile. Required after first login as CUSTOMER before any b
 {
   "firstName": "Mika",
   "lastName": "Santos",
-  "avatarUrl": "https://example.com/avatars/customer-mika.jpg"
+  "avatarUrl": "uploads/avatars/8f14e45f-cecc-4edb-88f1-eda65e5201b8.jpg"
 }
 ```
 
-> `avatarUrl` is optional. Omit or pass `null` to leave it blank.
+> `avatarUrl` is optional. Omit or pass `null` to leave it blank. When provided, it **must be the path returned by `POST /uploads/avatar`** — arbitrary external URLs are rejected with `400`.
 > `firstName`/`lastName`: required, max 100 chars each.
 
 **Response `201`:** Same shape as `GET /customers/profile`.
@@ -471,9 +473,11 @@ Update the customer profile. All fields are optional.
 {
   "firstName": "Michaela",
   "lastName": "Santos",
-  "avatarUrl": null
+  "avatarUrl": "uploads/avatars/8f14e45f-cecc-4edb-88f1-eda65e5201b8.jpg"
 }
 ```
+
+> `avatarUrl` must be the path returned by `POST /uploads/avatar` when provided. Pass `null` to clear it.
 
 **Response `200`:** Same shape as `GET /customers/profile`.
 
@@ -738,7 +742,7 @@ Create the worker profile. Required after first login as WORKER.
 
 > `categories`: 1–3 items. `rateOverride` is optional — omit to use `baseRate` for that category.
 > `serviceAreaBarangayIds`: 1–5 barangay UUIDs. Must include `homeBarangayId` or the home barangay must be in the list — duplicates are de-duped server-side.
-> `bio` and `avatarUrl` are optional.
+> `bio` is optional. `avatarUrl` is optional — when provided, must be the path returned by `POST /uploads/avatar` (e.g., `"uploads/avatars/uuid.jpg"`). External URLs are rejected with `400`.
 > New worker profile always starts with `status: "PENDING"`.
 
 **Response `201`:** Same shape as `GET /workers/profile` (full profile with all includes).
@@ -1320,21 +1324,20 @@ Get paginated reviews for a specific worker. Worker `:id` is the `WorkerProfile.
 
 **Query params:** `skip`, `take` (same as above)
 
-**Response `200`:** Plain array of review objects:
+**Response `200`:** `{ items, total, skip, take }` where each item is:
 ```json
-[
-  {
-    "id": "90000000-0000-4000-8000-000000000001",
-    "bookingId": "60000000-0000-4000-8000-000000000004",
-    "workerId": "50000000-0000-4000-8000-000000000001",
-    "customerId": "40000000-0000-4000-8000-000000000002",
-    "rating": 5,
-    "comment": "Arrived on time and explained the wiring issue clearly.",
-    "createdAt": "2026-07-09T18:00:00.000Z"
-  }
-]
+{
+  "id": "90000000-0000-4000-8000-000000000001",
+  "bookingId": "60000000-0000-4000-8000-000000000004",
+  "workerId": "50000000-0000-4000-8000-000000000001",
+  "rating": 5,
+  "comment": "Arrived on time and explained the wiring issue clearly.",
+  "createdAt": "2026-07-09T18:00:00.000Z",
+  "updatedAt": "2026-07-09T18:00:00.000Z"
+}
 ```
 
+> `customerId` is intentionally **not returned** from this public endpoint.
 > Display the worker's pre-computed `averageRating` from the worker profile object — do not compute it client-side from this list.
 > Show the average rating only if `worker.totalReviews >= 3` (UI rule per BRD REV-04; the public profile endpoint enforces this server-side by returning `null`).
 
@@ -1414,7 +1417,9 @@ Register the device's Expo push token immediately after every login so the serve
 ```
 
 > `platform`: `IOS` or `ANDROID`.
-> If the token already exists, its `userId` and `platform` are updated (upsert).
+> `token` must be a valid Expo push token — returns `422` if the format is not recognised.
+> If the token is already registered to **this** user, its `platform` is updated.
+> Returns `403` if the token is already registered to a **different** account (e.g., re-used device).
 
 **Response `200`:** Empty body.
 
