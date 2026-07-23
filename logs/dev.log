@@ -699,3 +699,56 @@ July 21, 2026 — BRD v1.3 gap closure round 4 (branch: fix/brd-gap-closure-roun
   verify tx.workerProfile.update (not updateMany) and correct userId derivation
 - workers.service.spec.ts: 3 new tests (PENDING exclusion; averageRating masked; unmasked)
 - Test count: 273 → 278 (all passing)
+
+---
+
+July 23, 2026 — BRD gap closure round 5 (branch: fix/brd-gap-closure-round5)
+
+Security:
+- Fixed PII exposure: GET /uploads/*path was @Public() and served every file under the
+  upload root, including government ID photos and selfies. Split into GET /uploads/avatars/*path
+  (public) and an auth-gated GET /uploads/*path allowing only the owning worker or an admin;
+  path is posix-normalized before the ownership check so verification/{own}/../{other} cannot
+  cross worker folders; avatars route is root-confined so avatars/../verification cannot escape
+- New UploadsAssertions (assertCanReadProtectedFile) + uploads.constants.ts; registered in module
+- New e2e suite uploads-access.e2e-spec.ts: 401/403/200 matrix for verification and credential
+  files, public avatar, traversal → 404
+
+Workers:
+- Fixed route shadowing: @Get(':id') was declared before @Get('verification') and @Get('strikes'),
+  so both returned 400 from ParseUUIDPipe; static GETs now precede the catch-all (comment added)
+- Added GET /workers/credentials: worker's own credential list (all statuses, newest first) so
+  rejection reasons are visible; new WORKER can(Read, 'WorkerCredential') CASL grant
+
+Admin provisioning (AUTH-08 was fiction — neither path existed):
+- prisma/seed.ts: seedAdmin() upserts an ADMIN user from ADMIN_PHONE (warns and skips when unset,
+  throws on malformed number); .env.example documents ADMIN_PHONE
+- Added POST /admin/admins: CreateAdminDto (+63 regex), assertPhoneNotRegistered (409 on any
+  existing user), creates User { role: ADMIN }; new admin logs in via the normal OTP flow
+
+Bookings (rescan finding):
+- bookingType is now derived entirely server-side (same-day PST → IMMEDIATE, else SCHEDULED);
+  removed from CreateBookingDto — clients could previously label a future booking IMMEDIATE
+- Fixed stale BookingType.ON_SITE in test/e2e/db.ts and 'ON_SITE' payloads in
+  bookings-lifecycle.e2e-spec.ts (predate the IMMEDIATE/SCHEDULED enum; did not compile)
+
+Infra:
+- Fixed test/jest-e2e.json: ts-jest resolved '../tsconfig.json' against cwd and escaped the repo
+  (e2e could not run at all); now '<rootDir>/../tsconfig.json'; removed invalid runInBand config key
+- Note: e2e suites could not be executed locally (no Docker/Postgres on this machine); unit
+  suite + lint are green, e2e must run in CI or a docker-equipped environment
+
+Docs:
+- BRD v1.3 → v1.4: AUTH-08 rewritten to match implementation; new AUTH-09 (two-step
+  registration with registrationToken); BKG-06/08 status eligibility + BR-15 (one no-show
+  report and one strike per booking, first-to-report wins); PENDING added to BKG-07/BR-09;
+  new File Access Control NFR row; §9 additions (POST /auth/register, GET /workers/credentials,
+  POST /admin/admins, PATCH /admin/workers/:id/reinstate, §9.9 upload endpoints); push-failure
+  risk mitigation no longer references nonexistent notification-bell/SMS fallbacks;
+  §8.1 no_show_reports row gains report_type; BKG-01/BR-11 reflect server-derived bookingType
+- Handout: fixed stale /uploads/workers/... path examples to real on-disk shapes; documented
+  GET /workers/credentials, POST /admin/admins, and new §15 Upload Endpoints with the
+  Authorization-header requirement for verification/credential file URLs
+- Rescan performed per plan: route inventory diffed against BRD §9 in both directions (clean);
+  behavior claims spot-checked against services/schema
+- Test count: 278 → 303 (all passing)

@@ -674,8 +674,8 @@ Get the authenticated worker's **own** full profile, including all verification 
     {
       "id": "70000000-0000-4000-8000-000000000001",
       "workerId": "50000000-0000-4000-8000-000000000001",
-      "idPhotoUrl": "/seed/verification/50000000.../id-photo.jpg",
-      "selfieUrl": "/seed/verification/50000000.../selfie.jpg",
+      "idPhotoUrl": "uploads/verification/50000000-0000-4000-8000-000000000001/idPhoto-abc123.jpg",
+      "selfieUrl": "uploads/verification/50000000-0000-4000-8000-000000000001/selfie-def456.jpg",
       "status": "APPROVED",
       "rejectionReason": null,
       "reviewedBy": "30000000-0000-4000-8000-000000000001",
