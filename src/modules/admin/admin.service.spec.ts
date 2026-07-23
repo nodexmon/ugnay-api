@@ -442,6 +442,56 @@ describe('AdminService', () => {
     });
   });
 
+  // ─── strikeWorker ─────────────────────────────────────────────────────────────
+
+  describe('strikeWorker', () => {
+    const strikeDto = {
+      workerId: 'worker-profile-id',
+      bookingId: 'booking-id',
+      reason: StrikeReason.CUSTOMER_COMPLAINT,
+    };
+
+    it('applies a strike tied to the booking', async () => {
+      assertions.findWorkerProfile.mockResolvedValue({
+        id: 'worker-profile-id',
+        userId: 'worker-user-id',
+        strikeCount: 0,
+      });
+      tx.workerProfile.update.mockResolvedValue({
+        id: 'worker-profile-id',
+        strikeCount: 1,
+      });
+      tx.strike.findUnique.mockResolvedValue(null);
+
+      await service.strikeWorker(adminUser, strikeDto);
+
+      expect(assertions.assertBookingExists).toHaveBeenCalledWith('booking-id');
+      expect(tx.strike.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            bookingId: 'booking-id',
+            reason: StrikeReason.CUSTOMER_COMPLAINT,
+            issuedBy: adminUser.sub,
+          }),
+        }),
+      );
+    });
+
+    it('throws NotFoundException when the booking does not exist', async () => {
+      assertions.findWorkerProfile.mockResolvedValue({
+        id: 'worker-profile-id',
+        strikeCount: 0,
+      });
+      assertions.assertBookingExists.mockRejectedValueOnce(
+        new NotFoundException('Booking not found.'),
+      );
+
+      await expect(
+        service.strikeWorker(adminUser, strikeDto),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
   describe('admin listings', () => {
     it('findUsers returns paginated users matching optional filters', async () => {
       const users = [{ id: 'u1', phone: '+63911', role: Role.CUSTOMER }];

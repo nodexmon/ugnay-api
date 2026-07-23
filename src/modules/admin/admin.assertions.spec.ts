@@ -1,6 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { WorkerStatus } from '@/generated/prisma/enums';
+import { NoShowReportType, WorkerStatus } from '@/generated/prisma/enums';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AdminAssertions } from './admin.assertions';
 
@@ -13,9 +13,10 @@ describe('AdminAssertions', () => {
   let assertions: AdminAssertions;
 
   const prisma = {
-    workerProfile: { findUnique: jest.fn() },
+    workerProfile: { findUnique: jest.fn(), findFirst: jest.fn() },
     booking: { findUnique: jest.fn() },
     user: { findUnique: jest.fn() },
+    noShowReport: { findUnique: jest.fn() },
   };
 
   beforeEach(async () => {
@@ -111,6 +112,95 @@ describe('AdminAssertions', () => {
       prisma.user.findUnique.mockResolvedValue({ id: 'user-id' });
       await expect(
         assertions.assertPhoneNotRegistered('+639171234567'),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('findPendingNoShowReport', () => {
+    const workerReport = {
+      id: 'report-id',
+      confirmed: null,
+      reportType: NoShowReportType.WORKER,
+      booking: {
+        id: 'booking-id',
+        workerId: 'wp-id',
+        worker: { userId: 'u-id' },
+      },
+    };
+
+    it('returns the report when it is a WORKER type and unresolved', async () => {
+      prisma.noShowReport.findUnique.mockResolvedValue(workerReport);
+      const result = await assertions.findPendingNoShowReport('report-id');
+      expect(result).toEqual(workerReport);
+    });
+
+    it('throws NotFoundException when the report does not exist', async () => {
+      prisma.noShowReport.findUnique.mockResolvedValue(null);
+      await expect(
+        assertions.findPendingNoShowReport('missing'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('throws NotFoundException when report type is CUSTOMER (wrong endpoint)', async () => {
+      prisma.noShowReport.findUnique.mockResolvedValue({
+        ...workerReport,
+        reportType: NoShowReportType.CUSTOMER,
+      });
+      await expect(
+        assertions.findPendingNoShowReport('report-id'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('throws ConflictException when the report is already resolved', async () => {
+      prisma.noShowReport.findUnique.mockResolvedValue({
+        ...workerReport,
+        confirmed: true,
+      });
+      await expect(
+        assertions.findPendingNoShowReport('report-id'),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('findPendingCustomerNoShowReport', () => {
+    const customerReport = {
+      id: 'report-id',
+      confirmed: null,
+      reportType: NoShowReportType.CUSTOMER,
+      booking: { id: 'booking-id', customerId: 'cp-id' },
+    };
+
+    it('returns the report when it is a CUSTOMER type and unresolved', async () => {
+      prisma.noShowReport.findUnique.mockResolvedValue(customerReport);
+      const result =
+        await assertions.findPendingCustomerNoShowReport('report-id');
+      expect(result).toEqual(customerReport);
+    });
+
+    it('throws NotFoundException when the report does not exist', async () => {
+      prisma.noShowReport.findUnique.mockResolvedValue(null);
+      await expect(
+        assertions.findPendingCustomerNoShowReport('missing'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('throws NotFoundException when report type is WORKER (wrong endpoint)', async () => {
+      prisma.noShowReport.findUnique.mockResolvedValue({
+        ...customerReport,
+        reportType: NoShowReportType.WORKER,
+      });
+      await expect(
+        assertions.findPendingCustomerNoShowReport('report-id'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('throws ConflictException when the report is already resolved', async () => {
+      prisma.noShowReport.findUnique.mockResolvedValue({
+        ...customerReport,
+        confirmed: false,
+      });
+      await expect(
+        assertions.findPendingCustomerNoShowReport('report-id'),
       ).rejects.toBeInstanceOf(ConflictException);
     });
   });

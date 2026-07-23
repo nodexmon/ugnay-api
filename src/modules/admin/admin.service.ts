@@ -197,9 +197,7 @@ export class AdminService {
 
   async strikeWorker(user: AuthJwtPayload, dto: StrikeWorkerDto) {
     const worker = await this.assertions.findWorkerProfile(dto.workerId);
-    if (dto.bookingId) {
-      await this.assertions.assertBookingExists(dto.bookingId);
-    }
+    await this.assertions.assertBookingExists(dto.bookingId);
 
     return this.prisma.$transaction((tx: TransactionClient) =>
       applyStrike(tx, worker.id, {
