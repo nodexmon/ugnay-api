@@ -5,6 +5,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Logger } from 'nestjs-pino';
 import { PrismaService } from '@/prisma/prisma.service';
 import { OtpService } from '@/modules/auth/otp/otp.service';
 import { SmsService } from '@/modules/auth/sms/sms.service';
@@ -27,6 +28,7 @@ export class AuthService {
     private readonly smsService: SmsService,
     private readonly jwtService: AuthJwtService,
     private readonly assertions: AuthAssertions,
+    private readonly logger: Logger,
     @Inject(jwtConfig.KEY)
     private readonly config: ConfigType<typeof jwtConfig>,
   ) {}
@@ -94,6 +96,16 @@ export class AuthService {
     this.assertions.assertUserCanAuthenticate(user);
 
     const storedToken = await this.assertions.findRefreshToken(payload.tokenId);
+
+    if (this.assertions.isTokenReuse(storedToken, refreshToken)) {
+      await this.revokeTokensWhere({ userId: user.id, revokedAt: null });
+      this.logger.warn(
+        { userId: user.id },
+        'Refresh token reuse detected — all sessions revoked',
+      );
+      throw new UnauthorizedException('Session is invalid.');
+    }
+
     this.assertions.assertTokenIsValid(user.id, storedToken, refreshToken);
 
     const nextRefreshTokenId = randomUUID();

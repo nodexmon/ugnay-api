@@ -43,6 +43,13 @@ export class AuthAssertions {
     }
   }
 
+  isTokenReuse(storedToken: RefreshToken, refreshToken: string): boolean {
+    return (
+      storedToken.revokedAt !== null &&
+      this.matchesTokenHash(refreshToken, storedToken.tokenHash)
+    );
+  }
+
   hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
   }
