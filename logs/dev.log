@@ -867,3 +867,17 @@ July 23, 2026 — security audit patches group G (branch: fix/security-dto-confi
   customerId; @Public() /reviews/worker/:id no longer leaks the customer's profile ID
 
 Test count: 343 (all passing)
+
+---
+
+July 23, 2026 — seed: add all missing Calapan City barangays (branch: chore/seed-missing-barangays)
+
+- Researched official PSGC list for Calapan City, Oriental Mindoro (62 barangays)
+- Added 55 missing barangays to prisma/seed.ts (IDs 9–63); total seed entries now 63
+- Fixed spelling: 'Lumangbayan' corrected to official 'Lumang Bayan' (upserted by stable ID)
+- Replaced approach: removed hardcoded list entirely; seed now calls the same PSGC public API
+  that BarangaySyncService uses (psgc.gitlab.io/api); switching municipality = one env var change
+  (PSGC_CALAPAN_CODE); gracefully skips barangay sync if the API is unreachable
+- Fixed pre-existing bug: PSGC_CALAPAN_CODE default was '175203000' (Bongabong) not '175205000'
+  (City of Calapan); affected both seed and POST /admin/barangays/sync; fixed in psgc.config.ts
+  and seed.ts fallback; verified seed now populates all 62 correct Calapan City barangays
