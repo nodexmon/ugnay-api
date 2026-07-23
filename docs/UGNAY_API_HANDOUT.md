@@ -23,6 +23,7 @@
 12. [Booking Lifecycle — State Machine](#12-booking-lifecycle--state-machine)
 13. [Typical App Flows](#13-typical-app-flows)
 14. [Admin Endpoints](#14-admin-endpoints)
+15. [Upload Endpoints](#15-upload-endpoints)
 
 ---
 
@@ -688,7 +689,7 @@ Get the authenticated worker's **own** full profile, including all verification 
       "id": "uuid",
       "workerId": "50000000-0000-4000-8000-000000000001",
       "type": "LICENSE",
-      "fileUrl": "/uploads/workers/50000000.../credentials/license-abc123.jpg",
+      "fileUrl": "uploads/credentials/50000000-0000-4000-8000-000000000001/license-abc123.jpg",
       "status": "PENDING",
       "rejectionReason": null,
       "reviewedBy": null,
@@ -782,8 +783,8 @@ selfie    File   Selfie photo (JPEG/PNG, max 5 MB)
 {
   "id": "70000000-0000-4000-8000-000000000001",
   "workerId": "50000000-0000-4000-8000-000000000001",
-  "idPhotoUrl": "/uploads/workers/50000000.../id-photo-abc123.jpg",
-  "selfieUrl": "/uploads/workers/50000000.../selfie-def456.jpg",
+  "idPhotoUrl": "uploads/verification/50000000-0000-4000-8000-000000000001/idPhoto-abc123.jpg",
+  "selfieUrl": "uploads/verification/50000000-0000-4000-8000-000000000001/selfie-def456.jpg",
   "status": "PENDING",
   "rejectionReason": null,
   "reviewedBy": null,
@@ -804,8 +805,8 @@ Get the authenticated worker's most recent verification document submission.
 {
   "id": "70000000-0000-4000-8000-000000000001",
   "workerId": "50000000-0000-4000-8000-000000000001",
-  "idPhotoUrl": "/uploads/workers/50000000.../id-photo-abc123.jpg",
-  "selfieUrl": "/uploads/workers/50000000.../selfie-def456.jpg",
+  "idPhotoUrl": "uploads/verification/50000000-0000-4000-8000-000000000001/idPhoto-abc123.jpg",
+  "selfieUrl": "uploads/verification/50000000-0000-4000-8000-000000000001/selfie-def456.jpg",
   "status": "APPROVED",
   "rejectionReason": null,
   "reviewedBy": "30000000-0000-4000-8000-000000000001",
@@ -836,7 +837,7 @@ type   string   One of: LICENSE | CERTIFICATION | TRAINING
   "id": "uuid",
   "workerId": "50000000-0000-4000-8000-000000000001",
   "type": "LICENSE",
-  "fileUrl": "/uploads/workers/50000000.../credentials/license-abc123.pdf",
+  "fileUrl": "uploads/credentials/50000000-0000-4000-8000-000000000001/license-abc123.pdf",
   "status": "PENDING",
   "rejectionReason": null,
   "reviewedBy": null,
@@ -845,6 +846,31 @@ type   string   One of: LICENSE | CERTIFICATION | TRAINING
   "updatedAt": "2026-07-12T08:00:00.000Z"
 }
 ```
+
+---
+
+### GET `/workers/credentials` — `PROTECTED (WORKER)`
+Get the authenticated worker's own credential submissions (all statuses, newest first). Use this to show review status and rejection reasons.
+
+**Response `200`:** plain array (not paginated — capped at 5 active credentials).
+```json
+[
+  {
+    "id": "uuid",
+    "workerId": "50000000-0000-4000-8000-000000000001",
+    "type": "LICENSE",
+    "fileUrl": "uploads/credentials/50000000-0000-4000-8000-000000000001/license-abc123.pdf",
+    "status": "REJECTED",
+    "rejectionReason": "Document is blurry.",
+    "reviewedBy": "30000000-0000-4000-8000-000000000001",
+    "reviewedAt": "2026-07-20T10:00:00.000Z",
+    "createdAt": "2026-07-19T08:00:00.000Z",
+    "updatedAt": "2026-07-20T10:00:00.000Z"
+  }
+]
+```
+
+> Returns `404` if the worker has no profile yet.
 
 ---
 
@@ -1566,6 +1592,9 @@ On any 401 response:
 
 All admin endpoints require `ADMIN` role. These are for the internal dashboard, not the consumer mobile app.
 
+### POST `/admin/admins` — `PROTECTED (ADMIN)`
+Create an additional admin account. Body: `{ "phone": "+63XXXXXXXXXX" }`. Returns `409` if the phone is already registered. The new admin signs in through the standard OTP flow.
+
 ### PATCH `/admin/workers/:id/reinstate` — `PROTECTED (ADMIN)`
 Reinstate a `SUSPENDED` worker. Resets `strikeCount` to 0 and sets `WorkerProfile.status` back to `VERIFIED`. Requires a written audit note. The `:id` is the **`WorkerProfile.id`** (not `userId`) — use the `id` returned by `GET /admin/workers`.
 
@@ -1647,6 +1676,37 @@ take       integer   Records to return (default 10, max 50)
 Delete a review. Atomically recalculates the worker's `averageRating` and `totalReviews`.
 
 **Response `200`:** `{ "deleted": true }`
+
+---
+
+## 15. Upload Endpoints
+
+> **⚠️ Auth change:** verification and credential file URLs now require the `Authorization` header when fetched — only the owning worker or an admin can retrieve them. Avatar URLs remain public. If you render `idPhotoUrl` / `selfieUrl` / `fileUrl` in an `<Image>` component, pass the bearer token in the request headers.
+
+### POST `/uploads/avatar` — `PROTECTED`
+Upload an avatar image for the authenticated user (worker or customer). Uses `multipart/form-data`.
+
+**Form fields:**
+```
+avatar   File   Avatar image (JPEG/PNG/WebP, max 5 MB)
+```
+
+**Response `201`:**
+```json
+{ "avatarUrl": "uploads/avatars/8f14e45f-....jpg" }
+```
+
+### GET `/uploads/avatars/*path` — `PUBLIC`
+Serve an avatar image. No auth required — avatar URLs can be rendered directly.
+
+### GET `/uploads/*path` — `PROTECTED`
+Serve a verification or credential file. Allowed only for the worker the file belongs to, or an admin.
+
+| Status | Meaning |
+|---|---|
+| `401` | No/invalid token |
+| `403` | Authenticated but not the owning worker (or a customer) |
+| `404` | File does not exist, or path outside the known namespaces |
 
 ---
 

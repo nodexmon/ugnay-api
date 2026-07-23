@@ -7,7 +7,7 @@
 
 | Field | Value |
 |---|---|
-| **Version** | 1.3 — MVP (Gap-resolution pass, 2026-07-20) |
+| **Version** | 1.4 — MVP (Gap-resolution pass round 5, 2026-07-23) |
 | **Status** | Current |
 | **Date** | July 2026 |
 | **Scope** | Single municipality — Phase 1 validation |
@@ -158,7 +158,8 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | AUTH-05 | OTP rate limiting | A phone number may request at most 5 OTPs per hour. Requests beyond this limit return HTTP 429. Prevents SMS cost abuse and brute-force attacks. |
 | AUTH-06 | Phone number format | The API accepts only valid Philippine mobile numbers in E.164 format (`+63XXXXXXXXXX`). Non-conforming numbers are rejected at the validation layer. |
 | AUTH-07 | Suspended session behaviour | When a user account is suspended, existing JWTs remain valid until expiry (max 15 minutes). The refresh endpoint checks account status and immediately rejects refresh requests from suspended accounts. |
-| AUTH-08 | Admin account provisioning | The initial admin account is created via the seed script (`pnpm db:seed`). No self-registration path exists for the ADMIN role. Additional admins are created by an existing admin via a privileged internal endpoint (not exposed to the public API). |
+| AUTH-08 | Admin account provisioning | The initial admin account is seeded by `pnpm db:seed` from the `ADMIN_PHONE` env var (the seed skips this step with a warning when the variable is unset). Additional admins are created by an existing admin via `POST /admin/admins`. Admins authenticate through the standard OTP flow. No self-registration path exists for the ADMIN role — `POST /auth/register` accepts only CUSTOMER and WORKER. |
+| AUTH-09 | Two-step registration | `POST /auth/verify-otp` returns access + refresh tokens for existing users. For an unknown phone number it instead returns a single-use `registrationToken` (JWT with `purpose: 'registration'`, 15-minute expiry via `JWT_REGISTRATION_EXPIRES_IN`). `POST /auth/register` exchanges that token plus a role (CUSTOMER or WORKER) for access + refresh tokens. |
 
 ### 4.2 Worker Onboarding & Verification
 
@@ -185,9 +186,9 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | BKG-03 | Accept / reject | Worker accepts (phone number revealed to customer) or rejects (customer notified, may rebook the same worker or a different one — no lockout period). |
 | BKG-04 | Job completion | Worker marks booking as IN_PROGRESS on arrival, then COMPLETED after service. Customer receives prompt to leave a review. There is no server-enforced timeout for the IN_PROGRESS state; admin may manually resolve a stale booking. |
 | BKG-05 | Cancellation | Customer may cancel a booking at any time before the worker marks it IN_PROGRESS. The cancellation is immediate — no worker acknowledgement is required. The worker receives a push notification after the fact. Post-acceptance customer cancellations do not trigger a strike against the worker. `cancellationActor` is set to `CUSTOMER`; `cancellationReason` (optional, ≤ 300 chars) is stored. Worker cancellation after acceptance issues a strike and requires a `cancellationReason` (mandatory). |
-| BKG-06 | Worker no-show report | Customer can report a worker no-show within 2 hours of the **end** of the booking's time window (e.g., MORNING ends at 12:00 → deadline is 14:00). Triggers admin review and potential worker strike. |
-| BKG-07 | One booking per worker | A worker with an ACCEPTED or IN_PROGRESS booking cannot appear as available to other customers until the booking is resolved. |
-| BKG-08 | Customer no-show report | A worker may report a customer no-show within 2 hours of the **end** of the booking's time window. The report enters the admin review queue. On confirmation, the booking is marked `CUSTOMER_NO_SHOW` and the event is logged. No automated penalty is applied to the customer at MVP — admin may suspend the account manually using the existing suspension flow. |
+| BKG-06 | Worker no-show report | Customer can report a worker no-show within 2 hours of the **end** of the booking's time window (e.g., MORNING ends at 12:00 → deadline is 14:00). The report is allowed only while the booking is ACCEPTED or IN_PROGRESS, and at most one no-show report exists per booking (see BR-15). Triggers admin review and potential worker strike. |
+| BKG-07 | One booking per worker | A worker with a PENDING, ACCEPTED, or IN_PROGRESS booking cannot appear as available to other customers until the booking is resolved (aligned with BKG-10). |
+| BKG-08 | Customer no-show report | A worker may report a customer no-show within 2 hours of the **end** of the booking's time window. The report is allowed only while the booking is ACCEPTED or IN_PROGRESS, and at most one no-show report exists per booking (see BR-15). The report enters the admin review queue. On confirmation, the booking is marked `CUSTOMER_NO_SHOW` and the event is logged. No automated penalty is applied to the customer at MVP — admin may suspend the account manually using the existing suspension flow. |
 | BKG-09 | Expiry notification | When a PENDING booking expires (30-minute timeout), the customer receives a push notification informing them the request has expired and they may rebook. |
 | BKG-10 | Concurrent booking guard | The server enforces that a worker cannot have more than one booking in PENDING, ACCEPTED, or IN_PROGRESS state simultaneously. A booking request targeting an already-active worker is rejected at the application layer (HTTP 422) before any DB write. |
 
@@ -217,6 +218,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | Notifications | Push via Expo Push API | Booking events require < 30-second delivery |
 | Admin Access | Web-based admin dashboard | Simple React or NestJS admin UI — not mobile |
 | File Upload Security | MIME type validated server-side | Extension alone is not trusted; max 5 MB per file |
+| File Access Control | Verification and credential files are auth-gated | ID photos, selfies, and credential files are served only to the owning worker or an admin (JWT + ownership check). Avatars are public. All file serving is path-traversal-guarded. |
 
 ---
 
@@ -232,12 +234,13 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | BR-06 | Workers accumulate strikes for: post-acceptance cancellation, confirmed no-shows, and validated complaints. At 3 strikes, the account is suspended pending admin review. After admin reviews and reinstates the worker, the strike counter resets to 0. A reinstated worker who accumulates 3 further strikes is suspended again under the same rule. |
 | BR-07 | When a worker toggles to online, they become available in **all** of their declared service barangays simultaneously. There is no per-barangay availability toggle. |
 | BR-08 | A booking request expires if the worker does not respond within 30 minutes. |
-| BR-09 | A worker with an active booking (ACCEPTED or IN_PROGRESS) is automatically hidden from search results. |
+| BR-09 | A worker with an active booking (PENDING, ACCEPTED, or IN_PROGRESS) is automatically hidden from search results. |
 | BR-10 | Reviews may only be submitted once per completed booking and cannot be edited or deleted by the customer. Admin may delete reviews. |
 | BR-11 | Scheduled bookings may be placed up to 7 calendar days in advance. A booking whose `scheduledDate` is the current calendar day is automatically assigned `BookingType.IMMEDIATE` by the server — clients cannot override this. |
 | BR-12 | A worker account rejected during verification may reapply once with corrected documents. A second rejection results in a permanent suspension with no self-service reinstatement path. |
 | BR-13 | `agreedRate` is auto-populated at booking creation time by snapshotting the worker's `rateOverride` for the requested category, falling back to the worker's `baseRate` if no override exists. This rate is for reference only — actual payment is negotiated in cash between worker and customer. The field is never updated after booking creation. |
 | BR-14 | `cancellationReason` is an optional free-text field (≤ 300 chars) set by the cancelling party. For customer cancellations it captures the customer's reason. For worker post-acceptance cancellations (which issue a strike), providing a reason is required. |
+| BR-15 | At most one no-show report exists per booking regardless of who reports (DB unique constraint on `NoShowReport.bookingId`). First to report wins — the counterparty cannot file a competing report; the admin sees both sides during resolution. Similarly, at most one strike can be tied to a given booking (`Strike.bookingId` unique). |
 
 ---
 
@@ -332,7 +335,8 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | Method | Endpoint | Description |
 |---|---|---|
 | **POST** | /auth/request-otp | Send OTP to phone number (rate-limited: 5/hour per phone) |
-| **POST** | /auth/verify-otp | Verify OTP, return JWT access + refresh tokens |
+| **POST** | /auth/verify-otp | Verify OTP. Existing users receive JWT access + refresh tokens; new phones receive a single-use `registrationToken` (see AUTH-09) |
+| **POST** | /auth/register | Exchange `registrationToken` + role (CUSTOMER or WORKER) for JWT access + refresh tokens |
 | **POST** | /auth/refresh | Exchange refresh token for new access token (checks account status) |
 | **GET** | /auth/sessions | List all active sessions for the authenticated user |
 | **DELETE** | /auth/sessions/:tokenId | Revoke a specific session by token ID |
@@ -351,6 +355,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | **POST** | /workers/verification | Submit ID + selfie for verification (multipart/form-data) |
 | **GET** | /workers/verification | Get authenticated worker's own verification status and latest submission details |
 | **POST** | /workers/credentials | Upload a professional credential file (LICENSE, CERTIFICATION, TRAINING) |
+| **GET** | /workers/credentials | Get authenticated worker's own credential list with review status and rejection reason |
 | **GET** | /workers/strikes | Get authenticated worker's own strike list and current count |
 
 ### 9.3 Booking Endpoints
@@ -411,7 +416,9 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | **PATCH** | /admin/credentials/:id/approve | Approve a credential submission |
 | **PATCH** | /admin/credentials/:id/reject | Reject a credential submission with reason |
 | **POST** | /admin/strikes | Issue manual strike to a worker |
+| **POST** | /admin/admins | Create an additional admin account (admin-only; new admin logs in via the standard OTP flow) |
 | **PATCH** | /admin/users/:id/suspend | Suspend or reinstate a user account |
+| **PATCH** | /admin/workers/:id/reinstate | Reinstate a suspended worker: requires a written audit note; resets the strike counter per BR-06 |
 | **GET** | /admin/no-shows | List pending worker no-show reports awaiting resolution (paginated) |
 | **PATCH** | /admin/no-shows/:id/resolve | Resolve a worker no-show report (confirm or dismiss) |
 | **GET** | /admin/customer-no-shows | List pending customer no-show reports awaiting resolution (paginated) |
@@ -426,6 +433,14 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 |---|---|---|
 | **POST** | /notifications/push-token | Register an Expo push token for the authenticated user |
 | **DELETE** | /notifications/push-token | Remove an Expo push token |
+
+### 9.9 Upload Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| **POST** | /uploads/avatar | Upload an avatar image for the authenticated user (multipart/form-data) |
+| **GET** | /uploads/avatars/*path | Serve an avatar image (public) |
+| **GET** | /uploads/*path | Serve a verification or credential file (authenticated; owning worker or admin only — see File Access Control NFR) |
 
 ---
 
@@ -475,7 +490,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | Admin verification bottleneck | **High** | **Medium** | Commit to 24-hour SLA. Batch reviews daily. |
 | Low review volume reduces trust signals | **High** | **Medium** | Hide average until 3 reviews. Prompt review after every job. |
 | VPS downtime during peak booking hours | **Low** | **Medium** | Daily backups. Docker restart policies. Uptime monitoring. |
-| Push notification delivery failure | **Medium** | **High** | In-app notification bell as fallback. SMS for critical events. |
+| Push notification delivery failure | **Medium** | **High** | Accepted at MVP — no in-app or SMS fallback exists (consistent with BKG-02/WRK-04). Mitigations: worker training on keeping notifications enabled, and the 30-minute auto-expiry lets customers rebook quickly. |
 | VPS disk failure destroys uploaded ID photos and selfies | **Medium** | **Critical** | Daily backup of upload directory to a separate volume or S3-compatible storage. Must be in place before launch. |
 | Race condition: two customers book the same worker simultaneously | **Medium** | **Medium** | Enforce a DB-level check (application guard + active-booking uniqueness constraint per worker) before any booking write. |
 | Customer no-shows (worker makes a wasted trip) | **Medium** | **High** | BKG-08 customer no-show report. Admin review mirrors worker no-show flow. Supply-side trust depends on this. |
@@ -494,7 +509,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 - Worker onboarding flow: profile creation, ID upload (MIME + size validation)
 - Admin dashboard: verification queue, approve/reject; worker notified by push on decision
 - Barangay seed data for target municipality
-- Admin account seeding via `pnpm db:seed`
+- Admin account seeding via `pnpm db:seed` (`ADMIN_PHONE`)
 
 ### Phase 2 — Core Booking Loop (Weeks 4–6)
 - Search module: filter by category, barangay, availability (paginated)
