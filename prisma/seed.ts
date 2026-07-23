@@ -2,6 +2,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
 import { Role, UserStatus } from '../src/generated/prisma/enums';
 import 'dotenv/config';
+import { psgcConfig } from '../src/config/psgc.config';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({
@@ -58,17 +59,6 @@ const categories = [
     slug: 'gardener',
     sortOrder: 8,
   },
-];
-
-const barangays = [
-  { id: '20000000-0000-4000-8000-000000000001', name: 'Canubing I' },
-  { id: '20000000-0000-4000-8000-000000000002', name: 'Canubing II' },
-  { id: '20000000-0000-4000-8000-000000000003', name: 'Lalud' },
-  { id: '20000000-0000-4000-8000-000000000004', name: 'Lumangbayan' },
-  { id: '20000000-0000-4000-8000-000000000005', name: 'Batino' },
-  { id: '20000000-0000-4000-8000-000000000006', name: 'Masipit' },
-  { id: '20000000-0000-4000-8000-000000000007', name: 'Silonay' },
-  { id: '20000000-0000-4000-8000-000000000008', name: 'Villaflor' },
 ];
 
 const WIDTH = 44;
@@ -132,15 +122,61 @@ async function seedCatalog() {
     row(category.name, 'upserted');
   }
 
-  section('Barangays');
-  for (const barangay of barangays) {
-    await prisma.barangay.upsert({
-      where: { id: barangay.id },
-      update: { name: barangay.name, isActive: true },
-      create: { ...barangay, isActive: true },
-    });
-    row(barangay.name, 'upserted');
+  await syncBarangaysFromPsgc();
+}
+
+async function syncBarangaysFromPsgc(): Promise<void> {
+  section('Barangays (PSGC sync)');
+
+  const { apiUrl, calapanCityCode } = psgcConfig();
+  const url = `${apiUrl}/cities-municipalities/${calapanCityCode}/barangays.json`;
+
+  let fetched: { code: string; name: string }[];
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    fetched = (await res.json()) as { code: string; name: string }[];
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    row('PSGC API unreachable', `skipped (${message})`);
+    return;
   }
+
+  const fetchedCodes = new Set(fetched.map((b) => b.code));
+  let created = 0;
+  let updated = 0;
+
+  for (const { code, name } of fetched) {
+    const existing = await prisma.barangay.findFirst({
+      where: { OR: [{ psgcCode: code }, { name }] },
+    });
+
+    if (existing) {
+      await prisma.barangay.update({
+        where: { id: existing.id },
+        data: { psgcCode: code, name, isActive: true },
+      });
+      updated++;
+    } else {
+      await prisma.barangay.create({
+        data: { psgcCode: code, name, isActive: true },
+      });
+      created++;
+    }
+  }
+
+  const { count: deactivated } = await prisma.barangay.updateMany({
+    where: {
+      isActive: true,
+      psgcCode: { notIn: [...fetchedCodes], not: null },
+    },
+    data: { isActive: false },
+  });
+
+  row('Created', String(created));
+  row('Updated', String(updated));
+  row('Deactivated', String(deactivated));
+  row('Total from API', String(fetched.length));
 }
 
 async function seedAdmin() {
