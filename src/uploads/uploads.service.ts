@@ -10,7 +10,7 @@ import { uploadConfig } from '@/config';
 import type { ConfigType } from '@nestjs/config';
 import { createReadStream, existsSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
-import { extname, join, normalize, posix } from 'path';
+import { extname, join, normalize, posix, sep } from 'path';
 import { randomUUID } from 'crypto';
 import type { AvatarFile } from './uploads.types';
 import type { AuthJwtPayload } from '@/modules/auth/auth.types';
@@ -99,7 +99,7 @@ export class UploadsService {
   ): StreamableFile {
     const absolutePath = normalize(join(requiredRoot, relativePath));
 
-    if (!absolutePath.startsWith(requiredRoot)) {
+    if (!absolutePath.startsWith(requiredRoot + sep)) {
       throw new NotFoundException('File not found.');
     }
 

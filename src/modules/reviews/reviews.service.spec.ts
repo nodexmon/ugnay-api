@@ -26,6 +26,7 @@ describe('ReviewsService', () => {
   const mockAssertions = {
     findCompletedBooking: jest.fn(),
     assertCustomerOwnsBooking: jest.fn(),
+    assertNoExistingReview: jest.fn(),
     findCustomerProfile: jest.fn(),
     assertWorkerProfileExists: jest.fn(),
   };
@@ -111,5 +112,22 @@ describe('ReviewsService', () => {
       expect.objectContaining({ where: { workerId: 'profile-id' } }),
     );
     expect(result).toEqual({ items: [], total: 0, skip: 0, take: 20 });
+  });
+
+  it('does not include customerId in the public worker reviews response', async () => {
+    mockAssertions.assertWorkerProfileExists.mockResolvedValue(undefined);
+    prisma.review.findMany.mockResolvedValue([]);
+    prisma.review.count.mockResolvedValue(0);
+    prisma.$transaction.mockImplementation((queries: Promise<unknown>[]) =>
+      Promise.all(queries),
+    );
+
+    await service.findAllByWorkerId('profile-id', { skip: 0, take: 20 });
+
+    const call = prisma.review.findMany.mock.calls[0][0];
+    expect(call.select).toBeDefined();
+    expect(call.select.customerId).toBeUndefined();
+    expect(call.select.id).toBe(true);
+    expect(call.select.rating).toBe(true);
   });
 });

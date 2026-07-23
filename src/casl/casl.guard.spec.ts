@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Role } from '@/generated/prisma/enums';
 import { IS_PUBLIC_KEY } from '@/common/decorators/public-endpoint.decorator';
+import { SKIP_ABILITY_CHECK_KEY } from '@/common/decorators/skip-ability-check.decorator';
 import { CHECK_ABILITY_KEY } from '@/common/decorators/check-ability.decorator';
 import { CaslAbilityFactory } from './casl-ability.factory';
 import { CaslGuard } from './casl.guard';
@@ -41,9 +42,14 @@ describe('CaslGuard', () => {
     reflector = module.get(Reflector);
   });
 
-  const setMetadata = (isPublic: boolean | undefined, required: unknown) => {
+  const setMetadata = (
+    isPublic: boolean | undefined,
+    required: unknown,
+    skipAbilityCheck?: boolean,
+  ) => {
     reflector.getAllAndOverride.mockImplementation((key) => {
       if (key === IS_PUBLIC_KEY) return isPublic;
+      if (key === SKIP_ABILITY_CHECK_KEY) return skipAbilityCheck;
       if (key === CHECK_ABILITY_KEY) return required;
       return undefined;
     });
@@ -55,8 +61,14 @@ describe('CaslGuard', () => {
     expect(guard.canActivate(ctx)).toBe(true);
   });
 
-  it('allows access when no @CheckAbility decorator is present', () => {
+  it('denies access when no @CheckAbility or @SkipAbilityCheck decorator is present', () => {
     setMetadata(undefined, undefined);
+    const ctx = makeContext(workerUser, undefined, undefined);
+    expect(guard.canActivate(ctx)).toBe(false);
+  });
+
+  it('allows access when @SkipAbilityCheck is present on an authenticated route', () => {
+    setMetadata(undefined, undefined, true);
     const ctx = makeContext(workerUser, undefined, undefined);
     expect(guard.canActivate(ctx)).toBe(true);
   });

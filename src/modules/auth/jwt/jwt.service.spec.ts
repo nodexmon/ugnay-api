@@ -43,7 +43,7 @@ describe('AuthJwtService', () => {
     expect(jwt.sign).toHaveBeenNthCalledWith(
       1,
       { sub: 'user-id', phone: '+639171234567', role: 'WORKER' },
-      { expiresIn: mockJwtConfig.JWT_ACCESS_EXPIRES_IN },
+      { expiresIn: mockJwtConfig.JWT_ACCESS_EXPIRES_IN, audience: 'access' },
     );
     expect(jwt.sign).toHaveBeenNthCalledWith(
       2,
@@ -53,7 +53,7 @@ describe('AuthJwtService', () => {
         role: 'WORKER',
         tokenId: 'token-id',
       },
-      { expiresIn: mockJwtConfig.JWT_REFRESH_EXPIRES_IN },
+      { expiresIn: mockJwtConfig.JWT_REFRESH_EXPIRES_IN, audience: 'refresh' },
     );
   });
 
@@ -69,21 +69,46 @@ describe('AuthJwtService', () => {
     );
   });
 
-  it('signRegistrationToken signs with purpose claim', () => {
+  it('rejects refresh tokens when audience verification fails', async () => {
+    jwt.verifyAsync.mockRejectedValue(new Error('jwt audience invalid'));
+
+    await expect(
+      service.verifyRefreshToken('access-token'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(jwt.verifyAsync).toHaveBeenCalledWith('access-token', {
+      audience: 'refresh',
+    });
+  });
+
+  it('signRegistrationToken signs with purpose, otpId, and audience claims', () => {
     jwt.sign.mockReturnValue('reg-token');
 
-    expect(service.signRegistrationToken('+639171234567')).toBe('reg-token');
+    expect(service.signRegistrationToken('+639171234567', 'otp-id')).toBe(
+      'reg-token',
+    );
     expect(jwt.sign).toHaveBeenCalledWith(
-      { sub: '+639171234567', purpose: 'registration' },
-      { expiresIn: mockJwtConfig.JWT_REGISTRATION_EXPIRES_IN },
+      { sub: '+639171234567', purpose: 'registration', otpId: 'otp-id' },
+      {
+        expiresIn: mockJwtConfig.JWT_REGISTRATION_EXPIRES_IN,
+        audience: 'registration',
+      },
     );
   });
 
   it('verifyRegistrationToken returns payload for valid token', async () => {
-    const payload = { sub: '+639171234567', purpose: 'registration' };
+    const payload = {
+      sub: '+639171234567',
+      purpose: 'registration',
+      otpId: 'otp-id',
+    };
     jwt.verifyAsync.mockResolvedValue(payload);
 
-    await expect(service.verifyRegistrationToken('reg-token')).resolves.toEqual(payload);
+    await expect(service.verifyRegistrationToken('reg-token')).resolves.toEqual(
+      payload,
+    );
+    expect(jwt.verifyAsync).toHaveBeenCalledWith('reg-token', {
+      audience: 'registration',
+    });
   });
 
   it('verifyRegistrationToken throws for token with wrong purpose', async () => {

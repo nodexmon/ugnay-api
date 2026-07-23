@@ -847,3 +847,23 @@ Full-codebase security audit followed by targeted patches for 1 confirmed vulner
   serveProtectedFile(); now both public and authenticated file-serving paths are consistent
 
 Test count: 341 (unchanged — all passing)
+
+---
+
+July 23, 2026 — security audit patches group G (branch: fix/security-dto-config)
+
+- G1 avatarUrl restricted to internal uploads only: replaced @IsUrl({https}) with
+  @Matches(/^\/?uploads\/avatars\/[a-f0-9-]+\.(jpe?g|png|webp)$/i) + @MaxLength(200)
+  in CreateWorkerDto and CreateCustomerDto (UpdateWorkerDto/UpdateCustomerDto inherit via PartialType)
+- G2 iconUrl hardened in CreateCategoryDto: added @IsUrl({protocols:['https'],require_protocol:true})
+  + @MaxLength(2048); blocks javascript:/data: URIs reaching public clients
+- G3 CASL guard fail-closed: changed !required branch from return true → return false;
+  added @SkipAbilityCheck() decorator; applied to UploadsController.serveProtectedFile and uploadAvatar
+  (authenticated but no specific CASL permission required); casl.guard.spec updated
+- G4 Trust proxy: NestFactory.create<NestExpressApplication>; app.set('trust proxy', 1) before
+  helmet() so req.ip reflects real client behind deploy proxy and per-IP throttle limits
+  are applied per real user instead of collapsing to one shared bucket
+- G5 Reviews public endpoint redaction: findAllByWorkerId now uses explicit select excluding
+  customerId; @Public() /reviews/worker/:id no longer leaks the customer's profile ID
+
+Test count: 343 (all passing)

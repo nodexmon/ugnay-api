@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '@/common/decorators/public-endpoint.decorator';
+import { SKIP_ABILITY_CHECK_KEY } from '@/common/decorators/skip-ability-check.decorator';
 import { AuthJwtPayload } from '@/modules/auth/auth.types';
 import { CaslAbilityFactory } from './casl-ability.factory';
 import {
@@ -27,10 +28,16 @@ export class CaslGuard implements CanActivate {
     ]);
     if (isPublic) return true;
 
+    const skipAbilityCheck = this.reflector.getAllAndOverride<boolean>(
+      SKIP_ABILITY_CHECK_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    if (skipAbilityCheck) return true;
+
     const required = this.reflector.getAllAndOverride<
       RequiredAbility | undefined
     >(CHECK_ABILITY_KEY, [context.getHandler(), context.getClass()]);
-    if (!required) return true;
+    if (!required) return false;
 
     const request = context
       .switchToHttp()

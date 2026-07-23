@@ -39,6 +39,22 @@ export class BookingsAssertions {
     return booking;
   }
 
+  async findOwnedBooking(
+    bookingId: string,
+    role: Role,
+    profileId: string,
+  ): Promise<Booking> {
+    const ownerFilter =
+      role === Role.CUSTOMER
+        ? { customerId: profileId }
+        : { workerId: profileId };
+    const booking = await this.prisma.booking.findFirst({
+      where: { id: bookingId, ...ownerFilter },
+    });
+    if (!booking) throw new NotFoundException('Booking not found.');
+    return booking;
+  }
+
   assertBookingInStatus(
     status: BookingStatus,
     ...allowed: BookingStatus[]
@@ -159,6 +175,16 @@ export class BookingsAssertions {
       throw new UnprocessableEntityException(
         'Worker does not serve the requested barangay.',
       );
+    }
+  }
+
+  async assertWorkerProfileActive(workerId: string): Promise<void> {
+    const profile = await this.prisma.workerProfile.findUnique({
+      where: { id: workerId },
+      select: { status: true },
+    });
+    if (!profile || profile.status !== WorkerStatus.VERIFIED) {
+      throw new ForbiddenException('Worker profile is not active.');
     }
   }
 
