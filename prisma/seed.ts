@@ -128,7 +128,7 @@ async function syncBarangaysFromPsgc(): Promise<void> {
   section('Barangays (PSGC sync)');
 
   const apiUrl = process.env['PSGC_API_URL'] ?? 'https://psgc.gitlab.io/api';
-  const cityCode = process.env['PSGC_CALAPAN_CODE'] ?? '175203000';
+  const cityCode = process.env['PSGC_CALAPAN_CODE'] ?? '175205000';
   const url = `${apiUrl}/cities-municipalities/${cityCode}/barangays.json`;
 
   let fetched: { code: string; name: string }[];
