@@ -166,12 +166,12 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | ID | Requirement | Description |
 |---|---|---|
 | WRK-01 | Profile creation | Worker provides: full name, bio, **at least 1 and up to 3** service categories, base rate, home barangay. |
-| WRK-02 | ID upload | Worker uploads a photo of a government-issued ID (UMID, PhilHealth, Driver's License, Passport). Accepted MIME types: `image/jpeg`, `image/png`. Maximum file size: 5 MB. MIME type is validated on upload; extension alone is not trusted. |
+| WRK-02 | ID upload | Worker uploads a photo of a government-issued ID (UMID, PhilHealth, Driver's License, Passport). Accepted MIME types: `image/jpeg`, `image/png`, `image/webp`. Maximum file size: 5 MB. MIME type is validated on upload; extension alone is not trusted. |
 | WRK-03 | Selfie upload | Worker uploads a selfie for facial comparison against the ID photo. Same file constraints as WRK-02. |
 | WRK-04 | Admin review | Admin manually reviews ID + selfie. Approves or rejects with a reason. Target SLA: 24 hours. The worker receives a push notification when the review is complete. If the worker has no registered push token, no fallback is sent at MVP. |
 | WRK-05 | Status flow | Worker status transitions: `PENDING → VERIFIED` (or `REJECTED`). A rejected worker may reapply once with corrected documents. A second rejection sets `WorkerStatus` to `SUSPENDED` — the worker cannot reapply through the normal flow. Admin may manually reinstate a permanently banned worker via a privileged action that requires a written audit note. Status diagram: `PENDING → VERIFIED`, `PENDING → REJECTED`, `REJECTED → PENDING (reapply)`, `REJECTED (2nd) → SUSPENDED (permanent)`. |
 | WRK-06 | Service radius | Worker selects barangays they are willing to serve. Minimum 1, maximum 5. |
-| WRK-07 | Professional credentials | Workers may optionally upload supporting credentials (type: LICENSE, CERTIFICATION, or TRAINING) after profile creation. Each file follows the same MIME/size constraints as WRK-02. Credentials enter an admin review queue independent of the identity verification queue. Credential status does not block worker availability — VERIFIED status is determined solely by identity verification (WRK-04). |
+| WRK-07 | Professional credentials | Workers may optionally upload supporting credentials (type: LICENSE, CERTIFICATION, or TRAINING) after profile creation. Each file follows the WRK-02 size limit; accepted MIME types additionally include `application/pdf` (JPEG, PNG, WebP, or PDF). Credentials enter an admin review queue independent of the identity verification queue. Credential status does not block worker availability — VERIFIED status is determined solely by identity verification (WRK-04). |
 | WRK-08 | Service area updates | A VERIFIED worker may update their service areas (add/remove barangays) at any time within the 1–5 limit. The change takes effect immediately. |
 
 ### 4.3 Booking Lifecycle
@@ -299,7 +299,7 @@ A mobile-first two-sided marketplace with verified worker profiles, a structured
 | strikes | id, worker_id, reason, booking_id, issued_by | Append-only. `issued_by` is a bare UUID string or the literal `'SYSTEM'` — not a FK relation. Aggregated count triggers suspension at 3. |
 | verification_docs | id, worker_id, id_photo_url, selfie_url, reviewed_by, reviewed_at | Admin review record. Stores rejection reason. |
 | worker_credentials | id, worker_id, type, file_url, status, rejection_reason | Professional credentials (LICENSE, CERTIFICATION, TRAINING). Reviewed by admin independently of identity verification. |
-| push_tokens | id, user_id, token, platform | Expo push tokens. One per device. Updated on login. |
+| push_tokens | id, user_id, token, platform | Expo push tokens. One per device (unique on token). Upserted when the app registers the token via `POST /notifications/push-token`. |
 | no_show_reports | id, booking_id, reported_by, report_type, description, confirmed, resolved_by, resolved_at | Covers both worker no-shows (`report_type = WORKER`, reported by customer) and customer no-shows (`report_type = CUSTOMER`, reported by worker). Unique on booking_id — one report per booking (BR-15). `reported_by` is a bare UUID string — not a FK relation. |
 
 ### 8.2 Booking Status Enum

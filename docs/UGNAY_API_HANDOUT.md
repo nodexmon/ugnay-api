@@ -769,8 +769,8 @@ Submit government ID photo and selfie for admin review. Uses `multipart/form-dat
 
 **Form fields:**
 ```
-idPhoto   File   Government-issued ID photo (JPEG/PNG, max 5 MB)
-selfie    File   Selfie photo (JPEG/PNG, max 5 MB)
+idPhoto   File   Government-issued ID photo (JPEG/PNG/WebP, max 5 MB)
+selfie    File   Selfie photo (JPEG/PNG/WebP, max 5 MB)
 ```
 
 > Worker `status` transitions to `PENDING` after submission.
@@ -825,7 +825,7 @@ Upload a professional credential. Uses `multipart/form-data`.
 
 **Form fields:**
 ```
-file   File     Credential document (JPEG/PNG/PDF, max 5 MB)
+file   File     Credential document (JPEG/PNG/WebP/PDF, max 5 MB)
 type   string   One of: LICENSE | CERTIFICATION | TRAINING
 ```
 
