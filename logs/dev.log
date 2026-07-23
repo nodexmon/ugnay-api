@@ -825,3 +825,25 @@ Docs:
   new §16 Health / Ops Endpoints; ToC updated
 
 Test count: 303 → 341 (38 new tests across auth, bookings, notifications, uploads, workers, app specs)
+
+---
+
+July 23, 2026 — security audit patches (branch: fix/security-patches)
+
+Full-codebase security audit followed by targeted patches for 1 confirmed vulnerability and 4 hardening gaps:
+
+- Fixed HIGH: JWT type confusion — JwtStrategy.validate() now throws 401 if payload.tokenId is present;
+  refresh tokens (7-day TTL) could previously be submitted as Bearer access tokens on any protected
+  endpoint, bypassing the 15-minute access window and DB revocation (revokedAt)
+- Fixed: CreateWorkerDto.avatarUrl was @IsString() only; now enforces @IsUrl({ protocols: ['https'] })
+  + @MaxLength(2048) consistent with CreateCustomerDto; UpdateWorkerDto inherits via PartialType
+- Fixed: duplicate POST /reviews for the same booking caused an unhandled P2002 from the DB unique
+  constraint, surfacing as a 500; added ReviewsAssertions.assertNoExistingReview() called before
+  the transaction, returning 409 ConflictException on the second submission
+- Added: magic byte validation to all three upload pipes (AvatarFilePipe, VerificationFilesPipe,
+  CredentialFilePipe) using file-type@16; previously only the attacker-controlled Content-Type
+  header was checked; transform() methods made async (PipeTransform supports Promise returns)
+- Added: normalizeRelativePath() call in UploadsService.serveAvatar() — already present in
+  serveProtectedFile(); now both public and authenticated file-serving paths are consistent
+
+Test count: 341 (unchanged — all passing)

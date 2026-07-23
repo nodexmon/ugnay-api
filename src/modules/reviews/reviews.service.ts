@@ -26,6 +26,8 @@ export class ReviewsService {
       customerProfile.id,
     );
 
+    await this.assertions.assertNoExistingReview(dto.bookingId);
+
     return this.prisma.$transaction(async (tx: TransactionClient) => {
       const review = await tx.review.create({
         data: {

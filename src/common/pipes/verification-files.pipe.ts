@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, PipeTransform } from '@nestjs/common';
+import { fromBuffer } from 'file-type';
 import { UploadedVerificationFiles } from '@/modules/workers/workers.types';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -7,7 +8,9 @@ const REQUIRED_FIELDS = ['idPhoto', 'selfie'] as const;
 
 @Injectable()
 export class VerificationFilesPipe implements PipeTransform {
-  transform(files: UploadedVerificationFiles) {
+  async transform(
+    files: UploadedVerificationFiles,
+  ): Promise<UploadedVerificationFiles> {
     for (const field of REQUIRED_FIELDS) {
       const file = files?.[field]?.[0];
 
@@ -23,6 +26,13 @@ export class VerificationFilesPipe implements PipeTransform {
 
       if (file.size > MAX_BYTES) {
         throw new BadRequestException(`${field} file must not exceed 5 MB.`);
+      }
+
+      const detected = await fromBuffer(file.buffer);
+      if (!detected || !ALLOWED_TYPES.includes(detected.mime)) {
+        throw new BadRequestException(
+          `${field} file content does not match the declared type.`,
+        );
       }
     }
 

@@ -65,8 +65,9 @@ export class UploadsService {
   }
 
   serveAvatar(filePath: string): StreamableFile {
+    const safe = this.normalizeRelativePath(filePath);
     const avatarsRoot = join(process.cwd(), this.config.UPLOAD_DIR, 'avatars');
-    return this.streamFromDisk(filePath, avatarsRoot);
+    return this.streamFromDisk(safe, avatarsRoot);
   }
 
   async serveProtectedFile(
