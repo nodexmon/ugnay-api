@@ -7,8 +7,8 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  IsUrl,
   IsUUID,
+  Matches,
   MaxLength,
   Min,
   ValidateNested,
@@ -32,8 +32,8 @@ export class CreateWorkerDto {
   bio?: string;
 
   @IsOptional()
-  @IsUrl({ protocols: ['https'], require_protocol: true })
-  @MaxLength(2048)
+  @Matches(/^\/?uploads\/avatars\/[a-f0-9-]+\.(jpe?g|png|webp)$/i)
+  @MaxLength(200)
   avatarUrl?: string | null;
 
   @IsNumber()
