@@ -58,12 +58,14 @@ describe('BookingsService', () => {
   const assertions = {
     assertOwnership: jest.fn(),
     findBooking: jest.fn(),
+    findOwnedBooking: jest.fn(),
     assertBookingInStatus: jest.fn(),
     assertNoReportExists: jest.fn(),
     assertWorkerIsAvailable: jest.fn(),
     assertScheduledDateIsValid: jest.fn(),
     assertNoShowWindowOpen: jest.fn(),
     assertWorkerServesBarangay: jest.fn(),
+    assertWorkerProfileActive: jest.fn(),
     findWorkerCategoryRate: jest.fn(),
     resolveProfileId: jest.fn(),
   };
@@ -78,6 +80,7 @@ describe('BookingsService', () => {
       cb(tx),
     );
     assertions.findBooking.mockResolvedValue(pendingBooking);
+    assertions.findOwnedBooking.mockResolvedValue(pendingBooking);
     assertions.resolveProfileId.mockResolvedValue('customer-profile-id');
     assertions.findWorkerCategoryRate.mockResolvedValue(250 as never);
     usersAssertions.findActiveUser.mockResolvedValue(customerUser);
@@ -270,7 +273,7 @@ describe('BookingsService', () => {
   describe('start', () => {
     it('transitions booking to IN_PROGRESS', async () => {
       usersAssertions.findActiveUser.mockResolvedValue(workerUser);
-      assertions.findBooking.mockResolvedValue({
+      assertions.findOwnedBooking.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
       });
@@ -303,7 +306,7 @@ describe('BookingsService', () => {
   describe('complete', () => {
     it('transitions booking to COMPLETED and increments totalJobsCompleted', async () => {
       usersAssertions.findActiveUser.mockResolvedValue(workerUser);
-      assertions.findBooking.mockResolvedValue({
+      assertions.findOwnedBooking.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.IN_PROGRESS,
       });
@@ -358,7 +361,7 @@ describe('BookingsService', () => {
 
     it('issues a POST_ACCEPT_CANCELLATION strike when a worker cancels', async () => {
       usersAssertions.findActiveUser.mockResolvedValue(workerUser);
-      assertions.findBooking.mockResolvedValue({
+      assertions.findOwnedBooking.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
       });
@@ -390,7 +393,7 @@ describe('BookingsService', () => {
 
     it('suspends a worker whose third strike comes from a cancellation', async () => {
       usersAssertions.findActiveUser.mockResolvedValue(workerUser);
-      assertions.findBooking.mockResolvedValue({
+      assertions.findOwnedBooking.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
       });
@@ -415,7 +418,7 @@ describe('BookingsService', () => {
     });
 
     it('lets a customer cancel an ACCEPTED booking', async () => {
-      assertions.findBooking.mockResolvedValue({
+      assertions.findOwnedBooking.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
       });
@@ -434,7 +437,7 @@ describe('BookingsService', () => {
 
     it('throws BadRequestException when a worker cancels without a reason', async () => {
       usersAssertions.findActiveUser.mockResolvedValue(workerUser);
-      assertions.findBooking.mockResolvedValue({
+      assertions.findOwnedBooking.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
       });
@@ -481,7 +484,7 @@ describe('BookingsService', () => {
 
     it('returns status error (not reason error) when a worker cancels a COMPLETED booking without a reason', async () => {
       usersAssertions.findActiveUser.mockResolvedValue(workerUser);
-      assertions.findBooking.mockResolvedValue({
+      assertions.findOwnedBooking.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.COMPLETED,
       });
@@ -502,7 +505,7 @@ describe('BookingsService', () => {
 
   describe('reportNoShow', () => {
     it('creates a no-show report with WORKER type', async () => {
-      assertions.findBooking.mockResolvedValue({
+      assertions.findOwnedBooking.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
       });
@@ -525,7 +528,7 @@ describe('BookingsService', () => {
     });
 
     it('calls assertNoShowWindowOpen before creating a report', async () => {
-      assertions.findBooking.mockResolvedValue({
+      assertions.findOwnedBooking.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
       });
@@ -537,7 +540,7 @@ describe('BookingsService', () => {
     });
 
     it('throws ForbiddenException when a report already exists for the booking', async () => {
-      assertions.findBooking.mockResolvedValue({
+      assertions.findOwnedBooking.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
       });
@@ -553,7 +556,7 @@ describe('BookingsService', () => {
     });
 
     it('throws ForbiddenException when the customer does not own the booking', async () => {
-      assertions.findBooking.mockResolvedValue({
+      assertions.findOwnedBooking.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
       });
@@ -571,7 +574,7 @@ describe('BookingsService', () => {
 
   describe('reportCustomerNoShow', () => {
     it('creates a no-show report with CUSTOMER type', async () => {
-      assertions.findBooking.mockResolvedValue({
+      assertions.findOwnedBooking.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
       });
@@ -596,7 +599,7 @@ describe('BookingsService', () => {
     });
 
     it('calls assertNoShowWindowOpen before creating a report', async () => {
-      assertions.findBooking.mockResolvedValue({
+      assertions.findOwnedBooking.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
       });
@@ -610,7 +613,7 @@ describe('BookingsService', () => {
     });
 
     it('throws ForbiddenException when a report already exists', async () => {
-      assertions.findBooking.mockResolvedValue({
+      assertions.findOwnedBooking.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
       });
@@ -628,7 +631,7 @@ describe('BookingsService', () => {
     });
 
     it('throws ForbiddenException when the worker does not own the booking', async () => {
-      assertions.findBooking.mockResolvedValue({
+      assertions.findOwnedBooking.mockResolvedValue({
         ...pendingBooking,
         status: BookingStatus.ACCEPTED,
       });
@@ -673,6 +676,34 @@ describe('BookingsService', () => {
       await service.update('booking-id', customerJwt, { notes: 'updated' });
 
       expect(assertions.assertScheduledDateIsValid).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── enumeration oracle / profile status ─────────────────────────────────────
+
+  describe('prepareBookingAction security', () => {
+    it('returns NotFoundException when a worker probes a non-owned booking', async () => {
+      usersAssertions.findActiveUser.mockResolvedValue(workerUser);
+      assertions.resolveProfileId.mockResolvedValueOnce('worker-profile-id');
+      assertions.findOwnedBooking.mockRejectedValueOnce(
+        new NotFoundException('Booking not found.'),
+      );
+
+      await expect(
+        service.accept('other-booking-id', workerJwt),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('returns ForbiddenException when worker profile is not VERIFIED', async () => {
+      usersAssertions.findActiveUser.mockResolvedValue(workerUser);
+      assertions.resolveProfileId.mockResolvedValueOnce('worker-profile-id');
+      assertions.assertWorkerProfileActive.mockRejectedValueOnce(
+        new ForbiddenException('Worker profile is not active.'),
+      );
+
+      await expect(
+        service.accept('booking-id', workerJwt),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 });
