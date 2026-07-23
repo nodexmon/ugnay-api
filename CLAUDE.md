@@ -19,6 +19,13 @@ Run a single test file:
 pnpm jest src/path/to/file.spec.ts
 ```
 
+### Local environment limitations
+
+Docker and the `gh` CLI are **not installed** on this machine — do not treat their absence as a blocker or attempt workarounds; the developer installs and runs them himself.
+
+- **E2E tests** (`pnpm test:e2e`) need the test Postgres from `docker-compose.test.yml` (port 5433). Write and extend e2e specs normally, verify locally with `pnpm lint` + `pnpm test`, and note that the e2e run happens in CI or on a docker-equipped machine.
+- **Pull requests**: `gh pr create` is unavailable. Push the branch and hand over the GitHub compare URL plus a ready-to-paste PR description instead.
+
 ## Architecture
 
 UGNAY is a mobile-first two-sided marketplace connecting Filipino households with verified local workers (electricians, plumbers, cleaners, etc.). MVP scope is a single municipality. The API is NestJS (`@nestjs/platform-express`) with **Prisma 7** and PostgreSQL. The package manager is **pnpm**.
