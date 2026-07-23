@@ -12,8 +12,7 @@ export class StrikeWorkerDto {
   workerId: string;
 
   @IsUUID()
-  @IsOptional()
-  bookingId?: string;
+  bookingId: string;
 
   @IsEnum(StrikeReason)
   reason: StrikeReason;

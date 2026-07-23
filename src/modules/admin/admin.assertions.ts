@@ -4,7 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import { VerificationStatus, WorkerStatus } from '@/generated/prisma/enums';
+import {
+  NoShowReportType,
+  VerificationStatus,
+  WorkerStatus,
+} from '@/generated/prisma/enums';
 import type { WorkerProfile } from '@/generated/prisma/client';
 
 @Injectable()
@@ -87,6 +91,9 @@ export class AdminAssertions {
       },
     });
     if (!report) throw new NotFoundException('No-show report not found.');
+    if (report.reportType !== NoShowReportType.WORKER) {
+      throw new NotFoundException('No-show report not found.');
+    }
     if (report.confirmed !== null) {
       throw new ConflictException('This report has already been resolved.');
     }
@@ -114,6 +121,9 @@ export class AdminAssertions {
       },
     });
     if (!report) throw new NotFoundException('No-show report not found.');
+    if (report.reportType !== NoShowReportType.CUSTOMER) {
+      throw new NotFoundException('No-show report not found.');
+    }
     if (report.confirmed !== null) {
       throw new ConflictException('This report has already been resolved.');
     }
