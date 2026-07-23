@@ -98,4 +98,20 @@ describe('AdminAssertions', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
+
+  describe('assertPhoneNotRegistered', () => {
+    it('does not throw when the phone is unregistered', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      await expect(
+        assertions.assertPhoneNotRegistered('+639171234567'),
+      ).resolves.not.toThrow();
+    });
+
+    it('throws ConflictException when the phone belongs to an existing user', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-id' });
+      await expect(
+        assertions.assertPhoneNotRegistered('+639171234567'),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
 });

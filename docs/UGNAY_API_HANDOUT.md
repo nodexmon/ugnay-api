@@ -23,6 +23,8 @@
 12. [Booking Lifecycle — State Machine](#12-booking-lifecycle--state-machine)
 13. [Typical App Flows](#13-typical-app-flows)
 14. [Admin Endpoints](#14-admin-endpoints)
+15. [Upload Endpoints](#15-upload-endpoints)
+16. [Health / Ops Endpoints](#16-health--ops-endpoints)
 
 ---
 
@@ -106,7 +108,7 @@ ACCEPTED    — worker accepted; contact details revealed
 REJECTED    — worker rejected; customer may rebook
 IN_PROGRESS — worker marked arrival on-site
 COMPLETED   — job done; review prompt sent to customer
-CANCELLED   — cancelled by customer (pre-accept) or worker (post-accept = strike)
+CANCELLED   — cancelled by customer (pre-accept) or worker (post-accept = strike) or system (stale accepted auto-cancel, no strike)
 EXPIRED     — worker did not respond within 30 minutes
 NO_SHOW          — admin-confirmed worker no-show; strike issued
 CUSTOMER_NO_SHOW — admin-confirmed customer no-show; no strike
@@ -174,6 +176,8 @@ Send a one-time password to a Philippine phone number.
 ```
 
 > The message includes the phone number to confirm delivery target.
+>
+> **SMS outage:** If the SMS gateway is temporarily unavailable, the API returns HTTP **503** (`'SMS service is temporarily unavailable. Please try again later.'`). The OTP quota is **not** consumed — the user can retry without waiting for their hourly limit to reset.
 
 ---
 
@@ -211,6 +215,8 @@ Verify the OTP. Returns different shapes depending on whether the phone is alrea
 > - `"login"` → store tokens and proceed to home. Call `GET /users/me` to check if a profile still needs to be created.
 > - `"registration"` → show the role picker, then call `POST /auth/register`.
 > The `registrationToken` expires in **15 minutes**. Do not store it beyond the registration screen.
+>
+> **Wrong code / lockout:** All failures (wrong code, expired OTP, or exceeded attempt cap) return the same HTTP **401** (`'Invalid or expired OTP.'`). After **5 consecutive wrong attempts** the OTP is permanently locked — a new OTP must be requested via `POST /auth/request-otp`. The app should prompt the user to request a new OTP after receiving 401 rather than retrying indefinitely.
 
 ---
 
@@ -264,6 +270,8 @@ Exchange a refresh token for a new token pair. The old refresh token is immediat
 ```
 
 > Both tokens rotate on every refresh. Always store the new `refreshToken` — the old one is dead.
+>
+> **Reuse detection:** If a previously revoked refresh token is replayed (e.g., from a cloned device or stolen token), the API revokes **all** active sessions for that user and returns HTTP **401**. The user must log in again from scratch. This protects against token theft — if your app receives 401 on a refresh that should be valid, force the user to re-authenticate.
 
 ---
 
@@ -673,8 +681,8 @@ Get the authenticated worker's **own** full profile, including all verification 
     {
       "id": "70000000-0000-4000-8000-000000000001",
       "workerId": "50000000-0000-4000-8000-000000000001",
-      "idPhotoUrl": "/seed/verification/50000000.../id-photo.jpg",
-      "selfieUrl": "/seed/verification/50000000.../selfie.jpg",
+      "idPhotoUrl": "uploads/verification/50000000-0000-4000-8000-000000000001/idPhoto-abc123.jpg",
+      "selfieUrl": "uploads/verification/50000000-0000-4000-8000-000000000001/selfie-def456.jpg",
       "status": "APPROVED",
       "rejectionReason": null,
       "reviewedBy": "30000000-0000-4000-8000-000000000001",
@@ -688,7 +696,7 @@ Get the authenticated worker's **own** full profile, including all verification 
       "id": "uuid",
       "workerId": "50000000-0000-4000-8000-000000000001",
       "type": "LICENSE",
-      "fileUrl": "/uploads/workers/50000000.../credentials/license-abc123.jpg",
+      "fileUrl": "uploads/credentials/50000000-0000-4000-8000-000000000001/license-abc123.jpg",
       "status": "PENDING",
       "rejectionReason": null,
       "reviewedBy": null,
@@ -768,8 +776,8 @@ Submit government ID photo and selfie for admin review. Uses `multipart/form-dat
 
 **Form fields:**
 ```
-idPhoto   File   Government-issued ID photo (JPEG/PNG, max 5 MB)
-selfie    File   Selfie photo (JPEG/PNG, max 5 MB)
+idPhoto   File   Government-issued ID photo (JPEG/PNG/WebP, max 5 MB)
+selfie    File   Selfie photo (JPEG/PNG/WebP, max 5 MB)
 ```
 
 > Worker `status` transitions to `PENDING` after submission.
@@ -782,8 +790,8 @@ selfie    File   Selfie photo (JPEG/PNG, max 5 MB)
 {
   "id": "70000000-0000-4000-8000-000000000001",
   "workerId": "50000000-0000-4000-8000-000000000001",
-  "idPhotoUrl": "/uploads/workers/50000000.../id-photo-abc123.jpg",
-  "selfieUrl": "/uploads/workers/50000000.../selfie-def456.jpg",
+  "idPhotoUrl": "uploads/verification/50000000-0000-4000-8000-000000000001/idPhoto-abc123.jpg",
+  "selfieUrl": "uploads/verification/50000000-0000-4000-8000-000000000001/selfie-def456.jpg",
   "status": "PENDING",
   "rejectionReason": null,
   "reviewedBy": null,
@@ -804,8 +812,8 @@ Get the authenticated worker's most recent verification document submission.
 {
   "id": "70000000-0000-4000-8000-000000000001",
   "workerId": "50000000-0000-4000-8000-000000000001",
-  "idPhotoUrl": "/uploads/workers/50000000.../id-photo-abc123.jpg",
-  "selfieUrl": "/uploads/workers/50000000.../selfie-def456.jpg",
+  "idPhotoUrl": "uploads/verification/50000000-0000-4000-8000-000000000001/idPhoto-abc123.jpg",
+  "selfieUrl": "uploads/verification/50000000-0000-4000-8000-000000000001/selfie-def456.jpg",
   "status": "APPROVED",
   "rejectionReason": null,
   "reviewedBy": "30000000-0000-4000-8000-000000000001",
@@ -824,7 +832,7 @@ Upload a professional credential. Uses `multipart/form-data`.
 
 **Form fields:**
 ```
-file   File     Credential document (JPEG/PNG/PDF, max 5 MB)
+file   File     Credential document (JPEG/PNG/WebP/PDF, max 5 MB)
 type   string   One of: LICENSE | CERTIFICATION | TRAINING
 ```
 
@@ -836,7 +844,7 @@ type   string   One of: LICENSE | CERTIFICATION | TRAINING
   "id": "uuid",
   "workerId": "50000000-0000-4000-8000-000000000001",
   "type": "LICENSE",
-  "fileUrl": "/uploads/workers/50000000.../credentials/license-abc123.pdf",
+  "fileUrl": "uploads/credentials/50000000-0000-4000-8000-000000000001/license-abc123.pdf",
   "status": "PENDING",
   "rejectionReason": null,
   "reviewedBy": null,
@@ -845,6 +853,31 @@ type   string   One of: LICENSE | CERTIFICATION | TRAINING
   "updatedAt": "2026-07-12T08:00:00.000Z"
 }
 ```
+
+---
+
+### GET `/workers/credentials` — `PROTECTED (WORKER)`
+Get the authenticated worker's own credential submissions (all statuses, newest first). Use this to show review status and rejection reasons.
+
+**Response `200`:** plain array (not paginated — capped at 5 active credentials).
+```json
+[
+  {
+    "id": "uuid",
+    "workerId": "50000000-0000-4000-8000-000000000001",
+    "type": "LICENSE",
+    "fileUrl": "uploads/credentials/50000000-0000-4000-8000-000000000001/license-abc123.pdf",
+    "status": "REJECTED",
+    "rejectionReason": "Document is blurry.",
+    "reviewedBy": "30000000-0000-4000-8000-000000000001",
+    "reviewedAt": "2026-07-20T10:00:00.000Z",
+    "createdAt": "2026-07-19T08:00:00.000Z",
+    "updatedAt": "2026-07-20T10:00:00.000Z"
+  }
+]
+```
+
+> Returns `404` if the worker has no profile yet.
 
 ---
 
@@ -885,7 +918,6 @@ Create a new booking request. The worker has 30 minutes to respond.
   "workerId": "50000000-0000-4000-8000-000000000001",
   "categoryId": "10000000-0000-4000-8000-000000000001",
   "barangayId": "20000000-0000-4000-8000-000000000001",
-  "bookingType": "IMMEDIATE",
   "scheduledDate": "2026-07-12T09:00:00.000Z",
   "timeWindow": "MORNING",
   "locationLat": 14.6001,
@@ -895,8 +927,8 @@ Create a new booking request. The worker has 30 minutes to respond.
 }
 ```
 
-> `bookingType`: `IMMEDIATE` (same-day) or `SCHEDULED` (up to 7 days ahead).
-> `scheduledDate`: must be in the future (PST); max 7 days from now. Same-day dates are forced to `IMMEDIATE` regardless of `bookingType`.
+> **`bookingType` is not sent by the client.** The server derives it from `scheduledDate`: same-day (PST) → `IMMEDIATE`, otherwise `SCHEDULED`.
+> `scheduledDate`: must be today or in the future (PST); max 7 days from now.
 > `locationAddress`: optional, max 300 chars.
 > `notes`: optional, max 500 chars.
 > **`agreedRate` is not sent by the client.** The server snapshots the rate automatically from the worker's category-specific `rateOverride`, falling back to their `baseRate`. This value is locked at booking creation and never changes.
@@ -1566,6 +1598,9 @@ On any 401 response:
 
 All admin endpoints require `ADMIN` role. These are for the internal dashboard, not the consumer mobile app.
 
+### POST `/admin/admins` — `PROTECTED (ADMIN)`
+Create an additional admin account. Body: `{ "phone": "+63XXXXXXXXXX" }`. Returns `409` if the phone is already registered. The new admin signs in through the standard OTP flow.
+
 ### PATCH `/admin/workers/:id/reinstate` — `PROTECTED (ADMIN)`
 Reinstate a `SUSPENDED` worker. Resets `strikeCount` to 0 and sets `WorkerProfile.status` back to `VERIFIED`. Requires a written audit note. The `:id` is the **`WorkerProfile.id`** (not `userId`) — use the `id` returned by `GET /admin/workers`.
 
@@ -1650,6 +1685,37 @@ Delete a review. Atomically recalculates the worker's `averageRating` and `total
 
 ---
 
+## 15. Upload Endpoints
+
+> **⚠️ Auth change:** verification and credential file URLs now require the `Authorization` header when fetched — only the owning worker or an admin can retrieve them. Avatar URLs remain public. If you render `idPhotoUrl` / `selfieUrl` / `fileUrl` in an `<Image>` component, pass the bearer token in the request headers.
+
+### POST `/uploads/avatar` — `PROTECTED`
+Upload an avatar image for the authenticated user (worker or customer). Uses `multipart/form-data`.
+
+**Form fields:**
+```
+avatar   File   Avatar image (JPEG/PNG/WebP, max 5 MB)
+```
+
+**Response `201`:**
+```json
+{ "avatarUrl": "uploads/avatars/8f14e45f-....jpg" }
+```
+
+### GET `/uploads/avatars/*path` — `PUBLIC`
+Serve an avatar image. No auth required — avatar URLs can be rendered directly.
+
+### GET `/uploads/*path` — `PROTECTED`
+Serve a verification or credential file. Allowed only for the worker the file belongs to, or an admin.
+
+| Status | Meaning |
+|---|---|
+| `401` | No/invalid token |
+| `403` | Authenticated but not the owning worker (or a customer) |
+| `404` | File does not exist, or path outside the known namespaces |
+
+---
+
 ## Notes for the Mobile Team
 
 - **Phone format:** Always E.164: `+63` + 10 digits (e.g., `+639171234567`). No spaces or dashes.
@@ -1664,6 +1730,32 @@ Delete a review. Atomically recalculates the worker's `averageRating` and `total
 - **Multipart uploads:** Verification and credential uploads use `multipart/form-data`. Set the correct `Content-Type` boundary — most HTTP clients handle this automatically when you append files to a `FormData` object.
 - **Rate limits:** OTP request is throttled at 3/15 min. Show a countdown UI after the first send to prevent user frustration.
 - **Empty responses:** `PATCH /bookings/:id/accept|reject|start|complete|cancel` (the update endpoint `PATCH /bookings/:id` also returns `null`) and `POST|DELETE /notifications/push-token` all return HTTP `200` with an **empty body** — do not try to parse a JSON response.
+
+---
+
+## 16. Health / Ops Endpoints
+
+### GET `/health` — `PUBLIC`
+Returns the API and database health status. No authentication required.
+
+**Response `200` — healthy:**
+```json
+{
+  "status": "ok",
+  "db": "up"
+}
+```
+
+**Response `503` — database unreachable:**
+```json
+{
+  "statusCode": 503,
+  "message": "Database is unreachable.",
+  "error": "Service Unavailable"
+}
+```
+
+> Use this endpoint for uptime monitoring and load-balancer health checks. Poll it before displaying the app's main content if you want to show a graceful "service unavailable" screen.
 
 ---
 

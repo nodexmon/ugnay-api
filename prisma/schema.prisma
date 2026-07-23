@@ -123,7 +123,8 @@ model OtpRequest {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String?  @db.Uuid
   phone     String
-  code      String
+  codeHash  String
+  attempts  Int      @default(0)
   verified  Boolean  @default(false)
   expiresAt DateTime
   createdAt DateTime @default(now())
@@ -189,6 +190,7 @@ model WorkerProfile {
   totalJobsCompleted Int          @default(0)
   averageRating      Decimal      @default(0) @db.Decimal(3, 2)
   totalReviews       Int          @default(0)
+  rankingScore       Decimal      @default(0) @db.Decimal(3, 2)
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
@@ -205,7 +207,7 @@ model WorkerProfile {
 
   @@index([status, isOnline])
   @@index([homeBarangayId])
-  @@index([averageRating])
+  @@index([rankingScore])
   @@map("worker_profiles")
 }
 
@@ -453,4 +455,13 @@ model PushToken {
 
   @@index([userId])
   @@map("push_tokens")
+}
+
+model PushTicket {
+  id        String   @id @default(uuid()) @db.Uuid
+  ticketId  String   @unique
+  token     String
+  createdAt DateTime @default(now())
+
+  @@map("push_tickets")
 }

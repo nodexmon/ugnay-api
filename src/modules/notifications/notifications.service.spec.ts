@@ -19,6 +19,9 @@ describe('NotificationsService', () => {
       upsert: jest.fn(),
       deleteMany: jest.fn(),
     },
+    pushTicket: {
+      createMany: jest.fn(),
+    },
   };
 
   const logger = {
@@ -28,6 +31,7 @@ describe('NotificationsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    prisma.pushTicket.createMany.mockResolvedValue({ count: 0 });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -47,6 +51,7 @@ describe('NotificationsService', () => {
       await expect(
         service.sendToUser('user-id', { title: 'Hello', body: 'World' }),
       ).resolves.toBeUndefined();
+      expect(prisma.pushTicket.createMany).not.toHaveBeenCalled();
     });
 
     it('does not throw when the push token is invalid (non-Expo format)', async () => {
@@ -56,6 +61,57 @@ describe('NotificationsService', () => {
 
       await expect(
         service.sendToUser('user-id', { title: 'Hello', body: 'World' }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('persists ok tickets after a successful send', async () => {
+      prisma.pushToken.findMany.mockResolvedValue([mockToken]);
+
+      const mockExpo = (service as any).expo;
+      jest
+        .spyOn(mockExpo, 'sendPushNotificationsAsync')
+        .mockResolvedValue([{ status: 'ok', id: 'ticket-abc' }]);
+
+      await service.sendToUser('user-id', { title: 'Hi', body: 'There' });
+
+      expect(prisma.pushTicket.createMany).toHaveBeenCalledWith({
+        data: [{ ticketId: 'ticket-abc', token: mockToken.token }],
+        skipDuplicates: true,
+      });
+    });
+
+    it('deletes the push token immediately on DeviceNotRegistered error ticket', async () => {
+      prisma.pushToken.findMany.mockResolvedValue([mockToken]);
+      prisma.pushToken.deleteMany.mockResolvedValue({ count: 1 });
+
+      const mockExpo = (service as any).expo;
+      jest.spyOn(mockExpo, 'sendPushNotificationsAsync').mockResolvedValue([
+        {
+          status: 'error',
+          message: 'DeviceNotRegistered',
+          details: { error: 'DeviceNotRegistered' },
+        },
+      ]);
+
+      await service.sendToUser('user-id', { title: 'Hi', body: 'There' });
+
+      expect(prisma.pushToken.deleteMany).toHaveBeenCalledWith({
+        where: { token: mockToken.token },
+      });
+      expect(prisma.pushTicket.createMany).not.toHaveBeenCalled();
+    });
+
+    it('does not throw when the ticket persistence fails (bookkeeping swallowed)', async () => {
+      prisma.pushToken.findMany.mockResolvedValue([mockToken]);
+      prisma.pushTicket.createMany.mockRejectedValue(new Error('DB error'));
+
+      const mockExpo = (service as any).expo;
+      jest
+        .spyOn(mockExpo, 'sendPushNotificationsAsync')
+        .mockResolvedValue([{ status: 'ok', id: 'ticket-xyz' }]);
+
+      await expect(
+        service.sendToUser('user-id', { title: 'Hi', body: 'There' }),
       ).resolves.toBeUndefined();
     });
   });

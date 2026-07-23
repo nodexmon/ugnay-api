@@ -1,4 +1,8 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Role, UserStatus } from '@/generated/prisma/enums';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -7,6 +11,7 @@ import { OtpService } from '@/modules/auth/otp/otp.service';
 import { SmsService } from '@/modules/auth/sms/sms.service';
 import { AuthService } from '@/modules/auth/auth.service';
 import { AuthAssertions } from '@/modules/auth/auth.assertions';
+import { Logger } from 'nestjs-pino';
 import { jwtConfig } from '@/config';
 
 const mockJwtConfig = {
@@ -44,12 +49,16 @@ describe('AuthService', () => {
     findUserForRefresh: jest.fn(),
     findRefreshToken: jest.fn(),
     assertTokenIsValid: jest.fn(),
+    isTokenReuse: jest.fn().mockReturnValue(false),
     hashToken: jest.fn().mockReturnValue('hashed-token'),
   };
+
+  const logger = { warn: jest.fn(), error: jest.fn(), debug: jest.fn() };
 
   const otpService = {
     createOtp: jest.fn(),
     verifyOtp: jest.fn(),
+    deleteOtp: jest.fn(),
   };
 
   const smsService = {
@@ -80,6 +89,7 @@ describe('AuthService', () => {
         { provide: OtpService, useValue: otpService },
         { provide: SmsService, useValue: smsService },
         { provide: AuthJwtService, useValue: jwtService },
+        { provide: Logger, useValue: logger },
         { provide: jwtConfig.KEY, useValue: mockJwtConfig },
       ],
     }).compile();
@@ -88,7 +98,7 @@ describe('AuthService', () => {
   });
 
   it('sends an OTP through SMS', async () => {
-    otpService.createOtp.mockResolvedValue('123456');
+    otpService.createOtp.mockResolvedValue({ id: 'otp-id', code: '123456' });
 
     await service.sendOtp('+639171234567');
 
@@ -96,6 +106,22 @@ describe('AuthService', () => {
       '+639171234567',
       'Your OTP code is 123456. Do not share this to anyone.',
     );
+    expect(otpService.deleteOtp).not.toHaveBeenCalled();
+  });
+
+  it('deletes the OTP and rethrows when the SMS send fails', async () => {
+    otpService.createOtp.mockResolvedValue({ id: 'otp-id', code: '123456' });
+    otpService.deleteOtp.mockResolvedValue(undefined);
+    smsService.sendSms.mockRejectedValue(
+      new ServiceUnavailableException(
+        'SMS service is temporarily unavailable. Please try again later.',
+      ),
+    );
+
+    await expect(service.sendOtp('+639171234567')).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    expect(otpService.deleteOtp).toHaveBeenCalledWith('otp-id');
   });
 
   describe('verifyOtp', () => {
@@ -192,6 +218,52 @@ describe('AuthService', () => {
       await expect(
         service.register('bad-token', Role.WORKER),
       ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+  });
+
+  describe('refreshToken — reuse detection', () => {
+    const storedToken = {
+      id: 'token-id',
+      userId: 'user-id',
+      tokenHash: 'hashed-token',
+      revokedAt: new Date(),
+      expiresAt: new Date(Date.now() + 60_000),
+    };
+
+    beforeEach(() => {
+      jwtService.verifyRefreshToken.mockResolvedValue({
+        sub: 'user-id',
+        tokenId: 'token-id',
+      });
+      authAssertions.findUserForRefresh.mockResolvedValue(activeUser);
+      authAssertions.findRefreshToken.mockResolvedValue(storedToken);
+    });
+
+    it('revokes all sessions and throws 401 when a previously rotated token is replayed', async () => {
+      authAssertions.isTokenReuse.mockReturnValue(true);
+      prisma.refreshToken.updateMany.mockResolvedValue({ count: 2 });
+
+      await expect(service.refreshToken('old-token')).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-id', revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(logger.warn).toHaveBeenCalled();
+    });
+
+    it('does not revoke sessions when the token is merely expired (not reuse)', async () => {
+      authAssertions.isTokenReuse.mockReturnValue(false);
+      authAssertions.assertTokenIsValid.mockImplementation(() => {
+        throw new UnauthorizedException('Session is invalid.');
+      });
+
+      await expect(
+        service.refreshToken('expired-token'),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(prisma.refreshToken.updateMany).not.toHaveBeenCalled();
+      expect(logger.warn).not.toHaveBeenCalled();
     });
   });
 });

@@ -19,6 +19,7 @@ import {
 } from '@/common/constants/worker-includes';
 import { UsersAssertions } from '../users/users.assertions';
 import { CredentialType } from '@/generated/prisma/enums';
+import { MIN_REVIEWS_FOR_PUBLIC_RATING } from '@/common/utils/rating.util';
 
 @Injectable()
 export class WorkersService {
@@ -60,7 +61,7 @@ export class WorkersService {
         where,
         include: PUBLIC_WORKER_INCLUDE,
         orderBy: [
-          { averageRating: 'desc' },
+          { rankingScore: 'desc' },
           { totalReviews: 'desc' },
           { createdAt: 'desc' },
         ],
@@ -72,7 +73,10 @@ export class WorkersService {
     return {
       items: items.map((w) => ({
         ...w,
-        averageRating: w.totalReviews >= 3 ? w.averageRating : null,
+        averageRating:
+          w.totalReviews >= MIN_REVIEWS_FOR_PUBLIC_RATING
+            ? w.averageRating
+            : null,
       })),
       total,
       skip,
@@ -114,6 +118,18 @@ export class WorkersService {
     return { items: strikes, total: worker.strikeCount };
   }
 
+  async findOwnCredentials(userId: string) {
+    const worker = await this.prisma.workerProfile.findUnique({
+      where: { userId },
+    });
+    if (!worker) throw new NotFoundException('Worker profile not found.');
+
+    return this.prisma.workerCredential.findMany({
+      where: { workerId: worker.id },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async findPublicProfile(id: string) {
     const worker = await this.prisma.workerProfile.findUnique({
       where: {
@@ -128,7 +144,10 @@ export class WorkersService {
 
     return {
       ...worker,
-      averageRating: worker.totalReviews >= 3 ? worker.averageRating : null,
+      averageRating:
+        worker.totalReviews >= MIN_REVIEWS_FOR_PUBLIC_RATING
+          ? worker.averageRating
+          : null,
     };
   }
 

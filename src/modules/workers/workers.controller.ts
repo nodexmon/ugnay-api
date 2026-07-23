@@ -51,12 +51,6 @@ export class WorkersController {
     return this.workersService.findOwnProfile(user.sub);
   }
 
-  @Public()
-  @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.workersService.findPublicProfile(id);
-  }
-
   @CheckAbility(Action.Create, 'WorkerProfile')
   @Post('profile')
   createProfile(
@@ -94,6 +88,19 @@ export class WorkersController {
   @Get('strikes')
   getOwnStrikes(@CurrentUser() user: AuthJwtPayload) {
     return this.workersService.findOwnStrikes(user.sub);
+  }
+
+  @CheckAbility(Action.Read, 'WorkerCredential')
+  @Get('credentials')
+  getOwnCredentials(@CurrentUser() user: AuthJwtPayload) {
+    return this.workersService.findOwnCredentials(user.sub);
+  }
+
+  // Must stay below every static GET route — ':id' would otherwise shadow them.
+  @Public()
+  @Get(':id')
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.workersService.findPublicProfile(id);
   }
 
   @CheckAbility(Action.Create, 'VerificationDoc')

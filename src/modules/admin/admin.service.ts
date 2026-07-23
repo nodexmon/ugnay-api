@@ -4,11 +4,13 @@ import { PrismaService } from '@/prisma/prisma.service';
 import {
   BookingStatus,
   NoShowReportType,
+  Role,
   StrikeReason,
   UserStatus,
   VerificationStatus,
   WorkerStatus,
 } from '@/generated/prisma/enums';
+import { CreateAdminDto } from './dto/create-admin.dto';
 import { StrikeWorkerDto } from './dto/strike-worker.dto';
 import { ResolveNoShowDto } from './dto/resolve-no-show.dto';
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
@@ -27,6 +29,7 @@ import { ReinstateWorkerDto } from './dto/reinstate-worker.dto';
 import { AdminAssertions } from './admin.assertions';
 import { BarangaySyncService } from '@/modules/barangays/barangay-sync.service';
 import { applyStrike } from '@/common/utils/strike.util';
+import { computeWorkerRatingUpdate } from '@/common/utils/rating.util';
 
 @Injectable()
 export class AdminService {
@@ -138,6 +141,14 @@ export class AdminService {
           .catch(() => {});
         return result;
       });
+  }
+
+  async createAdmin(dto: CreateAdminDto) {
+    await this.assertions.assertPhoneNotRegistered(dto.phone);
+
+    return this.prisma.user.create({
+      data: { phone: dto.phone, role: Role.ADMIN },
+    });
   }
 
   async setUserSuspension(workerId: string, suspended: boolean) {
@@ -514,10 +525,7 @@ export class AdminService {
 
       await tx.workerProfile.update({
         where: { id: review.workerId },
-        data: {
-          averageRating: _avg.rating ?? 0,
-          totalReviews: _count,
-        },
+        data: computeWorkerRatingUpdate(_avg.rating ?? 0, _count),
       });
 
       return { deleted: true };

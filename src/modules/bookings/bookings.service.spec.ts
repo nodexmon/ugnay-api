@@ -111,7 +111,6 @@ describe('BookingsService', () => {
       scheduledDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
       description: 'Fix tap',
       timeWindow: 'MORNING' as never,
-      bookingType: 'ON_SITE' as never,
     };
 
     it('creates a booking and notifies the worker', async () => {
@@ -123,6 +122,18 @@ describe('BookingsService', () => {
       expect(prisma.booking.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ status: BookingStatus.PENDING }),
+        }),
+      );
+    });
+
+    it('assigns bookingType SCHEDULED for a future scheduledDate', async () => {
+      prisma.booking.create.mockResolvedValue({ id: 'booking-id', ...dto });
+
+      await service.create(customerJwt, dto);
+
+      expect(prisma.booking.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ bookingType: BookingType.SCHEDULED }),
         }),
       );
     });
@@ -147,11 +158,10 @@ describe('BookingsService', () => {
       );
     });
 
-    it('overrides bookingType to IMMEDIATE when scheduledDate is today (PST)', async () => {
+    it('assigns bookingType IMMEDIATE when scheduledDate is today (PST)', async () => {
       const sameDayDto = {
         ...dto,
         scheduledDate: new Date(),
-        bookingType: BookingType.SCHEDULED,
       };
       prisma.booking.create.mockResolvedValue({
         id: 'booking-id',

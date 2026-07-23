@@ -177,7 +177,7 @@ export class BookingsService {
     const bookingType =
       toDayMs(dto.scheduledDate) === toDayMs(new Date())
         ? BookingType.IMMEDIATE
-        : dto.bookingType;
+        : BookingType.SCHEDULED;
 
     let booking;
     try {

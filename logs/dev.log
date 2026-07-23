@@ -699,3 +699,129 @@ July 21, 2026 — BRD v1.3 gap closure round 4 (branch: fix/brd-gap-closure-roun
   verify tx.workerProfile.update (not updateMany) and correct userId derivation
 - workers.service.spec.ts: 3 new tests (PENDING exclusion; averageRating masked; unmasked)
 - Test count: 273 → 278 (all passing)
+
+---
+
+July 23, 2026 — BRD gap closure round 5 (branch: fix/brd-gap-closure-round5)
+
+Security:
+- Fixed PII exposure: GET /uploads/*path was @Public() and served every file under the
+  upload root, including government ID photos and selfies. Split into GET /uploads/avatars/*path
+  (public) and an auth-gated GET /uploads/*path allowing only the owning worker or an admin;
+  path is posix-normalized before the ownership check so verification/{own}/../{other} cannot
+  cross worker folders; avatars route is root-confined so avatars/../verification cannot escape
+- New UploadsAssertions (assertCanReadProtectedFile) + uploads.constants.ts; registered in module
+- New e2e suite uploads-access.e2e-spec.ts: 401/403/200 matrix for verification and credential
+  files, public avatar, traversal → 404
+
+Workers:
+- Fixed route shadowing: @Get(':id') was declared before @Get('verification') and @Get('strikes'),
+  so both returned 400 from ParseUUIDPipe; static GETs now precede the catch-all (comment added)
+- Added GET /workers/credentials: worker's own credential list (all statuses, newest first) so
+  rejection reasons are visible; new WORKER can(Read, 'WorkerCredential') CASL grant
+
+Admin provisioning (AUTH-08 was fiction — neither path existed):
+- prisma/seed.ts: seedAdmin() upserts an ADMIN user from ADMIN_PHONE (warns and skips when unset,
+  throws on malformed number); .env.example documents ADMIN_PHONE
+- Added POST /admin/admins: CreateAdminDto (+63 regex), assertPhoneNotRegistered (409 on any
+  existing user), creates User { role: ADMIN }; new admin logs in via the normal OTP flow
+
+Bookings (rescan finding):
+- bookingType is now derived entirely server-side (same-day PST → IMMEDIATE, else SCHEDULED);
+  removed from CreateBookingDto — clients could previously label a future booking IMMEDIATE
+- Fixed stale BookingType.ON_SITE in test/e2e/db.ts and 'ON_SITE' payloads in
+  bookings-lifecycle.e2e-spec.ts (predate the IMMEDIATE/SCHEDULED enum; did not compile)
+
+Infra:
+- Fixed test/jest-e2e.json: ts-jest resolved '../tsconfig.json' against cwd and escaped the repo
+  (e2e could not run at all); now '<rootDir>/../tsconfig.json'; removed invalid runInBand config key
+- Note: e2e suites could not be executed locally (no Docker/Postgres on this machine); unit
+  suite + lint are green, e2e must run in CI or a docker-equipped environment
+
+Docs:
+- BRD v1.3 → v1.4: AUTH-08 rewritten to match implementation; new AUTH-09 (two-step
+  registration with registrationToken); BKG-06/08 status eligibility + BR-15 (one no-show
+  report and one strike per booking, first-to-report wins); PENDING added to BKG-07/BR-09;
+  new File Access Control NFR row; §9 additions (POST /auth/register, GET /workers/credentials,
+  POST /admin/admins, PATCH /admin/workers/:id/reinstate, §9.9 upload endpoints); push-failure
+  risk mitigation no longer references nonexistent notification-bell/SMS fallbacks;
+  §8.1 no_show_reports row gains report_type; BKG-01/BR-11 reflect server-derived bookingType
+- Handout: fixed stale /uploads/workers/... path examples to real on-disk shapes; documented
+  GET /workers/credentials, POST /admin/admins, and new §15 Upload Endpoints with the
+  Authorization-header requirement for verification/credential file URLs
+- Rescan performed per plan: route inventory diffed against BRD §9 in both directions (clean);
+  behavior claims spot-checked against services/schema
+- Second full scan (behavior claims): verified JWT expiries, OTP limit, booking constants,
+  WRK-01/06/08 DTO bounds, REV-02 bounds, AUTH-07 refresh gate, BKG-04 review-prompt push,
+  reapply cap, push-token upsert — all match. Fixed 3 doc drifts: WRK-02/03 accept WebP,
+  WRK-07 credentials additionally accept PDF, push_tokens row wording (upsert on registration)
+- Test count: 278 → 303 (all passing)
+
+---
+
+July 23, 2026 — system design hardening (branch: fix/system-hardening)
+
+13-issue audit addressed across 8 phases (Phases 1–7 on prior session; Phase 8 + docs this session).
+
+Phase 1 — OTP hashing + attempt cap + SMS fail-fast (auth):
+- OTP codes now stored as SHA-256 hashes (codeHash column replaces code); plaintext never persisted
+- Verification capped at 5 wrong attempts; 5th attempt locks the OTP (row invisible to next findFirst);
+  all failure paths return the same generic 401 to prevent enumeration
+- SMS errors surface as HTTP 503 immediately (fail-fast); failed OTP is deleted so quota is not burned;
+  users can retry once the outage clears
+
+Phase 2 — Refresh-token reuse detection (auth):
+- Added AuthAssertions.isTokenReuse(): true iff revokedAt !== null AND hash matches
+- auth.service.refreshToken(): replay of a revoked token family-revokes all active sessions, logs warn, returns generic 401
+
+Phase 3 — Stale-ACCEPTED auto-cancel + expiry notify race fix (bookings):
+- Extracted getTimeWindowEndUtcMs() pure function to bookings.constants.ts; assertNoShowWindowOpen uses it
+- bookings.cron.expiredPendingBookings(): re-queries confirmed-EXPIRED ids before notifying — prevents notifying
+  a booking accepted in the window between findMany and updateMany
+- New @Cron(EVERY_HOUR) cancelStaleAcceptedBookings(): auto-cancels ACCEPTED bookings > 24h past their time-window
+  end; no strike; skips bookings under active no-show review; notifies both parties fire-and-forget
+
+Phase 4 — Push tickets + receipt cron + token pruning (notifications):
+- New PushTicket model (push_tickets table) — persists ok tickets for receipt polling
+- notifications.service: ok ticket ids persisted; DeviceNotRegistered error → immediate token prune
+- New notifications.cron (PUSH_RECEIPT_CRON every 15 min): polls Expo receipts, prunes dead tokens,
+  deletes resolved tickets, ages out tickets > 24h
+
+Phase 5 — rankingScore denormalized column (workers/reviews):
+- Added rankingScore Decimal(3,2) to worker_profiles; backfilled from averageRating for workers with ≥3 reviews
+- New rating.util.ts: computeWorkerRatingUpdate() returns {averageRating, totalReviews, rankingScore}
+- reviews.service and admin.service now call the util on every review create/delete
+- workers.service search orderBy: [rankingScore desc, totalReviews desc, createdAt desc]; masked workers sort last
+
+Phase 6 — DB-record-based file authorization (uploads):
+- UploadsAssertions.assertCanReadProtectedFile() rewritten: looks up owning DB record by storedUrl instead of
+  relying on path layout; no record → 404 for everyone including admin (orphan files unreachable)
+- Orphan-file sweep deferred (disk-space only risk now, not data exposure; asymmetric failure risk from a sweep bug)
+
+Phase 7 — Auth retention cron (auth):
+- New auth.constants.ts: REFRESH_TOKEN_RETENTION_MS = 30d; OTP_RETENTION_MS = 24h added to otp.constants.ts
+- New AuthCron: @Cron(EVERY_DAY_AT_6PM) — 18:00 UTC = 02:00 Asia/Manila off-peak; purges OTPs >24h,
+  revoked/expired refresh tokens >30d; each purge in independent try/catch
+
+Phase 8 — Ops: health endpoint, graceful shutdown, per-user throttling, CORS via config:
+- GET /health (@Public): calls prisma.$queryRaw SELECT 1; returns {status:'ok',db:'up'} or 503
+- PrismaService.onModuleDestroy(): $disconnect() on graceful shutdown
+- main.ts: app.enableShutdownHooks(); CORS_ORIGIN read from typed appConfig (not raw process.env);
+  Swagger NODE_ENV check also uses appConfig
+- New AppThrottlerGuard: extends ThrottlerGuard, getTracker → req.user?.sub ?? req.ip ?? ''
+  (per-user throttling for authenticated routes; public routes fall back to IP)
+- Swapped ThrottlerGuard → AppThrottlerGuard in APP_GUARD providers
+- appConfig Zod schema: added CORS_ORIGIN optional field
+
+Docs:
+- BRD v1.4 → v1.5: AUTH-05 hashed codes note; new AUTH-10 (attempt cap, generic errors);
+  AUTH-11 (reuse family revocation); BKG-11 (system auto-cancel, no strike, both-party push);
+  BKG-11 reference in CANCELLED status; REV-04 rankingScore explanation; worker_profiles schema row
+  updated; Notifications NFR (receipt polling, token pruning); File Access Control NFR updated;
+  new Data Retention NFR (OTP 24h, refresh 30d); §9.8 Operations Endpoints (GET /health);
+  risk register: SMS fail-fast, orphan files deferred, push delivery improved
+- Handout: request-otp 503 behavior; verify-otp lockout (5 wrong = re-request, same 401);
+  refresh reuse detection (family revoke → force re-login); CANCELLED enum entry updated;
+  new §16 Health / Ops Endpoints; ToC updated
+
+Test count: 303 → 341 (38 new tests across auth, bookings, notifications, uploads, workers, app specs)

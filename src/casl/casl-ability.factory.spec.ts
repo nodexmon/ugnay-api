@@ -47,6 +47,12 @@ describe('CaslAbilityFactory', () => {
       expect(ability.can(Action.Read, 'Barangay')).toBe(true);
       expect(ability.can(Action.Create, 'ServiceCategory')).toBe(false);
     });
+
+    it('can create and read own credentials', () => {
+      const ability = factory.createForUser(makeUser(Role.WORKER));
+      expect(ability.can(Action.Create, 'WorkerCredential')).toBe(true);
+      expect(ability.can(Action.Read, 'WorkerCredential')).toBe(true);
+    });
   });
 
   describe('CUSTOMER', () => {
@@ -59,6 +65,11 @@ describe('CaslAbilityFactory', () => {
     it('cannot create verification docs', () => {
       const ability = factory.createForUser(makeUser(Role.CUSTOMER));
       expect(ability.can(Action.Create, 'VerificationDoc')).toBe(false);
+    });
+
+    it('cannot read worker credentials', () => {
+      const ability = factory.createForUser(makeUser(Role.CUSTOMER));
+      expect(ability.can(Action.Read, 'WorkerCredential')).toBe(false);
     });
 
     it('has read-only access to service categories and barangays', () => {

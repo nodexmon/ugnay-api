@@ -55,6 +55,7 @@ describe('AdminService', () => {
       update: jest.fn(),
       findUnique: jest.fn(),
       count: jest.fn(),
+      create: jest.fn(),
     },
     booking: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
     noShowReport: {
@@ -73,6 +74,7 @@ describe('AdminService', () => {
   const assertions = {
     assertWorkerIsUnverified: jest.fn(),
     assertUserExists: jest.fn(),
+    assertPhoneNotRegistered: jest.fn(),
     findWorkerProfile: jest.fn(),
     findSuspendedWorker: jest.fn(),
     assertBookingExists: jest.fn(),
@@ -173,6 +175,35 @@ describe('AdminService', () => {
     await service.setUserSuspension('user-id', false);
 
     expect(tx.workerProfile.updateMany).not.toHaveBeenCalled();
+  });
+
+  describe('createAdmin', () => {
+    it('creates an ADMIN user after the phone check passes', async () => {
+      const created = { id: 'new-admin-id', role: Role.ADMIN };
+      assertions.assertPhoneNotRegistered.mockResolvedValue(undefined);
+      prisma.user.create.mockResolvedValue(created);
+
+      const result = await service.createAdmin({ phone: '+639171234567' });
+
+      expect(result).toBe(created);
+      expect(assertions.assertPhoneNotRegistered).toHaveBeenCalledWith(
+        '+639171234567',
+      );
+      expect(prisma.user.create).toHaveBeenCalledWith({
+        data: { phone: '+639171234567', role: Role.ADMIN },
+      });
+    });
+
+    it('propagates ConflictException when the phone is already registered', async () => {
+      assertions.assertPhoneNotRegistered.mockRejectedValue(
+        new ConflictException('Phone number is already registered.'),
+      );
+
+      await expect(
+        service.createAdmin({ phone: '+639171234567' }),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('reinstateWorker', () => {
@@ -609,7 +640,10 @@ describe('AdminService', () => {
       expect(result).toEqual({ deleted: true });
       expect(tx.workerProfile.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: { averageRating: 3.5, totalReviews: 2 },
+          data: expect.objectContaining({
+            averageRating: 3.5,
+            totalReviews: 2,
+          }),
         }),
       );
     });
@@ -626,7 +660,7 @@ describe('AdminService', () => {
 
       expect(tx.workerProfile.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: { averageRating: 0, totalReviews: 0 },
+          data: expect.objectContaining({ averageRating: 0, totalReviews: 0 }),
         }),
       );
     });

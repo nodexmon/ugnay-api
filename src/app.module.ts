@@ -10,7 +10,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from '@/modules/auth/auth.guard';
 import { CaslGuard } from '@/casl/casl.guard';
 import { CaslModule } from '@/casl/casl.module';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { AppThrottlerGuard } from '@/common/guards/app-throttler.guard';
 import { CategoriesModule } from '@/modules/categories/categories.module';
 import { AdminModule } from '@/modules/admin/admin.module';
 import { ConfigModule, ConfigType } from '@nestjs/config';
@@ -82,7 +83,7 @@ import { BarangaysModule } from './modules/barangays/barangays.module';
       useClass: CaslGuard,
     },
     ...(process.env['NODE_ENV'] !== 'development'
-      ? [{ provide: APP_GUARD, useClass: ThrottlerGuard }]
+      ? [{ provide: APP_GUARD, useClass: AppThrottlerGuard }]
       : []),
   ],
 })

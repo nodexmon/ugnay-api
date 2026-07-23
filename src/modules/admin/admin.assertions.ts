@@ -38,6 +38,15 @@ export class AdminAssertions {
     if (!user) throw new NotFoundException('User not found.');
   }
 
+  async assertPhoneNotRegistered(phone: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { phone },
+      select: { id: true },
+    });
+    if (user)
+      throw new ConflictException('Phone number is already registered.');
+  }
+
   async findPendingVerification(docId: string) {
     const doc = await this.prisma.verificationDoc.findUnique({
       where: { id: docId },

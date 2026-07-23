@@ -30,6 +30,7 @@ export class CaslAbilityFactory {
 
         // Worker Credential
         can(Action.Create, 'WorkerCredential');
+        can(Action.Read, 'WorkerCredential');
 
         // Booking
         can(Action.Read, 'Booking');

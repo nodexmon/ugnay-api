@@ -18,7 +18,7 @@ import {
   BOOKING_MAX_ADVANCE_MS,
   NO_SHOW_DEADLINE_EXTRA_MS,
   PST_OFFSET_MS,
-  TIME_WINDOW_END_HOUR_PST,
+  getTimeWindowEndUtcMs,
 } from '@/modules/bookings/bookings.constants';
 
 @Injectable()
@@ -119,16 +119,10 @@ export class BookingsAssertions {
     scheduledDate: Date;
     timeWindow: TimeWindow;
   }): void {
-    const scheduled = new Date(booking.scheduledDate.getTime() + PST_OFFSET_MS);
-    const endHour = TIME_WINDOW_END_HOUR_PST[booking.timeWindow];
-    const windowEndUTC =
-      Date.UTC(
-        scheduled.getUTCFullYear(),
-        scheduled.getUTCMonth(),
-        scheduled.getUTCDate(),
-      ) -
-      PST_OFFSET_MS +
-      endHour * 60 * 60 * 1000;
+    const windowEndUTC = getTimeWindowEndUtcMs(
+      booking.scheduledDate,
+      booking.timeWindow,
+    );
     const deadlineUTC = windowEndUTC + NO_SHOW_DEADLINE_EXTRA_MS;
     if (Date.now() < windowEndUTC) {
       throw new UnprocessableEntityException(

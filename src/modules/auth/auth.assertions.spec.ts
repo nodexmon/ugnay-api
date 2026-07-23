@@ -151,4 +151,35 @@ describe('AuthAssertions', () => {
       expect(assertions.hashToken('a')).not.toBe(assertions.hashToken('b'));
     });
   });
+
+  describe('isTokenReuse', () => {
+    const rawToken = 'raw-refresh-token';
+
+    it('returns true when the hash matches and the token is revoked', () => {
+      const reuseToken = {
+        revokedAt: new Date(),
+        tokenHash: assertions.hashToken(rawToken),
+      } as any;
+
+      expect(assertions.isTokenReuse(reuseToken, rawToken)).toBe(true);
+    });
+
+    it('returns false when the hash matches but the token is NOT revoked (normal rotation)', () => {
+      const activeToken = {
+        revokedAt: null,
+        tokenHash: assertions.hashToken(rawToken),
+      } as any;
+
+      expect(assertions.isTokenReuse(activeToken, rawToken)).toBe(false);
+    });
+
+    it('returns false when the hash does not match (different token, different family)', () => {
+      const revokedOtherToken = {
+        revokedAt: new Date(),
+        tokenHash: assertions.hashToken('some-other-token'),
+      } as any;
+
+      expect(assertions.isTokenReuse(revokedOtherToken, rawToken)).toBe(false);
+    });
+  });
 });

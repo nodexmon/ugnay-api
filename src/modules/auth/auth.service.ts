@@ -5,6 +5,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Logger } from 'nestjs-pino';
 import { PrismaService } from '@/prisma/prisma.service';
 import { OtpService } from '@/modules/auth/otp/otp.service';
 import { SmsService } from '@/modules/auth/sms/sms.service';
@@ -27,6 +28,7 @@ export class AuthService {
     private readonly smsService: SmsService,
     private readonly jwtService: AuthJwtService,
     private readonly assertions: AuthAssertions,
+    private readonly logger: Logger,
     @Inject(jwtConfig.KEY)
     private readonly config: ConfigType<typeof jwtConfig>,
   ) {}
@@ -34,12 +36,18 @@ export class AuthService {
   // ─── Public API ──────────────────────────────────────────────────────────────
 
   async sendOtp(phone: string) {
-    const code = await this.otpService.createOtp(phone);
+    const { id, code } = await this.otpService.createOtp(phone);
 
-    await this.smsService.sendSms(
-      phone,
-      `Your OTP code is ${code}. Do not share this to anyone.`,
-    );
+    try {
+      await this.smsService.sendSms(
+        phone,
+        `Your OTP code is ${code}. Do not share this to anyone.`,
+      );
+    } catch (err) {
+      // The undelivered OTP must not count toward the hourly quota.
+      await this.otpService.deleteOtp(id).catch(() => {});
+      throw err;
+    }
 
     return {
       message: `OTP has been sent to ${phone}`,
@@ -88,6 +96,16 @@ export class AuthService {
     this.assertions.assertUserCanAuthenticate(user);
 
     const storedToken = await this.assertions.findRefreshToken(payload.tokenId);
+
+    if (this.assertions.isTokenReuse(storedToken, refreshToken)) {
+      await this.revokeTokensWhere({ userId: user.id, revokedAt: null });
+      this.logger.warn(
+        { userId: user.id },
+        'Refresh token reuse detected — all sessions revoked',
+      );
+      throw new UnauthorizedException('Session is invalid.');
+    }
+
     this.assertions.assertTokenIsValid(user.id, storedToken, refreshToken);
 
     const nextRefreshTokenId = randomUUID();

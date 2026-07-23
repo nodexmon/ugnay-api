@@ -9,9 +9,13 @@ import { Public } from '@/common/decorators/public-endpoint.decorator';
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  @Public()
   @Get()
   getHello(): string {
     return this.appService.getHello();
+  }
+
+  @Get('health')
+  checkHealth(): Promise<{ status: string; db: string }> {
+    return this.appService.checkHealth();
   }
 }
