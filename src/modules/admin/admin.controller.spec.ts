@@ -20,6 +20,7 @@ describe('AdminController', () => {
     approveCredential: jest.fn(),
     rejectCredential: jest.fn(),
     setUserSuspension: jest.fn(),
+    createAdmin: jest.fn(),
     strikeWorker: jest.fn(),
     findPendingNoShows: jest.fn(),
     resolveNoShow: jest.fn(),
@@ -59,7 +60,12 @@ describe('AdminController', () => {
 
   it('listPendingVerifications calls service.findPendingVerifications', async () => {
     const query = { skip: 0, take: 10 };
-    mockService.findPendingVerifications.mockResolvedValue({ items: [], total: 0, skip: 0, take: 10 });
+    mockService.findPendingVerifications.mockResolvedValue({
+      items: [],
+      total: 0,
+      skip: 0,
+      take: 10,
+    });
     await controller.listPendingVerifications(query);
     expect(service.findPendingVerifications).toHaveBeenCalledWith(query);
   });
@@ -87,7 +93,12 @@ describe('AdminController', () => {
 
   it('listPendingCredentials calls service.findPendingCredentials', async () => {
     const query = { skip: 0, take: 10 };
-    mockService.findPendingCredentials.mockResolvedValue({ items: [], total: 0, skip: 0, take: 10 });
+    mockService.findPendingCredentials.mockResolvedValue({
+      items: [],
+      total: 0,
+      skip: 0,
+      take: 10,
+    });
     await controller.listPendingCredentials(query);
     expect(service.findPendingCredentials).toHaveBeenCalledWith(query);
   });
@@ -100,8 +111,21 @@ describe('AdminController', () => {
 
   it('rejectCredential calls service.rejectCredential with id, user, and reason', async () => {
     mockService.rejectCredential.mockResolvedValue({});
-    await controller.rejectCredential(adminJwt, 'cred-id', { reason: 'Certificate expired' });
-    expect(service.rejectCredential).toHaveBeenCalledWith('cred-id', adminJwt, 'Certificate expired');
+    await controller.rejectCredential(adminJwt, 'cred-id', {
+      reason: 'Certificate expired',
+    });
+    expect(service.rejectCredential).toHaveBeenCalledWith(
+      'cred-id',
+      adminJwt,
+      'Certificate expired',
+    );
+  });
+
+  it('createAdmin calls service.createAdmin with the dto', async () => {
+    const dto = { phone: '+639171234567' };
+    mockService.createAdmin.mockResolvedValue({ id: 'new-admin-id' });
+    await controller.createAdmin(dto);
+    expect(service.createAdmin).toHaveBeenCalledWith(dto);
   });
 
   it('setUserSuspension calls service.setUserSuspension with id and suspended flag', async () => {
@@ -119,7 +143,12 @@ describe('AdminController', () => {
 
   it('listPendingNoShows calls service.findPendingNoShows', async () => {
     const query = { skip: 0, take: 10 };
-    mockService.findPendingNoShows.mockResolvedValue({ items: [], total: 0, skip: 0, take: 10 });
+    mockService.findPendingNoShows.mockResolvedValue({
+      items: [],
+      total: 0,
+      skip: 0,
+      take: 10,
+    });
     await controller.listPendingNoShows(query);
     expect(service.findPendingNoShows).toHaveBeenCalledWith(query);
   });

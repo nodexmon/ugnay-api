@@ -71,4 +71,54 @@ describe('Auth & guard chain (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
   });
+
+  describe('POST /admin/admins', () => {
+    it('returns 401 without a token', async () => {
+      await request(server())
+        .post('/admin/admins')
+        .send({ phone: '+639171234567' })
+        .expect(401);
+    });
+
+    it('returns 403 for a customer', async () => {
+      const user = await testApp.prisma.user.create({
+        data: { phone: '+639111111111', role: Role.CUSTOMER },
+      });
+      const token = testApp.mintToken({ sub: user.id, role: Role.CUSTOMER });
+
+      await request(server())
+        .post('/admin/admins')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ phone: '+639171234567' })
+        .expect(403);
+    });
+
+    it('creates an ADMIN user when called by an admin', async () => {
+      const admin = await createAdmin(testApp.prisma);
+      const token = testApp.mintToken({ sub: admin.id, role: Role.ADMIN });
+
+      const res = await request(server())
+        .post('/admin/admins')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ phone: '+639171234567' })
+        .expect(201);
+
+      expect(res.body.role).toBe(Role.ADMIN);
+      expect(res.body.phone).toBe('+639171234567');
+    });
+
+    it('returns 409 for an already-registered phone', async () => {
+      const admin = await createAdmin(testApp.prisma);
+      const token = testApp.mintToken({ sub: admin.id, role: Role.ADMIN });
+      await testApp.prisma.user.create({
+        data: { phone: '+639171234567', role: Role.CUSTOMER },
+      });
+
+      await request(server())
+        .post('/admin/admins')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ phone: '+639171234567' })
+        .expect(409);
+    });
+  });
 });

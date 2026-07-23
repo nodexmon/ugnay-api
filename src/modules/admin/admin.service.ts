@@ -4,11 +4,13 @@ import { PrismaService } from '@/prisma/prisma.service';
 import {
   BookingStatus,
   NoShowReportType,
+  Role,
   StrikeReason,
   UserStatus,
   VerificationStatus,
   WorkerStatus,
 } from '@/generated/prisma/enums';
+import { CreateAdminDto } from './dto/create-admin.dto';
 import { StrikeWorkerDto } from './dto/strike-worker.dto';
 import { ResolveNoShowDto } from './dto/resolve-no-show.dto';
 import { FindUsersQueryDto } from './dto/find-users-query.dto';
@@ -138,6 +140,14 @@ export class AdminService {
           .catch(() => {});
         return result;
       });
+  }
+
+  async createAdmin(dto: CreateAdminDto) {
+    await this.assertions.assertPhoneNotRegistered(dto.phone);
+
+    return this.prisma.user.create({
+      data: { phone: dto.phone, role: Role.ADMIN },
+    });
   }
 
   async setUserSuspension(workerId: string, suspended: boolean) {

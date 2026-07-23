@@ -1,5 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
+import { Role, UserStatus } from '../src/generated/prisma/enums';
 import 'dotenv/config';
 
 const prisma = new PrismaClient({
@@ -73,6 +74,7 @@ const barangays = [
 async function main() {
   await cleanUserData();
   await seedCatalog();
+  await seedAdmin();
   console.info('Seed complete. Categories and barangays are ready.');
 }
 
@@ -113,6 +115,26 @@ async function seedCatalog() {
       create: { ...barangay, isActive: true },
     });
   }
+}
+
+async function seedAdmin() {
+  const phone = process.env['ADMIN_PHONE'];
+
+  if (!phone) {
+    console.warn('ADMIN_PHONE not set — skipping admin seed.');
+    return;
+  }
+
+  if (!/^\+63\d{10}$/.test(phone)) {
+    throw new Error('ADMIN_PHONE must be in E.164 format (+63XXXXXXXXXX).');
+  }
+
+  await prisma.user.upsert({
+    where: { phone },
+    update: { role: Role.ADMIN, status: UserStatus.ACTIVE },
+    create: { phone, role: Role.ADMIN },
+  });
+  console.info(`Admin user seeded for ${phone}.`);
 }
 
 main()

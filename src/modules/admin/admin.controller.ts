@@ -16,6 +16,7 @@ import { type AuthJwtPayload } from '@/modules/auth/auth.types';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AdminService } from '@/modules/admin/admin.service';
 import { RejectVerificationDto } from '@/modules/admin/dto/reject-verification.dto';
+import { CreateAdminDto } from '@/modules/admin/dto/create-admin.dto';
 import { SuspendUserDto } from '@/modules/admin/dto/suspend-user.dto';
 import { StrikeWorkerDto } from './dto/strike-worker.dto';
 import { ResolveNoShowDto } from './dto/resolve-no-show.dto';
@@ -90,6 +91,11 @@ export class AdminController {
     @Body() dto: RejectVerificationDto,
   ) {
     return this.adminService.rejectCredential(id, user, dto.reason);
+  }
+
+  @Post('admins')
+  createAdmin(@Body() dto: CreateAdminDto) {
+    return this.adminService.createAdmin(dto);
   }
 
   @Patch('users/:id/suspend')
