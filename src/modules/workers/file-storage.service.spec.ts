@@ -1,3 +1,4 @@
+import { join } from 'path';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FileStorageService } from './file-storage.service';
 import { uploadConfig } from '@/config';
@@ -7,7 +8,10 @@ jest.mock('fs/promises', () => ({
   writeFile: jest.fn().mockResolvedValue(undefined),
 }));
 
-const mockUploadConfig = { UPLOAD_DIR: 'uploads' };
+const mockUploadConfig = {
+  UPLOAD_DIR: 'uploads',
+  UPLOAD_ROOT: join(process.cwd(), 'uploads'),
+};
 
 const mockFile = {
   originalname: 'cert.pdf',

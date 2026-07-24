@@ -1,3 +1,4 @@
+import { join } from 'path';
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Role } from '@/generated/prisma/enums';
@@ -43,7 +44,13 @@ describe('UploadsService', () => {
         UploadsService,
         { provide: PrismaService, useValue: prisma },
         { provide: UploadsAssertions, useValue: assertions },
-        { provide: uploadConfig.KEY, useValue: { UPLOAD_DIR: 'uploads' } },
+        {
+          provide: uploadConfig.KEY,
+          useValue: {
+            UPLOAD_DIR: 'uploads',
+            UPLOAD_ROOT: join(process.cwd(), 'uploads'),
+          },
+        },
       ],
     }).compile();
 

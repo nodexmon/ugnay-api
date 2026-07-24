@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { mkdir, writeFile } from 'fs/promises';
-import { extname, join } from 'path';
+import { extname, join, posix } from 'path';
 import { randomUUID } from 'crypto';
 import type { ConfigType } from '@nestjs/config';
 import { uploadConfig } from '@/config';
@@ -19,26 +19,21 @@ export class FileStorageService {
     file: FileMetadata,
     subdir = 'verification',
   ): FilePaths {
-    const uploadRoot = this.config.UPLOAD_DIR;
-    const relativeDir = join(subdir, workerId);
     const extension = extname(file.originalname).toLowerCase() || '.jpg';
     const filename = `${kind}-${randomUUID()}${extension}`;
-    const relative = join(uploadRoot, relativeDir, filename).replace(
-      /\\/g,
-      '/',
-    );
-    const absolute = join(
-      __dirname,
-      '..',
-      '..',
-      uploadRoot,
-      relativeDir,
+    // Stored URL keeps the logical UPLOAD_DIR prefix (forward slashes); the
+    // physical path is anchored to the absolute UPLOAD_ROOT.
+    const relative = posix.join(
+      this.config.UPLOAD_DIR,
+      subdir,
+      workerId,
       filename,
     );
+    const dir = join(this.config.UPLOAD_ROOT, subdir, workerId);
     return {
       relative,
-      absolute,
-      dir: join(__dirname, '..', '..', uploadRoot, relativeDir),
+      absolute: join(dir, filename),
+      dir,
     };
   }
 

@@ -42,9 +42,8 @@ export class UploadsService {
   ): Promise<{ avatarUrl: string }> {
     const ext = extname(file.originalname).toLowerCase() || '.jpg';
     const filename = `${randomUUID()}${ext}`;
-    const uploadRoot = this.config.UPLOAD_DIR;
-    const absoluteDir = join(process.cwd(), uploadRoot, 'avatars');
-    const avatarUrl = `${uploadRoot}/avatars/${filename}`;
+    const absoluteDir = join(this.config.UPLOAD_ROOT, 'avatars');
+    const avatarUrl = `${this.config.UPLOAD_DIR}/avatars/${filename}`;
 
     await mkdir(absoluteDir, { recursive: true });
     await writeFile(join(absoluteDir, filename), file.buffer);
@@ -66,7 +65,7 @@ export class UploadsService {
 
   serveAvatar(filePath: string): StreamableFile {
     const safe = this.normalizeRelativePath(filePath);
-    const avatarsRoot = join(process.cwd(), this.config.UPLOAD_DIR, 'avatars');
+    const avatarsRoot = join(this.config.UPLOAD_ROOT, 'avatars');
     return this.streamFromDisk(safe, avatarsRoot);
   }
 
@@ -77,8 +76,7 @@ export class UploadsService {
     const normalized = this.normalizeRelativePath(filePath);
     await this.assertions.assertCanReadProtectedFile(user, normalized);
 
-    const uploadRoot = join(process.cwd(), this.config.UPLOAD_DIR);
-    return this.streamFromDisk(normalized, uploadRoot);
+    return this.streamFromDisk(normalized, this.config.UPLOAD_ROOT);
   }
 
   // ─── Private: business logic ─────────────────────────────────────────────────
