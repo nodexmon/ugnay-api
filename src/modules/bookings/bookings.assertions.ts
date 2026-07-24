@@ -17,8 +17,8 @@ import {
 import {
   BOOKING_MAX_ADVANCE_MS,
   NO_SHOW_DEADLINE_EXTRA_MS,
-  PST_OFFSET_MS,
   getTimeWindowEndUtcMs,
+  toPhtDayMs,
 } from '@/modules/bookings/bookings.constants';
 
 @Injectable()
@@ -116,11 +116,7 @@ export class BookingsAssertions {
   }
 
   assertScheduledDateIsValid(scheduledAt: Date): void {
-    const toDayMs = (d: Date) => {
-      const p = new Date(d.getTime() + PST_OFFSET_MS);
-      return Date.UTC(p.getUTCFullYear(), p.getUTCMonth(), p.getUTCDate());
-    };
-    if (toDayMs(scheduledAt) < toDayMs(new Date())) {
+    if (toPhtDayMs(scheduledAt) < toPhtDayMs(new Date())) {
       throw new UnprocessableEntityException(
         'Scheduled date cannot be in the past.',
       );
