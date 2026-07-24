@@ -113,6 +113,8 @@ export async function createBooking(
     barangayId: string;
     status?: BookingStatus;
     expiresAt?: Date;
+    scheduledDate?: Date;
+    timeWindow?: TimeWindow;
   },
 ) {
   return prisma.booking.create({
@@ -123,8 +125,9 @@ export async function createBooking(
       barangayId: opts.barangayId,
       status: opts.status ?? BookingStatus.PENDING,
       bookingType: BookingType.SCHEDULED,
-      scheduledDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      timeWindow: TimeWindow.MORNING,
+      scheduledDate:
+        opts.scheduledDate ?? new Date(Date.now() + 24 * 60 * 60 * 1000),
+      timeWindow: opts.timeWindow ?? TimeWindow.MORNING,
       locationLat: 14.5,
       locationLng: 121.0,
       expiresAt: opts.expiresAt ?? new Date(Date.now() + 30 * 60 * 1000),

@@ -916,3 +916,22 @@ July 24, 2026 — fix(bookings): re-derive bookingType on update; BKG-10 422; PH
   (the offset is UTC+8 = Philippine time, never PST); added a comment warning against "fixing" it
 - Tests: added 3 update() specs (IMMEDIATE on same-day edit, SCHEDULED on future edit, no
   bookingType when date absent); updated the P2002 spec to expect 422. Suite 369 → 372, all green
+
+---
+
+July 24, 2026 — test(e2e): cover v1.5 cron jobs (branch: test/cron-e2e-coverage)
+
+- Added e2e coverage for two of the four v1.5 crons (the pure-DB, deterministic ones):
+  - bookings-stale-cancel.e2e-spec.ts (BKG-11): stale ACCEPTED → CANCELLED/SYSTEM/reason;
+    recent ACCEPTED untouched; stale-but-under-no-show-review skipped; stale non-ACCEPTED
+    untouched; and no strike issued on auto-cancel
+  - auth-retention.e2e-spec.ts (AuthCron.purgeExpiredAuthRecords): OTP >24h purged / recent
+    kept; refresh tokens expired-or-revoked >30d purged / active + recently-revoked kept
+- Extended the createBooking test helper (test/e2e/db.ts) to accept scheduledDate/timeWindow
+  overrides (defaults unchanged; existing expiry spec unaffected) so BKG-11 can plant a
+  past-dated booking
+- Skipped NotificationsCron.checkPushReceipts e2e: it calls Expo's external receipt API, so a
+  real e2e would hit the network; its unit spec already covers the logic
+- Verified at author-time: pnpm lint clean, full tsc pass shows 0 errors in the new files,
+  unit suite unchanged at 372. E2E execution needs the test Postgres (docker-compose.test.yml)
+  and runs in CI / on a docker machine — not run locally (no Docker on this box)
