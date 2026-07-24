@@ -1,20 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { WORKER_INCLUDE } from '@/common/constants/worker-includes';
-import type { Prisma } from '@/generated/prisma/client';
-
-type MeProfile = Prisma.UserGetPayload<{
-  select: {
-    id: true;
-    phone: true;
-    role: true;
-    status: true;
-    createdAt: true;
-    updatedAt: true;
-    workerProfile: { include: typeof WORKER_INCLUDE };
-    customerProfile: true;
-  };
-}>;
+import type { MeProfile } from './users.types';
 
 @Injectable()
 export class UsersService {

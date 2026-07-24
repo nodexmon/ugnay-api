@@ -6,19 +6,9 @@ import { AuthJwtPayload } from '@/modules/auth/auth.types';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { ReviewsAssertions } from './reviews.assertions';
 import { computeWorkerRatingUpdate } from '@/common/utils/rating.util';
-import type { Prisma, Review } from '@/generated/prisma/client';
+import type { Review } from '@/generated/prisma/client';
 import type { Paginated } from '@/common/types/paginated';
-
-type PublicReview = Prisma.ReviewGetPayload<{
-  select: {
-    id: true;
-    workerId: true;
-    bookingId: true;
-    rating: true;
-    comment: true;
-    createdAt: true;
-  };
-}>;
+import type { PublicReview } from './reviews.types';
 
 @Injectable()
 export class ReviewsService {

@@ -9,7 +9,11 @@ import {
 import { CreateWorkerDto } from '@/modules/workers/dto/create-worker.dto';
 import { UpdateWorkerDto } from '@/modules/workers/dto/update-worker.dto';
 import { FindWorkersQueryDto } from '@/modules/workers/dto/find-workers-query.dto';
-import type { UploadedVerificationFiles } from '@/modules/workers/workers.types';
+import type {
+  PublicWorkerListItem,
+  UploadedVerificationFiles,
+  WorkerWithRelations,
+} from '@/modules/workers/workers.types';
 import type { AvatarFile } from '@/uploads/uploads.types';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { FileStorageService } from '@/modules/workers/file-storage.service';
@@ -22,24 +26,12 @@ import { UsersAssertions } from '../users/users.assertions';
 import { CredentialType } from '@/generated/prisma/enums';
 import { MIN_REVIEWS_FOR_PUBLIC_RATING } from '@/common/utils/rating.util';
 import type {
-  Prisma,
   Strike,
   VerificationDoc,
   WorkerCredential,
   WorkerProfile,
 } from '@/generated/prisma/client';
 import type { Paginated } from '@/common/types/paginated';
-
-type WorkerWithRelations = Prisma.WorkerProfileGetPayload<{
-  include: typeof WORKER_INCLUDE;
-}>;
-
-// `averageRating` is hidden (null) until the worker crosses the public-rating
-// review threshold, so it widens the model's non-null Decimal to `Decimal | null`.
-type PublicWorkerListItem = Omit<
-  Prisma.WorkerProfileGetPayload<{ include: typeof PUBLIC_WORKER_INCLUDE }>,
-  'averageRating'
-> & { averageRating: Prisma.Decimal | null };
 
 @Injectable()
 export class WorkersService {

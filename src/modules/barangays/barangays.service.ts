@@ -1,10 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
-import type { Prisma } from '@/generated/prisma/client';
-
-type BarangayListItem = Prisma.BarangayGetPayload<{
-  select: { id: true; name: true; centroidLat: true; centroidLng: true };
-}>;
+import type { BarangayListItem } from './barangays.types';
 
 @Injectable()
 export class BarangaysService {

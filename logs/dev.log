@@ -999,3 +999,25 @@ July 24, 2026 — refactor(types): explicit return types across service layer (b
   hand-written union.
 - Incidental: fixed a pre-existing no-explicit-any in app-throttler.guard.ts (any → unknown).
 - Verified: pnpm build clean, pnpm lint 0 problems, unit suite 372/372 green.
+
+---
+
+July 24, 2026 — refactor(types): move service-level type declarations into [name].types.ts (branch: chore/lint-style-standards)
+
+- Convention (now documented in .claude/commands/typescript.md): a *.service.ts contains only the
+  @Injectable() class — no `type`/`interface` declarations. Module-owned types live in
+  [name].types.ts; include/select constants live in [name].constants.ts or common/constants/.
+- Moved out of services into new/existing types files:
+  - admin.service → admin.types.ts (new): PendingVerification, PendingCredential, WorkerWithRelations,
+    PendingNoShow, PendingCustomerNoShow, AdminUserListItem, AdminWorkerListItem, AdminBookingListItem,
+    AdminReviewListItem, NoShowResolution
+  - workers.service + file-storage.service → workers.types.ts: WorkerWithRelations, PublicWorkerListItem, FilePaths
+  - bookings.service → bookings.types.ts (new): BookingDetail, BookingDetailContactMasked;
+    BOOKING_DETAIL_INCLUDE const moved to common/constants/booking-selects.ts (runtime value)
+  - auth.service → auth.types.ts: SessionSummary
+  - reviews.service → reviews.types.ts (new): PublicReview
+  - users.service → users.types.ts (new): MeProfile
+  - barangays.service + barangay-sync.service → barangays.types.ts (new): BarangayListItem, PsgcBarangay, SyncResult
+- Types derived from include/select constants use `import type { CONST }` + `typeof CONST` in the
+  types file (no runtime coupling back to the service).
+- Verified: pnpm build clean, pnpm lint 0 problems, unit suite 372/372 green.

@@ -17,12 +17,12 @@ import { randomUUID } from 'crypto';
 import { Prisma } from '@/generated/prisma/client';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import ms from 'ms';
-import type { SignedTokens, VerifyOtpResult } from '@/modules/auth/auth.types';
+import type {
+  SessionSummary,
+  SignedTokens,
+  VerifyOtpResult,
+} from '@/modules/auth/auth.types';
 import { AuthAssertions } from '@/modules/auth/auth.assertions';
-
-type SessionSummary = Prisma.RefreshTokenGetPayload<{
-  select: { id: true; createdAt: true; updatedAt: true };
-}>;
 
 @Injectable()
 export class AuthService {

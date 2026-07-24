@@ -31,94 +31,23 @@ import { BarangaySyncService } from '@/modules/barangays/barangay-sync.service';
 import { applyStrike } from '@/common/utils/strike.util';
 import { computeWorkerRatingUpdate } from '@/common/utils/rating.util';
 import type {
-  Prisma,
   User,
   WorkerCredential,
   WorkerProfile,
 } from '@/generated/prisma/client';
 import type { Paginated } from '@/common/types/paginated';
-
-type PendingVerification = Prisma.VerificationDocGetPayload<{
-  include: { worker: { include: typeof ADMIN_WORKER_INCLUDE } };
-}>;
-
-type PendingCredential = Prisma.WorkerCredentialGetPayload<{
-  include: { worker: { include: typeof ADMIN_WORKER_INCLUDE } };
-}>;
-
-type WorkerWithRelations = Prisma.WorkerProfileGetPayload<{
-  include: typeof WORKER_INCLUDE;
-}>;
-
-type PendingNoShow = Prisma.NoShowReportGetPayload<{
-  include: {
-    booking: {
-      include: {
-        worker: {
-          select: { id: true; firstName: true; lastName: true; userId: true };
-        };
-        customer: { select: { firstName: true; lastName: true } };
-        category: { select: { name: true } };
-      };
-    };
-  };
-}>;
-
-type PendingCustomerNoShow = Prisma.NoShowReportGetPayload<{
-  include: {
-    booking: {
-      include: {
-        worker: { select: { id: true; firstName: true; lastName: true } };
-        customer: {
-          select: { firstName: true; lastName: true; userId: true };
-        };
-        category: { select: { name: true } };
-      };
-    };
-  };
-}>;
-
-type AdminUserListItem = Prisma.UserGetPayload<{
-  select: { id: true; phone: true; role: true; status: true; createdAt: true };
-}>;
-
-type AdminWorkerListItem = Prisma.WorkerProfileGetPayload<{
-  select: {
-    id: true;
-    firstName: true;
-    lastName: true;
-    status: true;
-    strikeCount: true;
-    averageRating: true;
-    totalJobsCompleted: true;
-    createdAt: true;
-    user: { select: { phone: true } };
-  };
-}>;
-
-type AdminBookingListItem = Prisma.BookingGetPayload<{
-  select: {
-    id: true;
-    status: true;
-    scheduledDate: true;
-    createdAt: true;
-    worker: { select: { firstName: true; lastName: true } };
-    customer: { select: { firstName: true; lastName: true } };
-    category: { select: { name: true } };
-  };
-}>;
-
-type AdminReviewListItem = Prisma.ReviewGetPayload<{
-  include: {
-    worker: { select: { firstName: true; lastName: true } };
-    customer: { select: { firstName: true; lastName: true } };
-  };
-}>;
-
-export interface NoShowResolution {
-  resolved: boolean;
-  confirmed: boolean;
-}
+import type {
+  AdminBookingListItem,
+  AdminReviewListItem,
+  AdminUserListItem,
+  AdminWorkerListItem,
+  NoShowResolution,
+  PendingCredential,
+  PendingCustomerNoShow,
+  PendingNoShow,
+  PendingVerification,
+  WorkerWithRelations,
+} from './admin.types';
 
 @Injectable()
 export class AdminService {

@@ -31,46 +31,11 @@ import { BookingsAssertions } from './bookings.assertions';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { UsersAssertions } from '../users/users.assertions';
 import { applyStrike } from '@/common/utils/strike.util';
-import { BOOKING_PARTY_IDS_INCLUDE } from '@/common/constants/booking-selects';
-
-const BOOKING_DETAIL_INCLUDE = {
-  worker: {
-    select: {
-      firstName: true,
-      lastName: true,
-      avatarUrl: true,
-      averageRating: true,
-      baseRate: true,
-      user: { select: { phone: true } },
-    },
-  },
-  customer: {
-    select: {
-      firstName: true,
-      lastName: true,
-      avatarUrl: true,
-      user: { select: { phone: true } },
-    },
-  },
-  category: { select: { name: true, iconUrl: true } },
-  barangay: { select: { name: true } },
-  review: true,
-} satisfies Prisma.BookingInclude;
-
-type BookingDetail = Prisma.BookingGetPayload<{
-  include: typeof BOOKING_DETAIL_INCLUDE;
-}>;
-
-// Contact details (each party's `user`) are only revealed once the booking is
-// accepted; before that they are stripped to `undefined`.
-type BookingDetailContactMasked = Omit<BookingDetail, 'worker' | 'customer'> & {
-  worker: Omit<BookingDetail['worker'], 'user'> & {
-    user?: BookingDetail['worker']['user'];
-  };
-  customer: Omit<BookingDetail['customer'], 'user'> & {
-    user?: BookingDetail['customer']['user'];
-  };
-};
+import {
+  BOOKING_DETAIL_INCLUDE,
+  BOOKING_PARTY_IDS_INCLUDE,
+} from '@/common/constants/booking-selects';
+import type { BookingDetailContactMasked } from './bookings.types';
 
 @Injectable()
 export class BookingsService {

@@ -9,18 +9,7 @@ import { Logger } from 'nestjs-pino';
 import { firstValueFrom } from 'rxjs';
 import { psgcConfig } from '@/config/psgc.config';
 import { PrismaService } from '@/prisma/prisma.service';
-
-interface PsgcBarangay {
-  code: string;
-  name: string;
-}
-
-export interface SyncResult {
-  created: number;
-  updated: number;
-  deactivated: number;
-  total: number;
-}
+import type { PsgcBarangay, SyncResult } from './barangays.types';
 
 @Injectable()
 export class BarangaySyncService {
