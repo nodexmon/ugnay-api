@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, PipeTransform } from '@nestjs/common';
-import { fromBuffer } from 'file-type';
+import { detectFileType } from '@/common/utils/file-type.util';
 import type { AvatarFile } from '@/uploads/uploads.types';
 
 const ALLOWED_TYPES = [
@@ -24,7 +24,7 @@ export class CredentialFilePipe implements PipeTransform {
     if (file.size > MAX_BYTES) {
       throw new BadRequestException('Credential file must not exceed 5 MB.');
     }
-    const detected = await fromBuffer(file.buffer);
+    const detected = await detectFileType(file.buffer);
     if (!detected || !ALLOWED_TYPES.includes(detected.mime)) {
       throw new BadRequestException(
         'Credential file content does not match the declared type.',
