@@ -24,7 +24,7 @@ pnpm jest src/path/to/file.spec.ts
 Docker and the `gh` CLI are **not installed** on this machine — do not treat their absence as a blocker or attempt workarounds; the developer installs and runs them himself.
 
 - **E2E tests** (`pnpm test:e2e`) need the test Postgres from `docker-compose.test.yml` (port 5433). Write and extend e2e specs normally, verify locally with `pnpm lint` + `pnpm test`, and note that the e2e run happens in CI or on a docker-equipped machine.
-- **Pull requests**: `gh pr create` is unavailable. Push the branch and hand over the GitHub compare URL plus a ready-to-paste PR description instead.
+- **Pull requests**: `gh pr create` is unavailable. After pushing any branch, **always** output (a) the GitHub compare URL, (b) a PR title, and (c) a ready-to-paste PR description in the `/pr` format — without being asked.
 
 ## Architecture
 

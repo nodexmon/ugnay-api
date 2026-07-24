@@ -14,6 +14,11 @@ Run this checklist before opening or marking a PR ready for review.
 5. **Dev log:** Confirm `logs/dev.log` has an entry for this session's work.
 6. **Handout:** If any endpoint was added, removed, or changed — update `docs/UGNAY_API_HANDOUT.md`.
 
+## PR title format
+
+`<type>(<scope>): <summary>` — conventional-commit style, matching the branch's commits.
+Example: `feat(bookings): expire stale bookings via cron`.
+
 ## PR description format
 
 ```
