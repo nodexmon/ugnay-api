@@ -21,6 +21,7 @@ import {
   uploadConfig,
   databaseConfig,
   textbeeConfig,
+  fileCryptoConfig,
 } from '@/config';
 import { loggerConfig } from '@/config/logger.config';
 import { psgcConfig } from '@/config/psgc.config';
@@ -53,6 +54,7 @@ import { BarangaysModule } from './modules/barangays/barangays.module';
         appConfig,
         jwtConfig,
         uploadConfig,
+        fileCryptoConfig,
         databaseConfig,
         loggerConfig,
         textbeeConfig,

@@ -4,6 +4,7 @@ import { extname, join, posix } from 'path';
 import { randomUUID } from 'crypto';
 import type { ConfigType } from '@nestjs/config';
 import { uploadConfig } from '@/config';
+import { FileCryptoService } from '@/common/services/file-crypto.service';
 import type { FileMetadata, FilePaths } from '@/modules/workers/workers.types';
 
 @Injectable()
@@ -11,6 +12,7 @@ export class FileStorageService {
   constructor(
     @Inject(uploadConfig.KEY)
     private readonly config: ConfigType<typeof uploadConfig>,
+    private readonly crypto: FileCryptoService,
   ) {}
 
   resolvePath(
@@ -38,7 +40,9 @@ export class FileStorageService {
   }
 
   async write(paths: FilePaths, file: FileMetadata): Promise<void> {
+    // Everything written here (verification IDs/selfies, credentials) is PII —
+    // encrypt at rest. Avatars are written by UploadsService and stay plaintext.
     await mkdir(paths.dir, { recursive: true });
-    await writeFile(paths.absolute, file.buffer);
+    await writeFile(paths.absolute, this.crypto.encrypt(file.buffer));
   }
 }

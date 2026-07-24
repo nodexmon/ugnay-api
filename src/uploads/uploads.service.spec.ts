@@ -5,12 +5,14 @@ import { Role } from '@/generated/prisma/enums';
 import { PrismaService } from '@/prisma/prisma.service';
 import { UploadsService } from './uploads.service';
 import { UploadsAssertions } from './uploads.assertions';
+import { FileCryptoService } from '@/common/services/file-crypto.service';
 import { uploadConfig } from '@/config';
 import type { AuthJwtPayload } from '@/modules/auth/auth.types';
 
 jest.mock('fs/promises', () => ({
   mkdir: jest.fn().mockResolvedValue(undefined),
   writeFile: jest.fn().mockResolvedValue(undefined),
+  readFile: jest.fn().mockResolvedValue(Buffer.from('file-bytes')),
 }));
 
 jest.mock('fs', () => ({
@@ -36,6 +38,10 @@ describe('UploadsService', () => {
     assertCanReadProtectedFile: jest.fn(),
   };
 
+  const crypto = {
+    decrypt: jest.fn((data: Buffer) => data),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -44,6 +50,7 @@ describe('UploadsService', () => {
         UploadsService,
         { provide: PrismaService, useValue: prisma },
         { provide: UploadsAssertions, useValue: assertions },
+        { provide: FileCryptoService, useValue: crypto },
         {
           provide: uploadConfig.KEY,
           useValue: {
@@ -174,7 +181,8 @@ describe('UploadsService', () => {
       await expect(
         service.serveProtectedFile(worker, 'verification/worker-1/x.jpg'),
       ).rejects.toThrow(NotFoundException);
-      expect(fs.createReadStream).not.toHaveBeenCalled();
+      const { readFile } = require('fs/promises') as { readFile: jest.Mock };
+      expect(readFile).not.toHaveBeenCalled();
     });
 
     it('returns a StreamableFile when the assertion passes and the file exists', async () => {
