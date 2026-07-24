@@ -19,6 +19,7 @@ import {
 import { UpdateBookingDto } from './dto/update-booking.dto';
 import { AuthJwtPayload } from '../auth/auth.types';
 import { Booking, User } from '@/generated/prisma/client';
+import type { NoShowReport } from '@/generated/prisma/client';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { FindBookingsQueryDto } from './dto/find-bookings-query.dto';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
@@ -32,6 +33,45 @@ import { UsersAssertions } from '../users/users.assertions';
 import { applyStrike } from '@/common/utils/strike.util';
 import { BOOKING_PARTY_IDS_INCLUDE } from '@/common/constants/booking-selects';
 
+const BOOKING_DETAIL_INCLUDE = {
+  worker: {
+    select: {
+      firstName: true,
+      lastName: true,
+      avatarUrl: true,
+      averageRating: true,
+      baseRate: true,
+      user: { select: { phone: true } },
+    },
+  },
+  customer: {
+    select: {
+      firstName: true,
+      lastName: true,
+      avatarUrl: true,
+      user: { select: { phone: true } },
+    },
+  },
+  category: { select: { name: true, iconUrl: true } },
+  barangay: { select: { name: true } },
+  review: true,
+} satisfies Prisma.BookingInclude;
+
+type BookingDetail = Prisma.BookingGetPayload<{
+  include: typeof BOOKING_DETAIL_INCLUDE;
+}>;
+
+// Contact details (each party's `user`) are only revealed once the booking is
+// accepted; before that they are stripped to `undefined`.
+type BookingDetailContactMasked = Omit<BookingDetail, 'worker' | 'customer'> & {
+  worker: Omit<BookingDetail['worker'], 'user'> & {
+    user?: BookingDetail['worker']['user'];
+  };
+  customer: Omit<BookingDetail['customer'], 'user'> & {
+    user?: BookingDetail['customer']['user'];
+  };
+};
+
 @Injectable()
 export class BookingsService {
   constructor(
@@ -43,35 +83,14 @@ export class BookingsService {
 
   // ─── Public API ──────────────────────────────────────────────────────────────
 
-  async findOne(bookingId: string, user: AuthJwtPayload) {
-    const bookingInclude = {
-      worker: {
-        select: {
-          firstName: true,
-          lastName: true,
-          avatarUrl: true,
-          averageRating: true,
-          baseRate: true,
-          user: { select: { phone: true } },
-        },
-      },
-      customer: {
-        select: {
-          firstName: true,
-          lastName: true,
-          avatarUrl: true,
-          user: { select: { phone: true } },
-        },
-      },
-      category: { select: { name: true, iconUrl: true } },
-      barangay: { select: { name: true } },
-      review: true,
-    };
-
+  async findOne(
+    bookingId: string,
+    user: AuthJwtPayload,
+  ): Promise<BookingDetailContactMasked> {
     if (user.role === Role.ADMIN) {
       const booking = await this.prisma.booking.findFirst({
         where: { id: bookingId },
-        include: bookingInclude,
+        include: BOOKING_DETAIL_INCLUDE,
       });
       if (!booking) {
         throw new NotFoundException('Booking not found.');
@@ -86,7 +105,7 @@ export class BookingsService {
 
     const booking = await this.prisma.booking.findFirst({
       where: { id: bookingId, ...ownershipWhere },
-      include: bookingInclude,
+      include: BOOKING_DETAIL_INCLUDE,
     });
 
     if (!booking) {
@@ -105,6 +124,10 @@ export class BookingsService {
     };
   }
 
+  // The include shape is chosen at runtime (customer vs worker view), so each
+  // row is a union Prisma infers more precisely than a hand-written return type
+  // could express. Inference is intentional here.
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async findMany(user: AuthJwtPayload, query: FindBookingsQueryDto) {
     const activeStatuses = [
       BookingStatus.PENDING,
@@ -158,7 +181,7 @@ export class BookingsService {
     return { items, total, skip: query.skip, take: query.take };
   }
 
-  async create(user: AuthJwtPayload, dto: CreateBookingDto) {
+  async create(user: AuthJwtPayload, dto: CreateBookingDto): Promise<Booking> {
     await this.usersAssertions.findActiveUser(user.sub);
 
     const customerId = await this.assertions.resolveProfileId(
@@ -211,7 +234,11 @@ export class BookingsService {
     return booking;
   }
 
-  async update(bookingId: string, user: AuthJwtPayload, dto: UpdateBookingDto) {
+  async update(
+    bookingId: string,
+    user: AuthJwtPayload,
+    dto: UpdateBookingDto,
+  ): Promise<void> {
     const { booking, profileId } = await this.prepareBookingAction(
       user.sub,
       user.role,
@@ -229,7 +256,7 @@ export class BookingsService {
     await this.prisma.booking.update({ where: { id: bookingId }, data });
   }
 
-  async accept(bookingId: string, user: AuthJwtPayload) {
+  async accept(bookingId: string, user: AuthJwtPayload): Promise<void> {
     const { booking, profileId } = await this.prepareBookingAction(
       user.sub,
       user.role,
@@ -250,7 +277,7 @@ export class BookingsService {
     }).catch(() => {});
   }
 
-  async reject(bookingId: string, user: AuthJwtPayload) {
+  async reject(bookingId: string, user: AuthJwtPayload): Promise<void> {
     const { booking, profileId } = await this.prepareBookingAction(
       user.sub,
       user.role,
@@ -271,7 +298,7 @@ export class BookingsService {
     }).catch(() => {});
   }
 
-  async start(bookingId: string, user: AuthJwtPayload) {
+  async start(bookingId: string, user: AuthJwtPayload): Promise<void> {
     const { booking, profileId } = await this.prepareBookingAction(
       user.sub,
       user.role,
@@ -288,7 +315,7 @@ export class BookingsService {
     }
   }
 
-  async complete(bookingId: string, user: AuthJwtPayload) {
+  async complete(bookingId: string, user: AuthJwtPayload): Promise<void> {
     const { booking, profileId } = await this.prepareBookingAction(
       user.sub,
       user.role,
@@ -315,7 +342,11 @@ export class BookingsService {
     }).catch(() => {});
   }
 
-  async cancel(bookingId: string, user: AuthJwtPayload, dto: CancelBookingDto) {
+  async cancel(
+    bookingId: string,
+    user: AuthJwtPayload,
+    dto: CancelBookingDto,
+  ): Promise<void> {
     if (user.role !== Role.CUSTOMER && user.role !== Role.WORKER) {
       throw new ForbiddenException('Insufficient permissions.');
     }
@@ -401,7 +432,7 @@ export class BookingsService {
     bookingId: string,
     user: AuthJwtPayload,
     description?: string,
-  ) {
+  ): Promise<NoShowReport> {
     const { activeUser, booking, profileId } = await this.prepareBookingAction(
       user.sub,
       user.role,
@@ -427,7 +458,7 @@ export class BookingsService {
     bookingId: string,
     user: AuthJwtPayload,
     description?: string,
-  ) {
+  ): Promise<NoShowReport> {
     const { activeUser, booking, profileId } = await this.prepareBookingAction(
       user.sub,
       user.role,

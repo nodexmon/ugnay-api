@@ -18,7 +18,7 @@ export class BookingsCron {
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
-  async expiredPendingBookings() {
+  async expiredPendingBookings(): Promise<void> {
     const candidates = await this.prisma.booking.findMany({
       where: { status: BookingStatus.PENDING, expiresAt: { lt: new Date() } },
       take: 100,
@@ -62,7 +62,7 @@ export class BookingsCron {
   }
 
   @Cron(CronExpression.EVERY_HOUR)
-  async cancelStaleAcceptedBookings() {
+  async cancelStaleAcceptedBookings(): Promise<void> {
     const now = Date.now();
     const cutoff = new Date(now - STALE_ACCEPTED_GRACE_MS);
 

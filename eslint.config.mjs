@@ -61,4 +61,13 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Controllers are thin delegators — their return type is exactly the
+    // service method's. Annotating them only duplicates the service contract,
+    // so explicit return types add no safety here.
+    files: ['**/*.controller.ts'],
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'off',
+    },
+  },
 );

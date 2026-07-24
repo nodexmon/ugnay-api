@@ -14,7 +14,7 @@ export class AuthCron {
 
   // Runs at 18:00 UTC = 02:00 Asia/Manila (off-peak). All times stored in UTC.
   @Cron(CronExpression.EVERY_DAY_AT_6PM)
-  async purgeExpiredAuthRecords() {
+  async purgeExpiredAuthRecords(): Promise<void> {
     const otpCutoff = new Date(Date.now() - OTP_RETENTION_MS);
     const refreshCutoff = new Date(Date.now() - REFRESH_TOKEN_RETENTION_MS);
 

@@ -21,6 +21,25 @@ import {
 import { UsersAssertions } from '../users/users.assertions';
 import { CredentialType } from '@/generated/prisma/enums';
 import { MIN_REVIEWS_FOR_PUBLIC_RATING } from '@/common/utils/rating.util';
+import type {
+  Prisma,
+  Strike,
+  VerificationDoc,
+  WorkerCredential,
+  WorkerProfile,
+} from '@/generated/prisma/client';
+import type { Paginated } from '@/common/types/paginated';
+
+type WorkerWithRelations = Prisma.WorkerProfileGetPayload<{
+  include: typeof WORKER_INCLUDE;
+}>;
+
+// `averageRating` is hidden (null) until the worker crosses the public-rating
+// review threshold, so it widens the model's non-null Decimal to `Decimal | null`.
+type PublicWorkerListItem = Omit<
+  Prisma.WorkerProfileGetPayload<{ include: typeof PUBLIC_WORKER_INCLUDE }>,
+  'averageRating'
+> & { averageRating: Prisma.Decimal | null };
 
 @Injectable()
 export class WorkersService {
@@ -33,7 +52,9 @@ export class WorkersService {
 
   // ─── Public API ──────────────────────────────────────────────────────────────
 
-  async search(query: FindWorkersQueryDto) {
+  async search(
+    query: FindWorkersQueryDto,
+  ): Promise<Paginated<PublicWorkerListItem>> {
     const { availableOnly, categoryId, barangayId, skip, take } = query;
 
     const where = {
@@ -85,7 +106,7 @@ export class WorkersService {
     };
   }
 
-  async findOwnProfile(userId: string) {
+  async findOwnProfile(userId: string): Promise<WorkerWithRelations> {
     const worker = await this.prisma.workerProfile.findUnique({
       where: { userId },
       include: WORKER_INCLUDE,
@@ -96,7 +117,7 @@ export class WorkersService {
     return worker;
   }
 
-  async findOwnVerification(userId: string) {
+  async findOwnVerification(userId: string): Promise<VerificationDoc | null> {
     const worker = await this.prisma.workerProfile.findUnique({
       where: { userId },
     });
@@ -110,7 +131,9 @@ export class WorkersService {
     });
   }
 
-  async findOwnStrikes(userId: string) {
+  async findOwnStrikes(
+    userId: string,
+  ): Promise<{ items: Strike[]; total: number }> {
     const worker = await this.prisma.workerProfile.findUnique({
       where: { userId },
     });
@@ -125,7 +148,7 @@ export class WorkersService {
     return { items: strikes, total: worker.strikeCount };
   }
 
-  async findOwnCredentials(userId: string) {
+  async findOwnCredentials(userId: string): Promise<WorkerCredential[]> {
     const worker = await this.prisma.workerProfile.findUnique({
       where: { userId },
     });
@@ -139,7 +162,7 @@ export class WorkersService {
     });
   }
 
-  async findPublicProfile(id: string) {
+  async findPublicProfile(id: string): Promise<PublicWorkerListItem> {
     const worker = await this.prisma.workerProfile.findUnique({
       where: {
         id,
@@ -162,7 +185,10 @@ export class WorkersService {
     };
   }
 
-  async createProfile(userId: string, dto: CreateWorkerDto) {
+  async createProfile(
+    userId: string,
+    dto: CreateWorkerDto,
+  ): Promise<WorkerWithRelations> {
     await this.usersAssertions.findActiveUser(userId);
     await this.assertions.assertProfileDoesNotExist(userId);
     await this.assertions.assertCategoriesAreValid(
@@ -200,7 +226,10 @@ export class WorkersService {
     });
   }
 
-  async updateProfile(userId: string, dto: UpdateWorkerDto) {
+  async updateProfile(
+    userId: string,
+    dto: UpdateWorkerDto,
+  ): Promise<WorkerWithRelations> {
     const worker = await this.getOwnProfile(userId);
 
     if (dto.homeBarangayId || dto.serviceAreaBarangayIds) {
@@ -258,7 +287,10 @@ export class WorkersService {
     });
   }
 
-  async setAvailability(userId: string, isOnline: boolean) {
+  async setAvailability(
+    userId: string,
+    isOnline: boolean,
+  ): Promise<WorkerWithRelations> {
     const worker = await this.getOwnProfile(userId);
 
     if (isOnline) {
@@ -272,7 +304,10 @@ export class WorkersService {
     });
   }
 
-  async submitVerification(userId: string, files: UploadedVerificationFiles) {
+  async submitVerification(
+    userId: string,
+    files: UploadedVerificationFiles,
+  ): Promise<VerificationDoc> {
     const worker = await this.getOwnProfile(userId);
     this.assertions.assertWorkerCanSubmitVerification(worker);
 
@@ -329,7 +364,7 @@ export class WorkersService {
     userId: string,
     type: CredentialType,
     file: AvatarFile,
-  ) {
+  ): Promise<WorkerCredential> {
     const worker = await this.getOwnProfile(userId);
 
     const credentialPath = this.fileStorage.resolvePath(
@@ -357,7 +392,7 @@ export class WorkersService {
 
   // ─── Private: business logic ─────────────────────────────────────────────────
 
-  private async getOwnProfile(userId: string) {
+  private async getOwnProfile(userId: string): Promise<WorkerProfile> {
     const worker = await this.prisma.workerProfile.findUnique({
       where: { userId },
     });

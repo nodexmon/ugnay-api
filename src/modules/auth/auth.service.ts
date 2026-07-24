@@ -17,8 +17,12 @@ import { randomUUID } from 'crypto';
 import { Prisma } from '@/generated/prisma/client';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import ms from 'ms';
-import type { VerifyOtpResult } from '@/modules/auth/auth.types';
+import type { SignedTokens, VerifyOtpResult } from '@/modules/auth/auth.types';
 import { AuthAssertions } from '@/modules/auth/auth.assertions';
+
+type SessionSummary = Prisma.RefreshTokenGetPayload<{
+  select: { id: true; createdAt: true; updatedAt: true };
+}>;
 
 @Injectable()
 export class AuthService {
@@ -35,7 +39,7 @@ export class AuthService {
 
   // ─── Public API ──────────────────────────────────────────────────────────────
 
-  async sendOtp(phone: string) {
+  async sendOtp(phone: string): Promise<{ message: string }> {
     const { id, code } = await this.otpService.createOtp(phone);
 
     try {
@@ -78,7 +82,7 @@ export class AuthService {
     return { type: 'registration', registrationToken };
   }
 
-  async register(registrationToken: string, role: Role) {
+  async register(registrationToken: string, role: Role): Promise<SignedTokens> {
     const payload =
       await this.jwtService.verifyRegistrationToken(registrationToken);
     const { sub: phone, otpId } = payload;
@@ -99,7 +103,7 @@ export class AuthService {
     return this.issueTokens(user.id, user.phone, user.role);
   }
 
-  async refreshToken(refreshToken: string) {
+  async refreshToken(refreshToken: string): Promise<SignedTokens> {
     const payload = await this.jwtService.verifyRefreshToken(refreshToken);
 
     const user = await this.assertions.findUserForRefresh(payload.sub);
@@ -167,7 +171,7 @@ export class AuthService {
     await this.revokeTokensWhere({ userId, revokedAt: null });
   }
 
-  async getAllSessions(userId: string) {
+  async getAllSessions(userId: string): Promise<SessionSummary[]> {
     return this.prisma.refreshToken.findMany({
       where: {
         userId,
@@ -187,7 +191,11 @@ export class AuthService {
 
   // ─── Private: business logic ─────────────────────────────────────────────────
 
-  private async issueTokens(userId: string, phone: string, role: Role) {
+  private async issueTokens(
+    userId: string,
+    phone: string,
+    role: Role,
+  ): Promise<SignedTokens> {
     const refreshTokenId = randomUUID();
     const tokens = this.jwtService.signTokens(
       userId,
@@ -208,11 +216,13 @@ export class AuthService {
     return tokens;
   }
 
-  private refreshTokenExpiryDate() {
+  private refreshTokenExpiryDate(): Date {
     return new Date(Date.now() + ms(this.config.JWT_REFRESH_EXPIRES_IN));
   }
 
-  private async revokeTokensWhere(where: Prisma.RefreshTokenWhereInput) {
+  private async revokeTokensWhere(
+    where: Prisma.RefreshTokenWhereInput,
+  ): Promise<Prisma.BatchPayload> {
     return this.prisma.refreshToken.updateMany({
       where,
       data: { revokedAt: new Date() },
