@@ -1,6 +1,6 @@
 import { ConflictException } from '@nestjs/common';
-import { StrikeReason, WorkerStatus } from '@/generated/prisma/enums';
-import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
+import { type StrikeReason, WorkerStatus } from '@/generated/prisma/enums';
+import { type TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import type { WorkerProfile } from '@/generated/prisma/client';
 import { STRIKE_SUSPENSION_THRESHOLD } from '@/modules/admin/admin.constants';
 

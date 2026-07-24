@@ -1,5 +1,5 @@
 import { registerAs } from '@nestjs/config';
-import { StringValue } from 'ms';
+import { type StringValue } from 'ms';
 import { z } from 'zod';
 
 const schema = z.object({

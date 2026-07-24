@@ -35,7 +35,9 @@ export class BookingsAssertions {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
     });
-    if (!booking) throw new NotFoundException('Booking not found.');
+    if (!booking) {
+      throw new NotFoundException('Booking not found.');
+    }
     return booking;
   }
 
@@ -51,7 +53,9 @@ export class BookingsAssertions {
     const booking = await this.prisma.booking.findFirst({
       where: { id: bookingId, ...ownerFilter },
     });
-    if (!booking) throw new NotFoundException('Booking not found.');
+    if (!booking) {
+      throw new NotFoundException('Booking not found.');
+    }
     return booking;
   }
 
@@ -190,14 +194,18 @@ export class BookingsAssertions {
         where: { userId },
         select: { id: true },
       });
-      if (!profile) throw new NotFoundException('Customer profile not found.');
+      if (!profile) {
+        throw new NotFoundException('Customer profile not found.');
+      }
       return profile.id;
     }
     const profile = await this.prisma.workerProfile.findUnique({
       where: { userId },
       select: { id: true },
     });
-    if (!profile) throw new NotFoundException('Worker profile not found.');
+    if (!profile) {
+      throw new NotFoundException('Worker profile not found.');
+    }
     return profile.id;
   }
 }

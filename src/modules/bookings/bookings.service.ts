@@ -73,7 +73,9 @@ export class BookingsService {
         where: { id: bookingId },
         include: bookingInclude,
       });
-      if (!booking) throw new NotFoundException('Booking not found.');
+      if (!booking) {
+        throw new NotFoundException('Booking not found.');
+      }
       return booking;
     }
 
@@ -87,7 +89,9 @@ export class BookingsService {
       include: bookingInclude,
     });
 
-    if (!booking) throw new NotFoundException('Booking not found.');
+    if (!booking) {
+      throw new NotFoundException('Booking not found.');
+    }
 
     const revealContact = booking.acceptedAt !== null;
     const { worker, customer, ...rest } = booking;
@@ -237,8 +241,9 @@ export class BookingsService {
       where: { id: bookingId, status: BookingStatus.PENDING },
       data: { status: BookingStatus.ACCEPTED, acceptedAt: new Date() },
     });
-    if (acceptCount === 0)
+    if (acceptCount === 0) {
       throw new ConflictException('Booking is no longer pending.');
+    }
     void this.notifyBookingParty(bookingId, 'customer', {
       title: 'Booking accepted',
       body: 'Your booking has been accepted.',
@@ -257,8 +262,9 @@ export class BookingsService {
       where: { id: bookingId, status: BookingStatus.PENDING },
       data: { status: BookingStatus.REJECTED, rejectedAt: new Date() },
     });
-    if (rejectCount === 0)
+    if (rejectCount === 0) {
       throw new ConflictException('Booking is no longer pending.');
+    }
     void this.notifyBookingParty(bookingId, 'customer', {
       title: 'Booking declined',
       body: 'The worker has declined your booking request.',
@@ -277,8 +283,9 @@ export class BookingsService {
       where: { id: bookingId, status: BookingStatus.ACCEPTED },
       data: { status: BookingStatus.IN_PROGRESS, startedAt: new Date() },
     });
-    if (startCount === 0)
+    if (startCount === 0) {
       throw new ConflictException('Booking is no longer accepted.');
+    }
   }
 
   async complete(bookingId: string, user: AuthJwtPayload) {
@@ -294,8 +301,9 @@ export class BookingsService {
         where: { id: bookingId, status: BookingStatus.IN_PROGRESS },
         data: { status: BookingStatus.COMPLETED, completedAt: new Date() },
       });
-      if (completeCount === 0)
+      if (completeCount === 0) {
         throw new ConflictException('Booking is no longer in progress.');
+      }
       await tx.workerProfile.update({
         where: { id: booking.workerId },
         data: { totalJobsCompleted: { increment: 1 } },
@@ -475,7 +483,9 @@ export class BookingsService {
       where: { id: bookingId },
       include: BOOKING_PARTY_IDS_INCLUDE,
     });
-    if (!booking) return;
+    if (!booking) {
+      return;
+    }
     const userId =
       party === 'worker' ? booking.worker.userId : booking.customer.userId;
     await this.notifications.sendToUser(userId, message);

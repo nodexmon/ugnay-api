@@ -510,7 +510,9 @@ export class AdminService {
     const review = await this.prisma.review.findUnique({
       where: { id: reviewId },
     });
-    if (!review) throw new NotFoundException('Review not found.');
+    if (!review) {
+      throw new NotFoundException('Review not found.');
+    }
 
     return this.prisma.$transaction(async (tx: TransactionClient) => {
       await tx.review.delete({ where: { id: reviewId } });

@@ -10,7 +10,9 @@ export class AuthAssertions {
 
   async findUserForRefresh(userId: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new UnauthorizedException('Invalid refresh token.');
+    if (!user) {
+      throw new UnauthorizedException('Invalid refresh token.');
+    }
     return user;
   }
 
@@ -24,7 +26,9 @@ export class AuthAssertions {
     const token = await this.prisma.refreshToken.findUnique({
       where: { id: tokenId },
     });
-    if (!token) throw new UnauthorizedException('Invalid refresh token.');
+    if (!token) {
+      throw new UnauthorizedException('Invalid refresh token.');
+    }
     return token;
   }
 

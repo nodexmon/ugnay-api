@@ -26,24 +26,32 @@ export class CaslGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (isPublic) return true;
+    if (isPublic) {
+      return true;
+    }
 
     const skipAbilityCheck = this.reflector.getAllAndOverride<boolean>(
       SKIP_ABILITY_CHECK_KEY,
       [context.getHandler(), context.getClass()],
     );
-    if (skipAbilityCheck) return true;
+    if (skipAbilityCheck) {
+      return true;
+    }
 
     const required = this.reflector.getAllAndOverride<
       RequiredAbility | undefined
     >(CHECK_ABILITY_KEY, [context.getHandler(), context.getClass()]);
-    if (!required) return false;
+    if (!required) {
+      return false;
+    }
 
     const request = context
       .switchToHttp()
       .getRequest<{ user?: AuthJwtPayload }>();
     const user = request.user;
-    if (!user) return false;
+    if (!user) {
+      return false;
+    }
 
     const ability = this.caslAbilityFactory.createForUser(user);
     const allowed = ability.can(required.action, required.subject);

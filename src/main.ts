@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { NestExpressApplication } from '@nestjs/platform-express';
+import { type NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from '@/app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { Logger } from 'nestjs-pino';
@@ -8,7 +8,7 @@ import { HttpExceptionFilter } from '@/common/filters/http-exception.filter';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { ConfigType } from '@nestjs/config';
+import { type ConfigType } from '@nestjs/config';
 import { appConfig } from '@/config';
 
 async function bootstrap() {

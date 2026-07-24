@@ -25,7 +25,9 @@ export class BookingsCron {
       select: { id: true, customer: { select: { userId: true } } },
     });
 
-    if (candidates.length === 0) return;
+    if (candidates.length === 0) {
+      return;
+    }
 
     await this.prisma.booking.updateMany({
       where: {
@@ -80,7 +82,9 @@ export class BookingsCron {
       },
     });
 
-    if (candidates.length === 0) return;
+    if (candidates.length === 0) {
+      return;
+    }
 
     // Precise filter: the booking window must have ended more than GRACE_MS ago.
     const stale = candidates.filter(
@@ -90,7 +94,9 @@ export class BookingsCron {
           STALE_ACCEPTED_GRACE_MS,
     );
 
-    if (stale.length === 0) return;
+    if (stale.length === 0) {
+      return;
+    }
 
     await this.prisma.booking.updateMany({
       where: {

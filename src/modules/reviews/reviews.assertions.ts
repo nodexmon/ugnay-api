@@ -23,7 +23,9 @@ export class ReviewsAssertions {
       select: { id: true, status: true, workerId: true, customerId: true },
     });
 
-    if (!booking) throw new NotFoundException('Booking not found.');
+    if (!booking) {
+      throw new NotFoundException('Booking not found.');
+    }
 
     if (booking.status !== BookingStatus.COMPLETED) {
       throw new ForbiddenException(
@@ -50,7 +52,9 @@ export class ReviewsAssertions {
       where: { userId },
       select: { id: true },
     });
-    if (!profile) throw new NotFoundException('Customer profile not found.');
+    if (!profile) {
+      throw new NotFoundException('Customer profile not found.');
+    }
     return profile;
   }
 
@@ -59,7 +63,9 @@ export class ReviewsAssertions {
       where: { id: workerId },
       select: { id: true },
     });
-    if (!worker) throw new NotFoundException('Worker profile not found.');
+    if (!worker) {
+      throw new NotFoundException('Worker profile not found.');
+    }
   }
 
   async assertNoExistingReview(bookingId: string): Promise<void> {
@@ -67,7 +73,8 @@ export class ReviewsAssertions {
       where: { bookingId },
       select: { id: true },
     });
-    if (existing)
+    if (existing) {
       throw new ConflictException('A review already exists for this booking.');
+    }
   }
 }

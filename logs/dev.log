@@ -949,3 +949,30 @@ July 24, 2026 — fix: repair two pre-existing tsc build errors (branch: fix/bui
     updatedAt (reviews are immutable, createdAt only). Removed the invalid select line; no
     consumer/test referenced it.
 - Verified: pnpm build clean (0 errors), unit suite 372/372 green.
+
+---
+
+July 24, 2026 — chore: standardize code style via ESLint rules (branch: chore/lint-style-standards)
+
+- Root cause of style drift: Prettier handles whitespace/quotes/commas, but the ESLint config
+  enabled no stylistic rules, so brace style, equality, and type-declaration style were freeform.
+  Also src/generated/** was NOT ignored (Prisma client was being linted).
+- eslint.config.mjs changes:
+  - Added src/generated/** to ignores (never lint the generated Prisma client)
+  - curly: ['error','all'] — brace every control statement, even one-liners (fixed ~48 sites)
+  - eqeqeq: ['error','always',{null:'ignore'}] — lock in strict equality (code already complied)
+  - @typescript-eslint/consistent-type-definitions: ['error','interface'] — object shapes use
+    interface; genuine intersections correctly left as type
+  - @typescript-eslint/consistent-type-imports (inline-type-imports) — type-only imports now use
+    `import { type X }` (was zero usage before)
+  - no-else-return, object-shorthand, prefer-template — auto-fixed hygiene
+  - @typescript-eslint/explicit-function-return-type: 'warn' (allowExpressions) — surfaces 150
+    unannotated returns without blocking the husky hook; kept as warn because many methods return
+    unwieldy inferred Prisma payload types that are counterproductive to annotate by hand
+- Ran `pnpm lint` (auto-fix): 0 errors, 150 warnings (all explicit-return-type). 33 files changed.
+- Verified behavior-neutral: full unit suite 372/372 green. No NEW tsc errors introduced.
+- Pre-existing (NOT introduced here, present on main) — flagged for a separate fix:
+  - jwt.strategy.ts:22 references payload.purpose (not on AuthJwtPayload)
+  - reviews.service.ts:85 selects updatedAt (not in ReviewSelect)
+- Test files (**/*.spec.ts, e2e, test/**) remain unlinted per decision — new standards apply to
+  production src/ only.

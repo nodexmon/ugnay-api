@@ -39,7 +39,9 @@ export class NotificationsCron {
 
           for (const ticketId of chunk) {
             const receipt = receipts[ticketId];
-            if (!receipt) continue;
+            if (!receipt) {
+              continue;
+            }
 
             if (receipt.status === 'error') {
               this.logger.warn({ ticketId, receipt }, 'Push receipt error');

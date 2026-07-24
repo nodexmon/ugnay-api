@@ -27,7 +27,9 @@ export class NotificationsService {
   async sendToUser(userId: string, message: PushMessage): Promise<void> {
     const tokens = await this.prisma.pushToken.findMany({ where: { userId } });
 
-    if (tokens.length === 0) return;
+    if (tokens.length === 0) {
+      return;
+    }
 
     const validTokens = tokens.filter((t) => Expo.isExpoPushToken(t.token));
 
@@ -39,7 +41,9 @@ export class NotificationsService {
       sound: 'default',
     }));
 
-    if (messages.length === 0) return;
+    if (messages.length === 0) {
+      return;
+    }
 
     try {
       const chunks = this.expo.chunkPushNotifications(messages);
