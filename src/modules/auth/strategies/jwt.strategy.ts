@@ -18,9 +18,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  validate(payload: AuthJwtPayload) {
-    if (payload.tokenId || payload.purpose)
+  validate(payload: AuthJwtPayload & { purpose?: string }) {
+    if (payload.tokenId || payload.purpose) {
       throw new UnauthorizedException('Invalid token type.');
+    }
     return {
       sub: payload.sub,
       phone: payload.phone,

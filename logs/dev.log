@@ -935,3 +935,17 @@ July 24, 2026 — test(e2e): cover v1.5 cron jobs (branch: test/cron-e2e-coverag
 - Verified at author-time: pnpm lint clean, full tsc pass shows 0 errors in the new files,
   unit suite unchanged at 372. E2E execution needs the test Postgres (docker-compose.test.yml)
   and runs in CI / on a docker machine — not run locally (no Docker on this box)
+
+---
+
+July 24, 2026 — fix: repair two pre-existing tsc build errors (branch: fix/build-type-errors)
+
+- main did not fully compile (`pnpm build` failed with 2 TS errors). Both fixed:
+  - jwt.strategy.ts: validate() checked payload.purpose defensively, but purpose wasn't on
+    AuthJwtPayload (it lives on RegistrationTokenPayload). Access-audience tokens never carry it,
+    so the check is belt-and-suspenders — widened the param type to
+    `AuthJwtPayload & { purpose?: string }` and braced the guard. Intent preserved.
+  - reviews.service.ts: findAllByWorkerId selected `updatedAt: true`, but the Review model has no
+    updatedAt (reviews are immutable, createdAt only). Removed the invalid select line; no
+    consumer/test referenced it.
+- Verified: pnpm build clean (0 errors), unit suite 372/372 green.

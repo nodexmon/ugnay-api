@@ -82,7 +82,6 @@ export class ReviewsService {
           rating: true,
           comment: true,
           createdAt: true,
-          updatedAt: true,
         },
         orderBy: { createdAt: 'desc' },
         skip: query.skip,
