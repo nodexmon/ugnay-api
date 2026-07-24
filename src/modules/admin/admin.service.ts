@@ -30,6 +30,24 @@ import { AdminAssertions } from './admin.assertions';
 import { BarangaySyncService } from '@/modules/barangays/barangay-sync.service';
 import { applyStrike } from '@/common/utils/strike.util';
 import { computeWorkerRatingUpdate } from '@/common/utils/rating.util';
+import type {
+  User,
+  WorkerCredential,
+  WorkerProfile,
+} from '@/generated/prisma/client';
+import type { Paginated } from '@/common/types/paginated';
+import type {
+  AdminBookingListItem,
+  AdminReviewListItem,
+  AdminUserListItem,
+  AdminWorkerListItem,
+  NoShowResolution,
+  PendingCredential,
+  PendingCustomerNoShow,
+  PendingNoShow,
+  PendingVerification,
+  WorkerWithRelations,
+} from './admin.types';
 
 @Injectable()
 export class AdminService {
@@ -43,11 +61,13 @@ export class AdminService {
 
   // ─── Public API ──────────────────────────────────────────────────────────────
 
-  syncBarangays() {
+  syncBarangays(): ReturnType<BarangaySyncService['syncBarangays']> {
     return this.barangaySync.syncBarangays();
   }
 
-  async findPendingVerifications(query: PaginationDto) {
+  async findPendingVerifications(
+    query: PaginationDto,
+  ): Promise<Paginated<PendingVerification>> {
     const where = { status: VerificationStatus.PENDING };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.verificationDoc.findMany({
@@ -62,7 +82,10 @@ export class AdminService {
     return { items, total, skip: query.skip, take: query.take };
   }
 
-  async approveVerification(docId: string, user: AuthJwtPayload) {
+  async approveVerification(
+    docId: string,
+    user: AuthJwtPayload,
+  ): Promise<WorkerWithRelations> {
     const doc = await this.assertions.findPendingVerification(docId);
     await this.assertions.assertWorkerIsUnverified(doc.workerId);
 
@@ -98,7 +121,7 @@ export class AdminService {
     docId: string,
     user: AuthJwtPayload,
     reason: string,
-  ) {
+  ): Promise<WorkerWithRelations> {
     const doc = await this.assertions.findPendingVerification(docId);
 
     return this.prisma
@@ -143,7 +166,7 @@ export class AdminService {
       });
   }
 
-  async createAdmin(dto: CreateAdminDto) {
+  async createAdmin(dto: CreateAdminDto): Promise<User> {
     await this.assertions.assertPhoneNotRegistered(dto.phone);
 
     return this.prisma.user.create({
@@ -151,7 +174,7 @@ export class AdminService {
     });
   }
 
-  async setUserSuspension(workerId: string, suspended: boolean) {
+  async setUserSuspension(workerId: string, suspended: boolean): Promise<User> {
     await this.assertions.assertUserExists(workerId);
 
     return this.prisma.$transaction(async (tx: TransactionClient) => {
@@ -178,7 +201,7 @@ export class AdminService {
     workerProfileId: string,
     dto: ReinstateWorkerDto,
     admin: AuthJwtPayload,
-  ) {
+  ): Promise<WorkerProfile> {
     const worker = await this.assertions.findSuspendedWorker(workerProfileId);
     this.logger.log(
       `Worker ${worker.id} reinstated by ${admin.sub}. Note: ${dto.auditNote}`,
@@ -195,7 +218,10 @@ export class AdminService {
     });
   }
 
-  async strikeWorker(user: AuthJwtPayload, dto: StrikeWorkerDto) {
+  async strikeWorker(
+    user: AuthJwtPayload,
+    dto: StrikeWorkerDto,
+  ): Promise<WorkerProfile> {
     const worker = await this.assertions.findWorkerProfile(dto.workerId);
     await this.assertions.assertBookingExists(dto.bookingId);
 
@@ -209,7 +235,9 @@ export class AdminService {
     );
   }
 
-  async findPendingNoShows(query: PaginationDto) {
+  async findPendingNoShows(
+    query: PaginationDto,
+  ): Promise<Paginated<PendingNoShow>> {
     const where = { confirmed: null, reportType: NoShowReportType.WORKER };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.noShowReport.findMany({
@@ -239,7 +267,9 @@ export class AdminService {
     return { items, total, skip: query.skip, take: query.take };
   }
 
-  async findPendingCustomerNoShows(query: PaginationDto) {
+  async findPendingCustomerNoShows(
+    query: PaginationDto,
+  ): Promise<Paginated<PendingCustomerNoShow>> {
     const where = { confirmed: null, reportType: NoShowReportType.CUSTOMER };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.noShowReport.findMany({
@@ -268,7 +298,7 @@ export class AdminService {
     reportId: string,
     user: AuthJwtPayload,
     dto: ResolveNoShowDto,
-  ) {
+  ): Promise<NoShowResolution> {
     const report =
       await this.assertions.findPendingCustomerNoShowReport(reportId);
 
@@ -297,7 +327,7 @@ export class AdminService {
     reportId: string,
     user: AuthJwtPayload,
     dto: ResolveNoShowDto,
-  ) {
+  ): Promise<NoShowResolution> {
     const report = await this.assertions.findPendingNoShowReport(reportId);
 
     return this.prisma
@@ -340,7 +370,9 @@ export class AdminService {
       });
   }
 
-  async findUsers(query: FindUsersQueryDto) {
+  async findUsers(
+    query: FindUsersQueryDto,
+  ): Promise<Paginated<AdminUserListItem>> {
     const where = {
       ...(query.role && { role: query.role }),
       ...(query.status && { status: query.status }),
@@ -364,7 +396,9 @@ export class AdminService {
     return { items, total, skip: query.skip, take: query.take };
   }
 
-  async findWorkers(query: FindWorkersQueryDto) {
+  async findWorkers(
+    query: FindWorkersQueryDto,
+  ): Promise<Paginated<AdminWorkerListItem>> {
     const where = {
       ...(query.status && { status: query.status }),
     };
@@ -391,7 +425,9 @@ export class AdminService {
     return { items, total, skip: query.skip, take: query.take };
   }
 
-  async findBookings(query: FindBookingsQueryDto) {
+  async findBookings(
+    query: FindBookingsQueryDto,
+  ): Promise<Paginated<AdminBookingListItem>> {
     const where = {
       ...(query.status && { status: query.status }),
     };
@@ -416,7 +452,9 @@ export class AdminService {
     return { items, total, skip: query.skip, take: query.take };
   }
 
-  async findPendingCredentials(query: PaginationDto) {
+  async findPendingCredentials(
+    query: PaginationDto,
+  ): Promise<Paginated<PendingCredential>> {
     const where = { status: VerificationStatus.PENDING };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.workerCredential.findMany({
@@ -431,7 +469,10 @@ export class AdminService {
     return { items, total, skip: query.skip, take: query.take };
   }
 
-  async approveCredential(credentialId: string, user: AuthJwtPayload) {
+  async approveCredential(
+    credentialId: string,
+    user: AuthJwtPayload,
+  ): Promise<WorkerCredential> {
     const credential =
       await this.assertions.findPendingCredential(credentialId);
 
@@ -461,7 +502,7 @@ export class AdminService {
     credentialId: string,
     user: AuthJwtPayload,
     reason: string,
-  ) {
+  ): Promise<WorkerCredential> {
     const credential =
       await this.assertions.findPendingCredential(credentialId);
 
@@ -488,7 +529,9 @@ export class AdminService {
       });
   }
 
-  async findAllReviews(query: FindReviewsAdminQueryDto) {
+  async findAllReviews(
+    query: FindReviewsAdminQueryDto,
+  ): Promise<Paginated<AdminReviewListItem>> {
     const where = { ...(query.workerId && { workerId: query.workerId }) };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.review.findMany({
@@ -506,7 +549,7 @@ export class AdminService {
     return { items, total, skip: query.skip, take: query.take };
   }
 
-  async deleteReview(reviewId: string) {
+  async deleteReview(reviewId: string): Promise<{ deleted: boolean }> {
     const review = await this.prisma.review.findUnique({
       where: { id: reviewId },
     });

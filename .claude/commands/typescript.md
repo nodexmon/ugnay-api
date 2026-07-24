@@ -99,6 +99,30 @@ DTOs are always **classes** (required by class-validator and class-transformer).
 
 ---
 
+## Type declarations live in `[name].types.ts`, never in a service
+
+A `*.service.ts` file contains the `@Injectable()` class and its methods — nothing else. Never declare a `type` or `interface` at the top of a service (or a cron, guard, or pipe). Module-owned types belong in the module's `[name].types.ts`, exported and imported back:
+
+```typescript
+// ❌ workers.service.ts — type declaration lying around in a service
+type WorkerWithRelations = Prisma.WorkerProfileGetPayload<{ include: typeof WORKER_INCLUDE }>;
+
+@Injectable()
+export class WorkersService { ... }
+
+// ✅ workers.types.ts
+export type WorkerWithRelations = Prisma.WorkerProfileGetPayload<{
+  include: typeof WORKER_INCLUDE;
+}>;
+
+// ✅ workers.service.ts
+import type { WorkerWithRelations } from './workers.types';
+```
+
+Include/select **constants** (runtime values) live in `[name].constants.ts` or `common/constants/`; the `GetPayload` types derived from them (via `typeof`) live in `[name].types.ts`.
+
+---
+
 ## Discriminated unions for multi-case returns
 
 When a function can return one of several distinct shapes, use a discriminated union:

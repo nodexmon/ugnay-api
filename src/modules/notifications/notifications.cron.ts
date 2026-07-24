@@ -18,7 +18,7 @@ export class NotificationsCron {
   ) {}
 
   @Cron(PUSH_RECEIPT_CRON)
-  async checkPushReceipts() {
+  async checkPushReceipts(): Promise<void> {
     const cutoff = new Date(Date.now() - PUSH_TICKET_MAX_AGE_MS);
 
     const pending = await this.prisma.pushTicket.findMany({

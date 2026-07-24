@@ -4,6 +4,7 @@ import { CreateCategoryDto } from '@/modules/categories/dto/create-category.dto'
 import { UpdateCategoryDto } from '@/modules/categories/dto/update-category.dto';
 import { CATEGORY_ORDER } from './categories.constants';
 import { CategoriesAssertions } from './categories.assertions';
+import type { ServiceCategory } from '@/generated/prisma/client';
 
 @Injectable()
 export class CategoriesService {
@@ -12,20 +13,20 @@ export class CategoriesService {
     private readonly assertions: CategoriesAssertions,
   ) {}
 
-  async findActive() {
+  async findActive(): Promise<ServiceCategory[]> {
     return this.prisma.serviceCategory.findMany({
       where: { isActive: true },
       orderBy: CATEGORY_ORDER,
     });
   }
 
-  async findAllForAdmin() {
+  async findAllForAdmin(): Promise<ServiceCategory[]> {
     return this.prisma.serviceCategory.findMany({
       orderBy: CATEGORY_ORDER,
     });
   }
 
-  async create(dto: CreateCategoryDto) {
+  async create(dto: CreateCategoryDto): Promise<ServiceCategory> {
     return this.prisma.serviceCategory.create({
       data: {
         name: dto.name,
@@ -37,7 +38,10 @@ export class CategoriesService {
     });
   }
 
-  async update(categoryId: string, dto: UpdateCategoryDto) {
+  async update(
+    categoryId: string,
+    dto: UpdateCategoryDto,
+  ): Promise<ServiceCategory> {
     await this.assertions.assertCategoryExists(categoryId);
 
     return this.prisma.serviceCategory.update({
@@ -46,7 +50,7 @@ export class CategoriesService {
     });
   }
 
-  async deactivate(categoryId: string) {
+  async deactivate(categoryId: string): Promise<ServiceCategory> {
     await this.assertions.assertCategoryExists(categoryId);
 
     return this.prisma.serviceCategory.update({

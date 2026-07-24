@@ -9,7 +9,7 @@ import {
   VerificationStatus,
   WorkerStatus,
 } from '@/generated/prisma/enums';
-import type { WorkerProfile } from '@/generated/prisma/client';
+import type { Prisma, WorkerProfile } from '@/generated/prisma/client';
 
 @Injectable()
 export class AdminAssertions {
@@ -58,7 +58,11 @@ export class AdminAssertions {
     }
   }
 
-  async findPendingVerification(docId: string) {
+  async findPendingVerification(docId: string): Promise<
+    Prisma.VerificationDocGetPayload<{
+      include: { worker: { select: { userId: true } } };
+    }>
+  > {
     const doc = await this.prisma.verificationDoc.findUnique({
       where: { id: docId },
       include: { worker: { select: { userId: true } } },
@@ -74,7 +78,11 @@ export class AdminAssertions {
     return doc;
   }
 
-  async findPendingCredential(credentialId: string) {
+  async findPendingCredential(credentialId: string): Promise<
+    Prisma.WorkerCredentialGetPayload<{
+      include: { worker: { select: { userId: true } } };
+    }>
+  > {
     const credential = await this.prisma.workerCredential.findUnique({
       where: { id: credentialId },
       include: { worker: { select: { userId: true } } },
@@ -88,7 +96,19 @@ export class AdminAssertions {
     return credential;
   }
 
-  async findPendingNoShowReport(reportId: string) {
+  async findPendingNoShowReport(reportId: string): Promise<
+    Prisma.NoShowReportGetPayload<{
+      include: {
+        booking: {
+          select: {
+            id: true;
+            workerId: true;
+            worker: { select: { userId: true } };
+          };
+        };
+      };
+    }>
+  > {
     const report = await this.prisma.noShowReport.findUnique({
       where: { id: reportId },
       include: {
@@ -113,7 +133,7 @@ export class AdminAssertions {
     return report;
   }
 
-  async findSuspendedWorker(workerProfileId: string) {
+  async findSuspendedWorker(workerProfileId: string): Promise<WorkerProfile> {
     const worker = await this.prisma.workerProfile.findFirst({
       where: { id: workerProfileId, status: WorkerStatus.SUSPENDED },
     });
@@ -123,7 +143,11 @@ export class AdminAssertions {
     return worker;
   }
 
-  async findPendingCustomerNoShowReport(reportId: string) {
+  async findPendingCustomerNoShowReport(reportId: string): Promise<
+    Prisma.NoShowReportGetPayload<{
+      include: { booking: { select: { id: true; customerId: true } } };
+    }>
+  > {
     const report = await this.prisma.noShowReport.findUnique({
       where: { id: reportId },
       include: {

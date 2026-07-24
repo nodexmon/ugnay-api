@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { Booking } from '@/generated/prisma/client';
+import type { Prisma } from '@/generated/prisma/client';
 import {
   BookingStatus,
   Role,
@@ -150,7 +151,10 @@ export class BookingsAssertions {
     }
   }
 
-  async findWorkerCategoryRate(workerId: string, categoryId: string) {
+  async findWorkerCategoryRate(
+    workerId: string,
+    categoryId: string,
+  ): Promise<Prisma.Decimal> {
     const wc = await this.prisma.workerCategory.findUnique({
       where: { workerId_categoryId: { workerId, categoryId } },
       select: { rateOverride: true, worker: { select: { baseRate: true } } },

@@ -6,6 +6,9 @@ import { AuthJwtPayload } from '@/modules/auth/auth.types';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
 import { ReviewsAssertions } from './reviews.assertions';
 import { computeWorkerRatingUpdate } from '@/common/utils/rating.util';
+import type { Review } from '@/generated/prisma/client';
+import type { Paginated } from '@/common/types/paginated';
+import type { PublicReview } from './reviews.types';
 
 @Injectable()
 export class ReviewsService {
@@ -16,7 +19,7 @@ export class ReviewsService {
 
   // ─── Public API ──────────────────────────────────────────────────────────────
 
-  async create(dto: CreateReviewDto, user: AuthJwtPayload) {
+  async create(dto: CreateReviewDto, user: AuthJwtPayload): Promise<Review> {
     const booking = await this.assertions.findCompletedBooking(dto.bookingId);
 
     const customerProfile = await this.assertions.findCustomerProfile(user.sub);
@@ -52,7 +55,10 @@ export class ReviewsService {
     });
   }
 
-  async findMyReviews(userId: string, query: FindReviewsQueryDto) {
+  async findMyReviews(
+    userId: string,
+    query: FindReviewsQueryDto,
+  ): Promise<Paginated<Review>> {
     const customerProfile = await this.assertions.findCustomerProfile(userId);
 
     const where = { customerId: customerProfile.id };
@@ -68,7 +74,10 @@ export class ReviewsService {
     return { items, total, skip: query.skip, take: query.take };
   }
 
-  async findAllByWorkerId(workerId: string, query: FindReviewsQueryDto) {
+  async findAllByWorkerId(
+    workerId: string,
+    query: FindReviewsQueryDto,
+  ): Promise<Paginated<PublicReview>> {
     await this.assertions.assertWorkerProfileExists(workerId);
 
     const where = { workerId };

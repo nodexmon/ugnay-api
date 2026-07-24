@@ -4,13 +4,7 @@ import { extname, join } from 'path';
 import { randomUUID } from 'crypto';
 import type { ConfigType } from '@nestjs/config';
 import { uploadConfig } from '@/config';
-import type { FileMetadata } from '@/modules/workers/workers.types';
-
-export interface FilePaths {
-  relative: string;
-  absolute: string;
-  dir: string;
-}
+import type { FileMetadata, FilePaths } from '@/modules/workers/workers.types';
 
 @Injectable()
 export class FileStorageService {

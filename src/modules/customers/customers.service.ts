@@ -3,6 +3,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CustomersAssertions } from './customers.assertions';
+import type { CustomerProfile } from '@/generated/prisma/client';
 
 @Injectable()
 export class CustomersService {
@@ -13,11 +14,14 @@ export class CustomersService {
 
   // ─── Public API ──────────────────────────────────────────────────────────────
 
-  async findProfile(userId: string) {
+  async findProfile(userId: string): Promise<CustomerProfile> {
     return this.assertions.findCustomerProfile(userId);
   }
 
-  async createProfile(userId: string, dto: CreateCustomerDto) {
+  async createProfile(
+    userId: string,
+    dto: CreateCustomerDto,
+  ): Promise<CustomerProfile> {
     await this.assertions.assertCustomerProfileDoesNotExist(userId);
 
     return this.prisma.customerProfile.create({
@@ -30,7 +34,10 @@ export class CustomersService {
     });
   }
 
-  async updateProfile(userId: string, dto: UpdateCustomerDto) {
+  async updateProfile(
+    userId: string,
+    dto: UpdateCustomerDto,
+  ): Promise<CustomerProfile> {
     await this.assertions.findCustomerProfile(userId);
     return this.prisma.customerProfile.update({
       where: { userId },

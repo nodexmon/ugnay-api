@@ -1,12 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import { WORKER_INCLUDE } from '@/common/constants/worker-includes';
+import type { MeProfile } from './users.types';
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findMe(userId: string) {
+  async findMe(userId: string): Promise<MeProfile> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
