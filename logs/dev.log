@@ -881,3 +881,18 @@ July 23, 2026 — seed: add all missing Calapan City barangays (branch: chore/se
 - Fixed pre-existing bug: PSGC_CALAPAN_CODE default was '175203000' (Bongabong) not '175205000'
   (City of Calapan); affected both seed and POST /admin/barangays/sync; fixed in psgc.config.ts
   and seed.ts fallback; verified seed now populates all 62 correct Calapan City barangays
+
+---
+
+July 24, 2026 — docs: reconcile BRD v1.5 with code after full gap scan (branch: main)
+
+- BRD AUTH-05: corrected "OTP codes stored as SHA-256 hashes" → "bcrypt hashes (per-code
+  salt, cost factor 10)" to match otp.service.ts (bcrypt.hash, OTP_BCRYPT_ROUNDS = 10);
+  bcrypt is the stronger choice for a 6-digit code, so the doc was wrong, not the code
+- PROJECT_STATUS.md: rewritten from stale v1.3 snapshot (278 tests, unmerged branch) to
+  reality — BRD v1.5, branch main, 369/369 tests (49 suites), 17 models / 12 enums /
+  21 migrations, the four cron jobs, and a verified-in-code v1.5 coverage table
+- Verified full v1.5 hardening pass is merged and implemented: AUTH-10 attempt cap,
+  AUTH-11 refresh-reuse family revocation, BKG-11 stale-accepted auto-cancel, REV-04
+  rankingScore denorm, push receipt polling, DB-record file access, retention purge,
+  GET /health, SMS fail-fast 503
