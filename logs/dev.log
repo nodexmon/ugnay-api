@@ -1021,3 +1021,40 @@ July 24, 2026 — refactor(types): move service-level type declarations into [na
 - Types derived from include/select constants use `import type { CONST }` + `typeof CONST` in the
   types file (no runtime coupling back to the service).
 - Verified: pnpm build clean, pnpm lint 0 problems, unit suite 372/372 green.
+
+---
+
+July 24, 2026 — security audit remediation (branch: security/audit-remediation)
+
+Patched all findings from the security audit; one self-contained commit per finding.
+
+- H1 fix(deps): pinned multer >=2.2.0 via pnpm-workspace.yaml overrides (pnpm 11 no
+  longer reads pnpm.overrides from package.json). @nestjs/platform-express was pulling
+  a vulnerable 2.1.1 (DoS via nested multipart field names, GHSA-72gw-mp4g-v24j).
+- M2 fix(uploads): upgraded file-type 16 -> 21 (ReDoS GHSA-5v7r-6r5c-r473). v21 is
+  ESM-only vs the CJS build, so it's loaded via dynamic import() in a shared
+  detectFileType util (src/common/utils/file-type.util.ts); the 3 upload pipes call
+  it. Jest maps file-type to test/file-type.mock.ts (ts-jest can't resolve the ESM pkg).
+- M1 fix(auth): SmsService logged the raw axios error, leaking SMS_API_KEY
+  (config.headers) and the OTP (config.data) to logs/error.log. Now logs only the
+  message; added pino redact paths in logger.config.ts as defense-in-depth.
+- M3 feat(config): trust proxy is now env-driven (TRUST_PROXY, default 1). req.ip
+  feeds the OTP throttle, so a hardcoded value let a directly-exposed deploy be spoofed
+  via X-Forwarded-For. Documented the three topologies in .env.example.
+- L1 fix(security): AppThrottlerGuard is now registered unconditionally (was skipped
+  when NODE_ENV=development). Only Swagger stays gated on the environment.
+- L2-A refactor(uploads): writes used __dirname while reads used process.cwd(), so
+  protected files were written and served from different dirs. Unified on one absolute
+  UPLOAD_ROOT (config, default <cwd>/UPLOAD_DIR); UPLOAD_DIR stays the logical URL/DB
+  prefix. Enables relocating uploads outside the deploy dir.
+- L2-B feat(uploads): verification/credential files are encrypted at rest with
+  AES-256-GCM (FileCryptoService, format MAGIC|VERSION|IV|TAG|CIPHERTEXT) keyed from
+  FILE_ENCRYPTION_KEY; decrypted on protected reads. Magic prefix lets legacy plaintext
+  pass through during rollout. Avatars stay plaintext (served publicly).
+- L2-C chore(scripts): scripts/encrypt-existing-uploads.ts backfills plaintext protected
+  files (idempotent, --dry-run). Verified end-to-end against a scratch dir.
+- Verified: pnpm build clean, pnpm lint 0 problems, unit suite 376/376 green,
+  pnpm audit --prod no longer flags multer or file-type (remaining highs/moderates are
+  fast-uri/hono under @prisma/dev optional tooling, not in the request path).
+- Follow-ups (not in scope): optional global per-phone daily OTP cap; KMS/envelope
+  upgrade over the app-level key; SSRF pass over the cron jobs and PSGC sync fetch.
