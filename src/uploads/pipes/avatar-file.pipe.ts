@@ -8,7 +8,9 @@ const MAX_BYTES = 5 * 1024 * 1024;
 @Injectable()
 export class AvatarFilePipe implements PipeTransform {
   async transform(file: AvatarFile): Promise<AvatarFile> {
-    if (!file) throw new BadRequestException('Avatar file is required.');
+    if (!file) {
+      throw new BadRequestException('Avatar file is required.');
+    }
 
     if (!ALLOWED_TYPES.includes(file.mimetype)) {
       throw new BadRequestException(

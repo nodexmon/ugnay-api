@@ -90,7 +90,9 @@ export class WorkersService {
       where: { userId },
       include: WORKER_INCLUDE,
     });
-    if (!worker) throw new NotFoundException('Worker profile not found.');
+    if (!worker) {
+      throw new NotFoundException('Worker profile not found.');
+    }
     return worker;
   }
 
@@ -98,7 +100,9 @@ export class WorkersService {
     const worker = await this.prisma.workerProfile.findUnique({
       where: { userId },
     });
-    if (!worker) throw new NotFoundException('Worker profile not found.');
+    if (!worker) {
+      throw new NotFoundException('Worker profile not found.');
+    }
 
     return this.prisma.verificationDoc.findFirst({
       where: { workerId: worker.id },
@@ -110,7 +114,9 @@ export class WorkersService {
     const worker = await this.prisma.workerProfile.findUnique({
       where: { userId },
     });
-    if (!worker) throw new NotFoundException('Worker profile not found.');
+    if (!worker) {
+      throw new NotFoundException('Worker profile not found.');
+    }
 
     const strikes = await this.prisma.strike.findMany({
       where: { workerId: worker.id },
@@ -123,7 +129,9 @@ export class WorkersService {
     const worker = await this.prisma.workerProfile.findUnique({
       where: { userId },
     });
-    if (!worker) throw new NotFoundException('Worker profile not found.');
+    if (!worker) {
+      throw new NotFoundException('Worker profile not found.');
+    }
 
     return this.prisma.workerCredential.findMany({
       where: { workerId: worker.id },
@@ -141,7 +149,9 @@ export class WorkersService {
       include: PUBLIC_WORKER_INCLUDE,
     });
 
-    if (!worker) throw new NotFoundException('Worker profile not found.');
+    if (!worker) {
+      throw new NotFoundException('Worker profile not found.');
+    }
 
     return {
       ...worker,
@@ -351,7 +361,9 @@ export class WorkersService {
     const worker = await this.prisma.workerProfile.findUnique({
       where: { userId },
     });
-    if (!worker) throw new NotFoundException('Worker profile not found.');
+    if (!worker) {
+      throw new NotFoundException('Worker profile not found.');
+    }
     return worker;
   }
 }

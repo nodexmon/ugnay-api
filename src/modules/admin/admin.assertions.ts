@@ -19,7 +19,9 @@ export class AdminAssertions {
     const worker = await this.prisma.workerProfile.findUnique({
       where: { id: workerId },
     });
-    if (!worker) throw new NotFoundException('Worker profile not found.');
+    if (!worker) {
+      throw new NotFoundException('Worker profile not found.');
+    }
     return worker;
   }
 
@@ -34,12 +36,16 @@ export class AdminAssertions {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
     });
-    if (!booking) throw new NotFoundException('Booking not found.');
+    if (!booking) {
+      throw new NotFoundException('Booking not found.');
+    }
   }
 
   async assertUserExists(userId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException('User not found.');
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
   }
 
   async assertPhoneNotRegistered(phone: string): Promise<void> {
@@ -47,8 +53,9 @@ export class AdminAssertions {
       where: { phone },
       select: { id: true },
     });
-    if (user)
+    if (user) {
       throw new ConflictException('Phone number is already registered.');
+    }
   }
 
   async findPendingVerification(docId: string) {
@@ -56,7 +63,9 @@ export class AdminAssertions {
       where: { id: docId },
       include: { worker: { select: { userId: true } } },
     });
-    if (!doc) throw new NotFoundException('Verification submission not found.');
+    if (!doc) {
+      throw new NotFoundException('Verification submission not found.');
+    }
     if (doc.status !== VerificationStatus.PENDING) {
       throw new ConflictException(
         'Verification submission has already been reviewed.',
@@ -70,7 +79,9 @@ export class AdminAssertions {
       where: { id: credentialId },
       include: { worker: { select: { userId: true } } },
     });
-    if (!credential) throw new NotFoundException('Credential not found.');
+    if (!credential) {
+      throw new NotFoundException('Credential not found.');
+    }
     if (credential.status !== VerificationStatus.PENDING) {
       throw new ConflictException('Credential has already been reviewed.');
     }
@@ -90,7 +101,9 @@ export class AdminAssertions {
         },
       },
     });
-    if (!report) throw new NotFoundException('No-show report not found.');
+    if (!report) {
+      throw new NotFoundException('No-show report not found.');
+    }
     if (report.reportType !== NoShowReportType.WORKER) {
       throw new NotFoundException('No-show report not found.');
     }
@@ -104,7 +117,9 @@ export class AdminAssertions {
     const worker = await this.prisma.workerProfile.findFirst({
       where: { id: workerProfileId, status: WorkerStatus.SUSPENDED },
     });
-    if (!worker) throw new NotFoundException('Suspended worker not found.');
+    if (!worker) {
+      throw new NotFoundException('Suspended worker not found.');
+    }
     return worker;
   }
 
@@ -120,7 +135,9 @@ export class AdminAssertions {
         },
       },
     });
-    if (!report) throw new NotFoundException('No-show report not found.');
+    if (!report) {
+      throw new NotFoundException('No-show report not found.');
+    }
     if (report.reportType !== NoShowReportType.CUSTOMER) {
       throw new NotFoundException('No-show report not found.');
     }

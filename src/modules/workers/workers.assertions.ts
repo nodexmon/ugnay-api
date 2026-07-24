@@ -20,7 +20,9 @@ export class WorkersAssertions {
     const existing = await this.prisma.workerProfile.findUnique({
       where: { userId },
     });
-    if (existing) throw new ConflictException('Worker profile already exists.');
+    if (existing) {
+      throw new ConflictException('Worker profile already exists.');
+    }
   }
 
   assertUnique(values: string[], label: string): void {

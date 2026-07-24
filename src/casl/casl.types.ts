@@ -1,4 +1,4 @@
-import { MongoAbility } from '@casl/ability';
+import { type MongoAbility } from '@casl/ability';
 
 export enum Action {
   Manage = 'manage',

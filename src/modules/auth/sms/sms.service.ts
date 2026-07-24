@@ -30,7 +30,7 @@ export class SmsService {
           `${TEXTBEE_API_URL}/gateway/devices/${DEVICE_ID}/send-sms`,
           {
             recipients: [phone],
-            message: message,
+            message,
           },
           {
             headers: { 'x-api-key': SMS_API_KEY },

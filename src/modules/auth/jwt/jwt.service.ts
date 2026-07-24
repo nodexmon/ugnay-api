@@ -44,8 +44,9 @@ export class AuthJwtService {
         audience: 'refresh',
       });
 
-      if (!payload.tokenId)
+      if (!payload.tokenId) {
         throw new UnauthorizedException('Invalid refresh token.');
+      }
 
       return payload as AuthJwtPayload & { tokenId: string };
     } catch {

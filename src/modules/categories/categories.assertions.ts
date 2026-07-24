@@ -9,6 +9,8 @@ export class CategoriesAssertions {
     const category = await this.prisma.serviceCategory.findUnique({
       where: { id: categoryId },
     });
-    if (!category) throw new NotFoundException('Category not found.');
+    if (!category) {
+      throw new NotFoundException('Category not found.');
+    }
   }
 }

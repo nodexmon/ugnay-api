@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-import { Action, Subject } from '@/casl/casl.types';
+import { type Action, type Subject } from '@/casl/casl.types';
 
 export const CHECK_ABILITY_KEY = 'check_ability';
 

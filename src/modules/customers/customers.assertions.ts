@@ -14,7 +14,9 @@ export class CustomersAssertions {
     const profile = await this.prisma.customerProfile.findUnique({
       where: { userId },
     });
-    if (!profile) throw new NotFoundException('Customer profile not found.');
+    if (!profile) {
+      throw new NotFoundException('Customer profile not found.');
+    }
     return profile;
   }
 
@@ -23,7 +25,8 @@ export class CustomersAssertions {
       where: { userId },
       select: { id: true },
     });
-    if (existing)
+    if (existing) {
       throw new ConflictException('Customer profile already exists.');
+    }
   }
 }

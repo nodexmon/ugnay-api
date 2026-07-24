@@ -37,7 +37,9 @@ export class UploadsAssertions {
       throw new NotFoundException('File not found.');
     }
 
-    if (user.role === Role.ADMIN) return;
+    if (user.role === Role.ADMIN) {
+      return;
+    }
 
     if (user.role !== Role.WORKER) {
       throw new ForbiddenException(

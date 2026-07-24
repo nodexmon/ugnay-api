@@ -1,5 +1,5 @@
 import { registerAs } from '@nestjs/config';
-import { Params } from 'nestjs-pino';
+import { type Params } from 'nestjs-pino';
 
 export const loggerConfig = registerAs('logger', (): Params => {
   const isDev = process.env.NODE_ENV !== 'production';
