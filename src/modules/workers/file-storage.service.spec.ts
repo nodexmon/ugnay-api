@@ -1,5 +1,7 @@
+import { join } from 'path';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FileStorageService } from './file-storage.service';
+import { FileCryptoService } from '@/common/services/file-crypto.service';
 import { uploadConfig } from '@/config';
 
 jest.mock('fs/promises', () => ({
@@ -7,7 +9,13 @@ jest.mock('fs/promises', () => ({
   writeFile: jest.fn().mockResolvedValue(undefined),
 }));
 
-const mockUploadConfig = { UPLOAD_DIR: 'uploads' };
+const mockUploadConfig = {
+  UPLOAD_DIR: 'uploads',
+  UPLOAD_ROOT: join(process.cwd(), 'uploads'),
+};
+
+const ENCRYPTED = Buffer.from('encrypted-bytes');
+const mockCrypto = { encrypt: jest.fn().mockReturnValue(ENCRYPTED) };
 
 const mockFile = {
   originalname: 'cert.pdf',
@@ -25,6 +33,7 @@ describe('FileStorageService', () => {
       providers: [
         FileStorageService,
         { provide: uploadConfig.KEY, useValue: mockUploadConfig },
+        { provide: FileCryptoService, useValue: mockCrypto },
       ],
     }).compile();
 
@@ -91,7 +100,8 @@ describe('FileStorageService', () => {
       await service.write(paths, mockFile as any);
 
       expect(mkdir).toHaveBeenCalledWith(paths.dir, { recursive: true });
-      expect(writeFile).toHaveBeenCalledWith(paths.absolute, mockFile.buffer);
+      expect(mockCrypto.encrypt).toHaveBeenCalledWith(mockFile.buffer);
+      expect(writeFile).toHaveBeenCalledWith(paths.absolute, ENCRYPTED);
     });
   });
 });

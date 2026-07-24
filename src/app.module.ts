@@ -21,6 +21,7 @@ import {
   uploadConfig,
   databaseConfig,
   textbeeConfig,
+  fileCryptoConfig,
 } from '@/config';
 import { loggerConfig } from '@/config/logger.config';
 import { psgcConfig } from '@/config/psgc.config';
@@ -53,6 +54,7 @@ import { BarangaysModule } from './modules/barangays/barangays.module';
         appConfig,
         jwtConfig,
         uploadConfig,
+        fileCryptoConfig,
         databaseConfig,
         loggerConfig,
         textbeeConfig,
@@ -82,9 +84,10 @@ import { BarangaysModule } from './modules/barangays/barangays.module';
       provide: APP_GUARD,
       useClass: CaslGuard,
     },
-    ...(process.env['NODE_ENV'] !== 'development'
-      ? [{ provide: APP_GUARD, useClass: AppThrottlerGuard }]
-      : []),
+    {
+      provide: APP_GUARD,
+      useClass: AppThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

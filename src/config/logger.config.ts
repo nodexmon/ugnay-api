@@ -7,6 +7,17 @@ export const loggerConfig = registerAs('logger', (): Params => {
   return {
     pinoHttp: {
       level: isDev ? 'debug' : 'info',
+      // Defense-in-depth: strip credentials/PII from any log record, even if a
+      // future caller logs a raw error or request object.
+      redact: {
+        paths: [
+          'err.config.headers["x-api-key"]',
+          'err.config.data',
+          'req.headers.authorization',
+          'req.headers.cookie',
+        ],
+        remove: true,
+      },
       transport: {
         targets: isDev
           ? [
