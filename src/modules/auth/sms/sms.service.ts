@@ -41,8 +41,10 @@ export class SmsService {
       this.logger.debug('SMS sent successfully');
       return response.data as { status: string; messageId: string };
     } catch (err: unknown) {
+      // Log only the message — the raw Axios error carries config.headers
+      // (SMS_API_KEY) and config.data (the OTP text), which must never hit disk.
       this.logger.error(
-        { err },
+        { err: err instanceof Error ? err.message : String(err) },
         'Failed to send SMS — provider outage or timeout',
       );
       throw new ServiceUnavailableException(
