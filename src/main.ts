@@ -18,7 +18,7 @@ async function bootstrap(): Promise<void> {
 
   const config = app.get<ConfigType<typeof appConfig>>(appConfig.KEY);
 
-  app.set('trust proxy', 1);
+  app.set('trust proxy', config.TRUST_PROXY);
   app.use(json({ limit: '1mb' }));
   app.use(urlencoded({ extended: true, limit: '1mb' }));
   app.use(helmet());
