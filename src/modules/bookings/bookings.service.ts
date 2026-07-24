@@ -5,12 +5,12 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { Prisma } from '@/generated/prisma/client';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import {
   BookingStatus,
-  BookingType,
   CancellationActor,
   NoShowReportType,
   Role,
@@ -22,7 +22,10 @@ import { Booking, User } from '@/generated/prisma/client';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { FindBookingsQueryDto } from './dto/find-bookings-query.dto';
 import { TransactionClient } from '@/generated/prisma/internal/prismaNamespace';
-import { BOOKING_PENDING_EXPIRY_MS, PST_OFFSET_MS } from './bookings.constants';
+import {
+  BOOKING_PENDING_EXPIRY_MS,
+  deriveBookingType,
+} from './bookings.constants';
 import { BookingsAssertions } from './bookings.assertions';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { UsersAssertions } from '../users/users.assertions';
@@ -170,14 +173,7 @@ export class BookingsService {
       dto.categoryId,
     );
 
-    const toDayMs = (d: Date) => {
-      const p = new Date(d.getTime() + PST_OFFSET_MS);
-      return Date.UTC(p.getUTCFullYear(), p.getUTCMonth(), p.getUTCDate());
-    };
-    const bookingType =
-      toDayMs(dto.scheduledDate) === toDayMs(new Date())
-        ? BookingType.IMMEDIATE
-        : BookingType.SCHEDULED;
+    const bookingType = deriveBookingType(dto.scheduledDate);
 
     let booking;
     try {
@@ -196,7 +192,9 @@ export class BookingsService {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code === 'P2002'
       ) {
-        throw new ConflictException('Worker already has an active booking.');
+        throw new UnprocessableEntityException(
+          'Worker already has an active booking.',
+        );
       }
       throw e;
     }
@@ -220,7 +218,11 @@ export class BookingsService {
     if (dto.scheduledDate) {
       this.assertions.assertScheduledDateIsValid(dto.scheduledDate);
     }
-    await this.prisma.booking.update({ where: { id: bookingId }, data: dto });
+    // BR-11: re-derive bookingType server-side whenever the date changes.
+    const data = dto.scheduledDate
+      ? { ...dto, bookingType: deriveBookingType(dto.scheduledDate) }
+      : dto;
+    await this.prisma.booking.update({ where: { id: bookingId }, data });
   }
 
   async accept(bookingId: string, user: AuthJwtPayload) {

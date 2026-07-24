@@ -881,3 +881,38 @@ July 23, 2026 — seed: add all missing Calapan City barangays (branch: chore/se
 - Fixed pre-existing bug: PSGC_CALAPAN_CODE default was '175203000' (Bongabong) not '175205000'
   (City of Calapan); affected both seed and POST /admin/barangays/sync; fixed in psgc.config.ts
   and seed.ts fallback; verified seed now populates all 62 correct Calapan City barangays
+
+---
+
+July 24, 2026 — docs: reconcile BRD v1.5 with code after full gap scan (branch: main)
+
+- BRD AUTH-05: corrected "OTP codes stored as SHA-256 hashes" → "bcrypt hashes (per-code
+  salt, cost factor 10)" to match otp.service.ts (bcrypt.hash, OTP_BCRYPT_ROUNDS = 10);
+  bcrypt is the stronger choice for a 6-digit code, so the doc was wrong, not the code
+- PROJECT_STATUS.md: rewritten from stale v1.3 snapshot (278 tests, unmerged branch) to
+  reality — BRD v1.5, branch main, 369/369 tests (49 suites), 17 models / 12 enums /
+  21 migrations, the four cron jobs, and a verified-in-code v1.5 coverage table
+- Verified full v1.5 hardening pass is merged and implemented: AUTH-10 attempt cap,
+  AUTH-11 refresh-reuse family revocation, BKG-11 stale-accepted auto-cancel, REV-04
+  rankingScore denorm, push receipt polling, DB-record file access, retention purge,
+  GET /health, SMS fail-fast 503
+
+---
+
+July 24, 2026 — fix(bookings): re-derive bookingType on update; BKG-10 422; PHT rename
+  (branch: fix/booking-type-on-update)
+
+- BR-11 bug: PATCH /bookings/:id (BookingsService.update) validated a new scheduledDate but
+  wrote data: dto without re-deriving bookingType. A PENDING SCHEDULED booking edited to today
+  kept bookingType = SCHEDULED. Fixed: update() now recomputes bookingType via the shared
+  deriveBookingType() helper whenever scheduledDate is present
+- De-duplicated the PHT day-bucket logic (previously inline in create() and
+  assertScheduledDateIsValid) into toPhtDayMs() + deriveBookingType() in bookings.constants.ts;
+  getTimeWindowEndUtcMs also now uses toPhtDayMs
+- BKG-10: the P2002 active-booking race backstop in create() now throws
+  UnprocessableEntityException (422) instead of ConflictException (409), matching the
+  documented contract (the pre-write guard already returned 422)
+- Renamed PST_OFFSET_MS → PHT_OFFSET_MS and TIME_WINDOW_END_HOUR_PST → TIME_WINDOW_END_HOUR_PHT
+  (the offset is UTC+8 = Philippine time, never PST); added a comment warning against "fixing" it
+- Tests: added 3 update() specs (IMMEDIATE on same-day edit, SCHEDULED on future edit, no
+  bookingType when date absent); updated the P2002 spec to expect 422. Suite 369 → 372, all green

@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@/generated/prisma/client';
@@ -196,7 +197,7 @@ describe('BookingsService', () => {
       );
     });
 
-    it('throws ConflictException when the worker already has an active booking (DB constraint)', async () => {
+    it('throws UnprocessableEntityException when the worker already has an active booking (DB constraint)', async () => {
       const p2002 = new Prisma.PrismaClientKnownRequestError(
         'Unique constraint failed',
         { code: 'P2002', clientVersion: '7.0.0', meta: {} },
@@ -204,7 +205,7 @@ describe('BookingsService', () => {
       prisma.booking.create.mockRejectedValueOnce(p2002);
 
       await expect(service.create(customerJwt, dto)).rejects.toBeInstanceOf(
-        ConflictException,
+        UnprocessableEntityException,
       );
     });
   });
@@ -676,6 +677,38 @@ describe('BookingsService', () => {
       await service.update('booking-id', customerJwt, { notes: 'updated' });
 
       expect(assertions.assertScheduledDateIsValid).not.toHaveBeenCalled();
+    });
+
+    it('re-derives bookingType to IMMEDIATE when scheduledDate is changed to today (BR-11)', async () => {
+      await service.update('booking-id', customerJwt, {
+        scheduledDate: new Date(),
+      });
+
+      expect(prisma.booking.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ bookingType: BookingType.IMMEDIATE }),
+        }),
+      );
+    });
+
+    it('re-derives bookingType to SCHEDULED when scheduledDate is changed to a future day (BR-11)', async () => {
+      await service.update('booking-id', customerJwt, {
+        scheduledDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+      });
+
+      expect(prisma.booking.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ bookingType: BookingType.SCHEDULED }),
+        }),
+      );
+    });
+
+    it('does not set bookingType when scheduledDate is absent', async () => {
+      await service.update('booking-id', customerJwt, { notes: 'updated' });
+
+      expect(prisma.booking.update.mock.calls[0][0].data).not.toHaveProperty(
+        'bookingType',
+      );
     });
   });
 
